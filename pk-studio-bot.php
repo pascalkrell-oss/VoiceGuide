@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: Pascal Krell Studio Interface
- * Description: Interaktives Support- & Booking-Widget als Floating Action Button für Pascal Krell.
+ * Plugin Name: Pascal Krell Studio Connect
+ * Description: Regelbasiertes Support- & Booking-Widget als Floating Action Button für Pascal Krell.
  * Version: 1.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
@@ -27,6 +27,12 @@ function pk_studio_register_settings(): void
         'sanitize_callback' => 'sanitize_text_field',
         'default' => '',
     ]);
+
+    register_setting('pk_studio_settings', 'pk_studio_vds_link', [
+        'type' => 'string',
+        'sanitize_callback' => 'esc_url_raw',
+        'default' => '',
+    ]);
 }
 add_action('admin_init', 'pk_studio_register_settings');
 
@@ -36,10 +42,10 @@ add_action('admin_init', 'pk_studio_register_settings');
 function pk_studio_add_settings_page(): void
 {
     add_options_page(
-        'Pascal Krell Studio Interface',
-        'Pascal Krell Studio Interface',
+        'Pascal Krell Studio Connect',
+        'Pascal Krell Studio Connect',
         'manage_options',
-        'pk-studio-interface',
+        'pk-studio-connect',
         'pk_studio_render_settings_page'
     );
 }
@@ -56,7 +62,7 @@ function pk_studio_render_settings_page(): void
 
     ?>
     <div class="wrap">
-        <h1>Pascal Krell Studio Interface Einstellungen</h1>
+        <h1>Pascal Krell Studio Connect Einstellungen</h1>
         <form method="post" action="options.php">
             <?php settings_fields('pk_studio_settings'); ?>
             <table class="form-table" role="presentation">
@@ -74,6 +80,13 @@ function pk_studio_render_settings_page(): void
                                class="regular-text" value="<?php echo esc_attr(get_option('pk_studio_contact_phone', '')); ?>" />
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="pk_studio_vds_link">Link zur VDS-Gagenliste</label></th>
+                    <td>
+                        <input type="url" id="pk_studio_vds_link" name="pk_studio_vds_link"
+                               class="regular-text" value="<?php echo esc_attr(get_option('pk_studio_vds_link', '')); ?>" />
+                    </td>
+                </tr>
             </table>
             <?php submit_button(); ?>
         </form>
@@ -89,6 +102,7 @@ function pk_studio_enqueue_assets(): void
     $settings = [
         'email' => get_option('pk_studio_contact_email', ''),
         'phone' => get_option('pk_studio_contact_phone', ''),
+        'vdsLink' => get_option('pk_studio_vds_link', ''),
     ];
 
     wp_register_style(
@@ -117,24 +131,26 @@ function pk_studio_render_widget(): void
 {
     ?>
     <div id="pk-studio-widget" aria-live="polite">
-        <button id="pk-studio-fab" type="button" aria-label="Studio Assistent öffnen">
-            <i class="fa-solid fa-microphone-lines" aria-hidden="true"></i>
+        <button id="pk-studio-fab" type="button" aria-label="Studio Connect öffnen">
+            <i class="fa-solid fa-headset" aria-hidden="true"></i>
         </button>
 
         <div id="pk-studio-panel" aria-hidden="true">
             <div class="pk-studio-header">
                 <div>
                     <div class="pk-studio-title">
-                        <i class="fa-solid fa-microphone-lines" aria-hidden="true"></i>
-                        <span>Pascal Krell</span>
+                        <i class="fa-solid fa-headset" aria-hidden="true"></i>
+                        <span>Studio Connect</span>
                     </div>
-                    <div class="pk-studio-subtitle">Studio Assistent</div>
+                    <div class="pk-studio-subtitle">Support &amp; Booking</div>
                 </div>
-                <button id="pk-studio-reset" type="button" aria-label="Zurück zur Startansicht">
-                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                <button id="pk-studio-close" type="button" aria-label="Chat schließen">
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
             </div>
-            <div class="pk-studio-content" id="pk-studio-content"></div>
+            <div class="pk-studio-content" id="pk-studio-content">
+                <div class="pk-studio-messages" id="pk-studio-messages"></div>
+            </div>
             <div class="pk-studio-options" id="pk-studio-options"></div>
             <div class="pk-studio-calculator" id="pk-studio-calculator" aria-hidden="true">
                 <label for="pk-studio-words" class="pk-studio-label">Wortanzahl eingeben</label>
@@ -158,20 +174,20 @@ function pk_studio_get_inline_styles(): string
     return <<<CSS
 #pk-studio-widget {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    bottom: 20px;
+    right: 20px;
     z-index: 9999;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    transition: transform 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    transition: bottom 0.3s ease;
 }
 
 #pk-studio-widget.pk-studio-shifted {
-    transform: translateY(-90px);
+    bottom: 90px;
 }
 
 #pk-studio-fab {
-    width: 56px;
-    height: 56px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
     border: none;
     background: #1a93ee;
@@ -182,7 +198,11 @@ function pk_studio_get_inline_styles(): string
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.3s ease;
+    transition: background 0.2s ease;
+}
+
+#pk-studio-fab:hover {
+    background: #167fd0;
 }
 
 #pk-studio-panel {
@@ -190,16 +210,14 @@ function pk_studio_get_inline_styles(): string
     bottom: 76px;
     right: 0;
     width: 360px;
-    max-height: 580px;
+    height: 550px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px;
-    background: rgba(255, 255, 255, 0.72);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.25);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(15, 20, 26, 0.2);
     opacity: 0;
     visibility: hidden;
     transform: translateY(24px);
@@ -219,6 +237,9 @@ function pk_studio_get_inline_styles(): string
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    background: #0f141a;
+    border-radius: 14px;
+    padding: 12px 14px;
 }
 
 .pk-studio-title {
@@ -227,7 +248,7 @@ function pk_studio_get_inline_styles(): string
     gap: 8px;
     font-weight: 600;
     font-size: 16px;
-    color: #0f172a;
+    color: #ffffff;
 }
 
 .pk-studio-title i {
@@ -235,18 +256,18 @@ function pk_studio_get_inline_styles(): string
 }
 
 .pk-studio-subtitle {
-    font-size: 13px;
-    color: #475569;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.75);
     margin-top: 4px;
 }
 
-#pk-studio-reset {
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
+#pk-studio-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     border: none;
-    background: rgba(26, 147, 238, 0.12);
-    color: #1a93ee;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -254,43 +275,63 @@ function pk_studio_get_inline_styles(): string
     transition: background 0.2s ease;
 }
 
-#pk-studio-reset:hover {
-    background: rgba(26, 147, 238, 0.2);
+#pk-studio-close:hover {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .pk-studio-content {
-    font-size: 14px;
-    color: #0f172a;
-    line-height: 1.5;
-    min-height: 72px;
-    opacity: 1;
-    transition: opacity 0.25s ease;
+    display: flex;
+    flex: 1;
+    overflow: hidden;
 }
 
-.pk-studio-content.is-fading {
-    opacity: 0;
+.pk-studio-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.pk-studio-bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.pk-studio-bubble.pk-studio-bot {
+    background: #f0f2f5;
+    color: #333333;
+    align-self: flex-start;
+}
+
+.pk-studio-bubble.pk-studio-user {
+    background: #1a93ee;
+    color: #ffffff;
+    align-self: flex-end;
+}
+
+.pk-studio-option {
+    border: none;
+    background: #1a93ee;
+    color: #ffffff;
+    border-radius: 20px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.pk-studio-option:hover {
+    background: #167fd0;
 }
 
 .pk-studio-options {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-}
-
-.pk-studio-option {
-    border: 1px solid rgba(26, 147, 238, 0.35);
-    background: rgba(26, 147, 238, 0.08);
-    color: #0f172a;
-    border-radius: 16px;
-    padding: 8px 12px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.pk-studio-option:hover {
-    transform: translateY(-2px);
-    background: rgba(26, 147, 238, 0.16);
+    gap: 12px;
 }
 
 .pk-studio-calculator {
@@ -299,8 +340,8 @@ function pk_studio_get_inline_styles(): string
     gap: 8px;
     padding: 12px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.65);
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .pk-studio-calculator.is-visible {
@@ -309,7 +350,7 @@ function pk_studio_get_inline_styles(): string
 
 .pk-studio-label {
     font-size: 12px;
-    color: #64748b;
+    color: #4b5563;
 }
 
 .pk-studio-input-row {
@@ -319,23 +360,29 @@ function pk_studio_get_inline_styles(): string
 
 #pk-studio-words {
     flex: 1;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1px solid rgba(148, 163, 184, 0.6);
-    padding: 8px 10px;
+    padding: 10px 12px;
     font-size: 14px;
 }
 
 #pk-studio-calc {
     border: none;
-    border-radius: 10px;
-    padding: 8px 12px;
+    border-radius: 20px;
+    padding: 10px 14px;
     background: #1a93ee;
     color: #ffffff;
     cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+
+#pk-studio-calc:hover {
+    background: #167fd0;
 }
 
 .pk-studio-result {
-    font-size: 13px;
+    font-size: 14px;
     color: #0f172a;
 }
 
@@ -377,9 +424,9 @@ function pk_studio_get_inline_script(): string
 
     const fab = document.getElementById('pk-studio-fab');
     const panel = document.getElementById('pk-studio-panel');
-    const content = document.getElementById('pk-studio-content');
+    const messages = document.getElementById('pk-studio-messages');
     const optionsContainer = document.getElementById('pk-studio-options');
-    const resetButton = document.getElementById('pk-studio-reset');
+    const closeButton = document.getElementById('pk-studio-close');
     const calculator = document.getElementById('pk-studio-calculator');
     const wordsInput = document.getElementById('pk-studio-words');
     const calcButton = document.getElementById('pk-studio-calc');
@@ -388,100 +435,125 @@ function pk_studio_get_inline_script(): string
     const logicTree = {
         start: {
             id: 'start',
-            text: 'Moin! Ich bin dein digitaler Assistent. Wie kann ich dein Projekt unterstützen?',
+            text: 'Moin! Willkommen im Studio. Wobei kann ich dich unterstützen?',
             options: [
-                { label: '🎧 Demos hören', nextId: 'demos' },
-                { label: '💰 Preise / Gagen', nextId: 'preise' },
-                { label: '🎙 Studio & Technik', nextId: 'studio' },
-                { label: '⏱ Wort-Rechner', nextId: 'rechner' },
-                { label: '📞 Kontakt / Booking', nextId: 'kontakt' }
+                { label: '🎧 Demos finden', nextId: 'demos' },
+                { label: '💰 Gagen & Preise', nextId: 'gagen' },
+                { label: '🎙 Technik & Regie', nextId: 'technik' },
+                { label: '⚡ Verfügbarkeit', nextId: 'verfuegbarkeit' },
+                { label: '⏱ Wort-Rechner', nextId: 'rechner' }
             ]
         },
         demos: {
             id: 'demos',
-            text: 'Welche Demo-Kategorie interessiert dich?',
+            text: 'Welchen Stil suchst du?',
             options: [
-                { label: 'Werbung', action: 'anchor', nextId: 'start', target: '#demos-werbung' },
-                { label: 'Imagefilm', action: 'anchor', nextId: 'start', target: '#demos-imagefilm' },
-                { label: 'E-Learning', action: 'anchor', nextId: 'start', target: '#demos-elearning' },
-                { label: 'Gaming/Synchron', action: 'anchor', nextId: 'start', target: '#demos-gaming' }
+                { label: 'Werbung / TVC', action: 'anchor', nextId: 'start', target: '#werbung' },
+                { label: 'Image / Corporate', action: 'anchor', nextId: 'start', target: '#image' },
+                { label: 'E-Learning / Explainer', action: 'anchor', nextId: 'start', target: '#elearning' },
+                { label: 'Stimmen-Alter?', nextId: 'alter' }
             ]
         },
-        preise: {
-            id: 'preise',
-            text: 'Ich orientiere mich an der VDS-Gagenliste. Für welches Medium?',
+        alter: {
+            id: 'alter',
+            text: 'Meine Range liegt bei 25-45 Jahren. Markant, frisch bis seriös.',
             options: [
-                { label: 'TV/Radio', nextId: 'preise-tv' },
-                { label: 'Online/Social', nextId: 'preise-online' },
-                { label: 'Intern', nextId: 'preise-intern' }
+                { label: 'Zurück', nextId: 'start' }
             ]
         },
-        'preise-tv': {
-            id: 'preise-tv',
-            text: 'Für TV/Radio sende ich dir gern ein individuelles Angebot nach VDS-Standard.',
+        gagen: {
+            id: 'gagen',
+            text: 'Ich arbeite transparent nach VDS-Gagenliste oder individueller Vereinbarung.',
             options: [
-                { label: 'Angebot anfordern', nextId: 'kontakt' }
+                { label: 'Was ist VDS?', nextId: 'vds' },
+                { label: 'TV / Funk Spot', nextId: 'gagen-tv' },
+                { label: 'Imagefilm / Web', nextId: 'gagen-image' }
             ]
         },
-        'preise-online': {
-            id: 'preise-online',
-            text: 'Online/Social richten sich nach Reichweite & Nutzungsdauer. Lass uns Details klären.',
+        vds: {
+            id: 'vds',
+            text: 'Verband Deutscher Sprecher. Das ist der Industriestandard.',
             options: [
-                { label: 'Angebot anfordern', nextId: 'kontakt' }
+                { label: 'Zur VDS-Liste', action: 'vdslink' },
+                { label: 'Zurück', nextId: 'gagen' }
             ]
         },
-        'preise-intern': {
-            id: 'preise-intern',
-            text: 'Interne Projekte kalkuliere ich fair und transparent nach Umfang.',
+        'gagen-tv': {
+            id: 'gagen-tv',
+            text: 'Hier gelten Buyouts. Soll ich dir die Liste zeigen?',
             options: [
-                { label: 'Angebot anfordern', nextId: 'kontakt' }
+                { label: 'VDS-Liste öffnen', action: 'vdslink' },
+                { label: 'Zurück', nextId: 'gagen' }
             ]
         },
-        studio: {
-            id: 'studio',
-            text: 'Mein Setup in Hamburg: Neumann TLM 102, RME Babyface Pro, Logic Pro X in akustisch optimierter Kabine. Live-Regie?',
+        'gagen-image': {
+            id: 'gagen-image',
+            text: 'Oft inklusive (je nach Nutzung). Hast du ein Budget?',
             options: [
-                { label: 'SessionLinkPRO', nextId: 'studio-session' },
-                { label: 'Zoom/Skype', nextId: 'studio-zoom' },
-                { label: 'Nein', nextId: 'studio-nein' }
+                { label: 'Anfrage senden', nextId: 'kontakt' },
+                { label: 'Zurück', nextId: 'gagen' }
             ]
         },
-        'studio-session': {
-            id: 'studio-session',
-            text: 'SessionLinkPRO läuft stabil & latenzarm. Sende mir einfach deinen Link.',
+        technik: {
+            id: 'technik',
+            text: 'Studio Hamburg. Neumann TLM 102 & RME Interface. Akustisch trocken.',
             options: [
-                { label: 'Kontakt aufnehmen', nextId: 'kontakt' }
+                { label: 'SessionLinkPRO?', nextId: 'technik-session' },
+                { label: 'Zoom / Teams?', nextId: 'technik-zoom' },
+                { label: 'File-Delivery?', nextId: 'technik-files' }
             ]
         },
-        'studio-zoom': {
-            id: 'studio-zoom',
-            text: 'Zoom/Skype sind möglich – gerne mit lokalen Sicherheits-Backups.',
+        'technik-session': {
+            id: 'technik-session',
+            text: 'Ja, vorhanden für Live-Regie.',
             options: [
-                { label: 'Kontakt aufnehmen', nextId: 'kontakt' }
+                { label: 'Zurück', nextId: 'technik' }
             ]
         },
-        'studio-nein': {
-            id: 'studio-nein',
-            text: 'Kein Problem – ich liefere dir sauber geschnittene Files.',
+        'technik-zoom': {
+            id: 'technik-zoom',
+            text: 'Gerne, als Regie-Kanal parallel zur Aufnahme.',
             options: [
-                { label: 'Kontakt aufnehmen', nextId: 'kontakt' }
+                { label: 'Zurück', nextId: 'technik' }
+            ]
+        },
+        'technik-files': {
+            id: 'technik-files',
+            text: 'WAV 48kHz/24bit, meist innerhalb von 24h.',
+            options: [
+                { label: 'Zurück', nextId: 'technik' }
             ]
         },
         rechner: {
             id: 'rechner',
-            text: 'Wie viele Wörter hat dein Skript? Ich rechne mit 130 Wörtern pro Minute.',
+            text: 'Wort-Rechner aktiv. Gib die Wortanzahl ein.',
             action: 'calculator',
             options: [
-                { label: 'Angebot anfordern', nextId: 'kontakt' }
+                { label: 'Anfrage senden', nextId: 'kontakt' }
+            ]
+        },
+        verfuegbarkeit: {
+            id: 'verfuegbarkeit',
+            text: 'In der Regel bin ich werktags von 09:00 - 18:00 buchbar.',
+            options: [
+                { label: 'Ist es eilig?', nextId: 'eilig' },
+                { label: 'Anfrage senden', nextId: 'kontakt' }
+            ]
+        },
+        eilig: {
+            id: 'eilig',
+            text: 'Express-Lieferung (heute) ist oft möglich. Ruf am besten kurz durch.',
+            options: [
+                { label: '📞 Anrufen', action: 'phone' },
+                { label: 'Zurück', nextId: 'verfuegbarkeit' }
             ]
         },
         kontakt: {
             id: 'kontakt',
-            text: 'Bereit für die Aufnahme?',
+            text: 'Lass uns deine Anfrage konkretisieren. Ich melde mich schnell zurück.',
             options: [
                 { label: 'E-Mail schreiben', action: 'email' },
-                { label: 'Anrufen', action: 'phone' },
-                { label: 'Rückruf anfordern', action: 'callback' }
+                { label: 'Anrufen', action: 'phone' }
             ]
         }
     };
@@ -490,19 +562,12 @@ function pk_studio_get_inline_script(): string
         currentId: 'start'
     };
 
-    const formatDuration = (minutesFloat) => {
-        const totalSeconds = Math.round(minutesFloat * 60);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `Ca. ${minutes} Minuten ${seconds} Sekunden.`;
-    };
-
-    const applyFade = (callback) => {
-        content.classList.add('is-fading');
-        window.setTimeout(() => {
-            callback();
-            content.classList.remove('is-fading');
-        }, 200);
+    const createBubble = (text, type) => {
+        const bubble = document.createElement('div');
+        bubble.className = `pk-studio-bubble pk-studio-${type}`;
+        bubble.textContent = text;
+        messages.appendChild(bubble);
+        messages.scrollTop = messages.scrollHeight;
     };
 
     const renderStep = (stepId) => {
@@ -513,9 +578,7 @@ function pk_studio_get_inline_script(): string
 
         state.currentId = stepId;
 
-        applyFade(() => {
-            content.innerHTML = step.text;
-        });
+        createBubble(step.text, 'bot');
 
         optionsContainer.innerHTML = '';
 
@@ -540,6 +603,8 @@ function pk_studio_get_inline_script(): string
     };
 
     const handleOption = (option) => {
+        createBubble(option.label, 'user');
+
         if (option.action === 'anchor' && option.target) {
             window.location.hash = option.target;
         }
@@ -554,9 +619,13 @@ function pk_studio_get_inline_script(): string
             return;
         }
 
-        if (option.action === 'callback') {
-            renderStep('kontakt');
-            content.innerHTML = 'Danke! Schreib mir kurz wann ich zurückrufen darf.';
+        if (option.action === 'vdslink' && PKStudioSettings.vdsLink) {
+            window.open(PKStudioSettings.vdsLink, '_blank', 'noopener');
+            return;
+        }
+
+        if (option.action === 'vdslink' && !PKStudioSettings.vdsLink) {
+            createBubble('Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
             return;
         }
 
@@ -583,9 +652,7 @@ function pk_studio_get_inline_script(): string
         }
     });
 
-    resetButton.addEventListener('click', () => {
-        renderStep('start');
-    });
+    closeButton.addEventListener('click', closePanel);
 
     calcButton.addEventListener('click', () => {
         const words = Number.parseFloat(wordsInput.value);
@@ -594,16 +661,15 @@ function pk_studio_get_inline_script(): string
             return;
         }
         const minutes = words / 130;
-        result.textContent = formatDuration(minutes);
+        result.textContent = `Das sind ca. ${minutes.toFixed(2)} Minuten.`;
     });
 
     const observeBody = () => {
         const toggleShift = () => {
-            const candidates = document.querySelectorAll('[class*="demo"], [class*="saved"]');
-            const hasMatch = Array.from(candidates).some((node) => {
-                return node.className && (node.className.includes('demo') || node.className.includes('saved'));
-            });
-            widget.classList.toggle('pk-studio-shifted', hasMatch);
+            const match = document.querySelector(
+                '.gemerkte-demos-container, [id*="demo"], [class*="demo"], [id*="merk"], [class*="merk"]'
+            );
+            widget.classList.toggle('pk-studio-shifted', Boolean(match));
         };
 
         const observer = new MutationObserver(() => {
@@ -614,6 +680,7 @@ function pk_studio_get_inline_script(): string
         toggleShift();
     };
 
+    messages.innerHTML = '';
     renderStep('start');
     observeBody();
 })();
