@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: StudioConnect Pro
- * Description: Enterprise-Chat-Widget für Voiceover-Artists mit StudioConnect Pro Branding.
- * Version: 2.0.0
+ * Plugin Name: Pascal Krell StudioConnect
+ * Description: Premium-Chat-Widget im Support-Board-Stil für Pascal Krell Studio.
+ * Version: 3.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -36,8 +36,8 @@ add_action('admin_init', 'studio_connect_register_settings');
 function studio_connect_add_settings_page(): void
 {
     add_options_page(
-        'StudioConnect Pro',
-        'StudioConnect Pro',
+        'Pascal Krell StudioConnect',
+        'Pascal Krell StudioConnect',
         'manage_options',
         'studio-connect-pro',
         'studio_connect_render_settings_page'
@@ -56,7 +56,7 @@ function studio_connect_render_settings_page(): void
 
     ?>
     <div class="wrap">
-        <h1>StudioConnect Pro Einstellungen</h1>
+        <h1>Pascal Krell StudioConnect Einstellungen</h1>
         <form method="post" action="options.php">
             <?php settings_fields('studio_connect_settings'); ?>
             <table class="form-table" role="presentation">
@@ -119,20 +119,14 @@ function studio_connect_render_widget(): void
 {
     ?>
     <div class="studio-connect-widget" id="studio-connect-widget" aria-live="polite">
-        <button class="studio-connect-launcher" id="studio-connect-launcher" type="button" aria-label="StudioConnect Pro öffnen">
+        <button class="studio-connect-launcher" id="studio-connect-launcher" type="button" aria-label="Pascal Krell StudioConnect öffnen">
             <i class="fa-solid fa-comments" aria-hidden="true"></i>
         </button>
-        <div class="studio-connect-panel" role="dialog" aria-label="StudioConnect Pro" aria-hidden="true">
+        <div class="studio-connect-panel" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
             <div class="studio-connect-header">
-                <div class="studio-connect-avatar">
-                    <i class="fa-solid fa-user-tie" aria-hidden="true"></i>
-                </div>
                 <div class="studio-connect-header-text">
                     <div class="studio-connect-title">Pascal Krell</div>
-                    <div class="studio-connect-subtitle">
-                        <span class="studio-connect-status"></span>
-                        <span id="studio-connect-subtext">Studio Hamburg &bull; Online</span>
-                    </div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">● Online</div>
                 </div>
                 <button class="studio-connect-close" type="button" aria-label="Chat schließen">
                     <i class="fa-solid fa-times" aria-hidden="true"></i>
@@ -146,23 +140,17 @@ function studio_connect_render_widget(): void
                 <div class="studio-connect-calculator" id="studio-connect-calculator" aria-hidden="true">
                     <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
                     <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
-                    <div class="studio-connect-speed">
-                        <button type="button" class="studio-connect-speed-btn" data-speed="110">Langsam (110)</button>
-                        <button type="button" class="studio-connect-speed-btn is-active" data-speed="130">Normal (130)</button>
-                        <button type="button" class="studio-connect-speed-btn" data-speed="150">Schnell (150)</button>
-                    </div>
                     <div class="studio-connect-result" id="studio-connect-result"></div>
                 </div>
             </div>
 
             <div class="studio-connect-footer">
-                <button class="studio-connect-footer-btn" id="studio-connect-reset" type="button">
+                <button class="studio-connect-footer-btn" id="studio-connect-reset" type="button" aria-label="Zur Startseite">
                     <i class="fa-solid fa-house" aria-hidden="true"></i>
-                    Reset / Home
                 </button>
-                <button class="studio-connect-footer-btn" id="studio-connect-mail" type="button">
+                <div class="studio-connect-footer-spacer" aria-hidden="true"></div>
+                <button class="studio-connect-footer-btn" id="studio-connect-mail" type="button" aria-label="E-Mail öffnen">
                     <i class="fa-solid fa-envelope" aria-hidden="true"></i>
-                    Mail
                 </button>
             </div>
         </div>
@@ -180,11 +168,14 @@ function studio_connect_get_inline_styles(): string
     return <<<CSS
 :root {
     --sc-primary: #1a93ee;
-    --sc-dark: #0f141a;
+    --sc-dark: #222222;
     --sc-light: #ffffff;
-    --sc-text-main: #1d1d1f;
-    --sc-text-sub: #86868b;
-    --sc-shadow: 0 12px 40px rgba(0,0,0,0.12);
+    --sc-text-main: #444444;
+    --sc-text-sub: #1a93ee;
+    --sc-border: #eef0f5;
+    --sc-muted: #f2f2f5;
+    --sc-soft: #fcfcfd;
+    --sc-shadow: 0 20px 80px rgba(0,0,0,0.15), 0 5px 20px rgba(0,0,0,0.05);
 }
 
 .studio-connect-widget {
@@ -197,23 +188,23 @@ function studio_connect_get_inline_styles(): string
     transition: transform 0.3s ease;
 }
 
-.studio-connect-widget.lifted {
+.studio-connect-widget.lift-up {
     transform: translateY(-80px);
 }
 
 .studio-connect-launcher {
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    border: none;
-    background: var(--sc-primary);
-    color: #ffffff;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    border: 1px solid var(--sc-border);
+    background: var(--sc-light);
+    color: #555555;
     font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 12px 30px rgba(26, 147, 238, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
     transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
@@ -234,11 +225,12 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-panel {
-    width: 380px;
+    width: 360px;
     height: 600px;
     background: var(--sc-light);
-    border-radius: 18px;
+    border-radius: 12px;
     box-shadow: var(--sc-shadow);
+    border: 1px solid var(--sc-border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -261,24 +253,13 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-header {
     height: 70px;
-    background: var(--sc-dark);
+    background: var(--sc-light);
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 0 24px;
-    color: var(--sc-light);
-}
-
-.studio-connect-avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: var(--sc-primary);
+    color: var(--sc-dark);
+    border-bottom: 1px solid var(--sc-muted);
 }
 
 .studio-connect-header-text {
@@ -286,30 +267,20 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-title {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 16px;
+    color: var(--sc-dark);
 }
 
 .studio-connect-subtitle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.studio-connect-status {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #35c759;
-    display: inline-block;
+    font-size: 13px;
+    color: var(--sc-text-sub);
 }
 
 .studio-connect-close {
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+    color: #555555;
     cursor: pointer;
     font-size: 16px;
 }
@@ -320,7 +291,7 @@ function studio_connect_get_inline_styles(): string
     display: flex;
     flex-direction: column;
     gap: 14px;
-    background: var(--sc-light);
+    background: var(--sc-soft);
 }
 
 .studio-connect-messages {
@@ -353,22 +324,24 @@ function studio_connect_get_inline_styles(): string
 .studio-connect-bubble {
     max-width: 85%;
     padding: 12px 16px;
-    border-radius: 16px;
+    border-radius: 10px;
     font-size: 14px;
     line-height: 1.6;
 }
 
 .studio-connect-bubble.bot {
-    background: #f5f5f7;
+    background: #f2f4f7;
     color: var(--sc-text-main);
+    border-radius: 10px 10px 10px 0;
     align-self: flex-start;
 }
 
 .studio-connect-bubble.user {
-    border: 1px solid #d2d2d7;
+    border: 1px solid var(--sc-primary);
     color: var(--sc-primary);
     align-self: flex-end;
     background: transparent;
+    border-radius: 10px 10px 0 10px;
 }
 
 .studio-connect-options {
@@ -383,13 +356,14 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-option-btn {
-    border: 1px solid #d2d2d7;
+    border: 1px solid var(--sc-primary);
     background: transparent;
     color: var(--sc-primary);
-    border-radius: 18px;
+    border-radius: 6px;
     padding: 10px 14px;
     font-size: 13px;
     cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
 .studio-connect-option-btn:hover {
@@ -399,11 +373,12 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-calculator {
     display: none;
-    border: 1px solid #e5e5ea;
-    border-radius: 14px;
+    border: 1px solid var(--sc-border);
+    border-radius: 10px;
     padding: 12px;
     gap: 10px;
     flex-direction: column;
+    background: var(--sc-light);
 }
 
 .studio-connect-calculator.is-visible {
@@ -412,41 +387,19 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-label {
     font-size: 12px;
-    color: var(--sc-text-sub);
+    color: #7b7e87;
 }
 
 #studio-connect-words {
-    border: 1px solid #d2d2d7;
-    border-radius: 12px;
+    border: 1px solid var(--sc-border);
+    border-radius: 8px;
     padding: 10px 12px;
     font-size: 14px;
 }
 
-.studio-connect-speed {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.studio-connect-speed-btn {
-    border: 1px solid #d2d2d7;
-    background: transparent;
-    color: var(--sc-text-main);
-    border-radius: 16px;
-    padding: 6px 10px;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.studio-connect-speed-btn.is-active {
-    background: var(--sc-primary);
-    color: #ffffff;
-    border-color: var(--sc-primary);
-}
-
 .studio-connect-result {
     font-size: 13px;
-    color: var(--sc-text-main);
+    color: #333333;
 }
 
 .studio-connect-footer {
@@ -454,20 +407,27 @@ function studio_connect_get_inline_styles(): string
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-top: 1px solid #f0f0f2;
+    border-top: 1px solid var(--sc-muted);
+    background: var(--sc-light);
+}
+
+.studio-connect-footer-spacer {
+    flex: 1;
 }
 
 .studio-connect-footer-btn {
-    border: 1px solid #d2d2d7;
+    border: 1px solid var(--sc-border);
     background: transparent;
-    color: var(--sc-primary);
-    border-radius: 16px;
-    padding: 10px 14px;
-    font-size: 13px;
+    color: #555555;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
     cursor: pointer;
     display: inline-flex;
-    gap: 8px;
     align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
 }
 
 .studio-connect-footer-btn:hover {
@@ -483,10 +443,10 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-copy {
-    border: 1px solid #d2d2d7;
-    background: #f5f7fb;
-    color: var(--sc-text-main);
-    border-radius: 14px;
+    border: 1px solid var(--sc-border);
+    background: #ffffff;
+    color: #333333;
+    border-radius: 8px;
     padding: 8px 12px;
     font-size: 12px;
     cursor: pointer;
@@ -499,11 +459,37 @@ function studio_connect_get_inline_styles(): string
     color: var(--sc-primary);
 }
 
+.studio-connect-copy.inline {
+    border-color: var(--sc-primary);
+    color: var(--sc-primary);
+    background: transparent;
+    font-size: 13px;
+    padding: 4px 8px;
+    margin: 0 2px;
+}
+
+.studio-connect-typing {
+    font-size: 13px;
+    color: #7b7e87;
+    letter-spacing: 2px;
+    animation: sc-typing 1s ease-in-out infinite;
+}
+
+@keyframes sc-typing {
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
 .studio-connect-toast {
     position: absolute;
     right: 0;
     bottom: 72px;
-    background: var(--sc-dark);
+    background: #222222;
     color: #ffffff;
     padding: 8px 12px;
     border-radius: 12px;
@@ -552,15 +538,13 @@ class StudioBot {
         this.mailButton = document.getElementById('studio-connect-mail');
         this.calculator = document.getElementById('studio-connect-calculator');
         this.wordsInput = document.getElementById('studio-connect-words');
-        this.speedButtons = Array.from(document.querySelectorAll('.studio-connect-speed-btn'));
         this.result = document.getElementById('studio-connect-result');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
-        this.activeSpeed = 130;
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
-        this.soundEngine = new SoundEngine();
+        this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.currentStep = 'start';
 
@@ -574,47 +558,56 @@ class StudioBot {
         return {
             start: {
                 id: 'start',
-                text: 'Moin! Willkommen im Studio. Wie kann ich helfen?',
+                text: 'Hallo! Willkommen bei Pascal Krell. Womit kann ich helfen?',
                 options: [
-                    { label: '🎧 Demos', nextId: 'demos' },
-                    { label: '💰 Preise', nextId: 'preise' },
-                    { label: '🎙 Technik', nextId: 'technik' },
-                    { label: '⚡ Kontakt', nextId: 'kontakt' },
-                    { label: '⏱ Wort-Rechner', nextId: 'rechner' }
+                    { label: '🎧 Demos & Casting', nextId: 'demos' },
+                    { label: '💰 Gagen & Preise', nextId: 'preise' },
+                    { label: '🎙 Studio & Technik', nextId: 'technik' },
+                    { label: '⏱ Wort-Rechner', nextId: 'rechner' },
+                    { label: '⚡ Kontakt', nextId: 'kontakt' }
                 ]
             },
             demos: {
                 id: 'demos',
-                text: 'Welche Demo soll ich öffnen?',
+                text: 'Welche Kategorie interessiert dich?',
                 options: [
                     { label: 'Werbung', action: 'anchor', target: '#werbung' },
                     { label: 'Doku', action: 'anchor', target: '#doku' },
                     { label: 'Image', action: 'anchor', target: '#image' },
+                    { label: 'Gaming', action: 'anchor', target: '#gaming' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
             preise: {
                 id: 'preise',
-                text: 'Transparente Kalkulation nach VDS-Standard. Was möchtest du wissen?',
+                text: 'Orientierung nach VDS-Standard. Soll ich dir die Infos öffnen?',
                 options: [
-                    { label: 'VDS Liste', action: 'vdslink' },
-                    { label: 'Buyouts erklärt', nextId: 'buyouts' },
+                    { label: 'VDS Info', nextId: 'vdsinfo' },
+                    { label: 'VDS Liste öffnen', action: 'vdslink' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
-            buyouts: {
-                id: 'buyouts',
-                text: 'Buyouts sind Nutzungsrechte nach Laufzeit, Medium und Reichweite.',
+            vdsinfo: {
+                id: 'vdsinfo',
+                text: 'Die VDS-Liste liefert transparente Richtwerte für Sprecherhonorare.',
                 options: [
+                    { label: 'VDS Liste öffnen', action: 'vdslink' },
                     { label: 'Zurück', nextId: 'preise' }
                 ]
             },
             technik: {
                 id: 'technik',
-                text: 'Neumann U87 & SessionLinkPRO stehen bereit.',
+                text: 'Neumann U87 / RME.',
                 options: [
-                    { label: 'Remote Verbindung testen', action: 'anchor', target: '#remote-test' },
+                    { label: 'Remote Regie?', nextId: 'remote' },
                     { label: 'Zurück', nextId: 'start' }
+                ]
+            },
+            remote: {
+                id: 'remote',
+                text: 'Remote-Regie via SessionLinkPRO oder Source-Connect möglich.',
+                options: [
+                    { label: 'Zurück', nextId: 'technik' }
                 ]
             },
             rechner: {
@@ -631,6 +624,7 @@ class StudioBot {
                 options: [
                     { label: 'E-Mail öffnen', action: 'email' },
                     { label: 'Telefon anrufen', action: 'phone' },
+                    { label: 'WhatsApp', action: 'whatsapp' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             }
@@ -665,16 +659,6 @@ class StudioBot {
 
         this.wordsInput.addEventListener('input', () => this.updateCalculator());
 
-        this.speedButtons.forEach((button) => {
-            button.addEventListener('click', () => {
-                this.registerInteraction();
-                this.speedButtons.forEach((btn) => btn.classList.remove('is-active'));
-                button.classList.add('is-active');
-                this.activeSpeed = Number.parseInt(button.dataset.speed, 10) || 130;
-                this.updateCalculator();
-            });
-        });
-
         this.messages.addEventListener('click', (event) => {
             const target = event.target.closest('[data-copy]');
             if (!target) {
@@ -686,9 +670,9 @@ class StudioBot {
                 return;
             }
             navigator.clipboard.writeText(value).then(() => {
-                this.showToast('Kopiert!');
+                this.showToast('In Zwischenablage kopiert');
             }).catch(() => {
-                this.showToast('Kopiert!');
+                this.showToast('In Zwischenablage kopiert');
             });
         });
     }
@@ -751,6 +735,17 @@ class StudioBot {
             return;
         }
 
+        if (option.action === 'whatsapp') {
+            const phone = this.settings.phone || '';
+            const digits = phone.replace(/[^\d+]/g, '');
+            if (digits) {
+                window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
+            } else {
+                this.createBubble('Bitte eine Telefonnummer im Backend hinterlegen.', 'bot');
+            }
+            return;
+        }
+
         if (option.action === 'vdslink') {
             if (this.settings.vdsLink) {
                 window.open(this.settings.vdsLink, '_blank', 'noopener');
@@ -771,7 +766,7 @@ class StudioBot {
         this.messages.appendChild(bubble);
         this.messages.scrollTop = this.messages.scrollHeight;
         if (type === 'bot') {
-            this.soundEngine.play('pop');
+            this.soundEngine.play('msg_in');
             return this.typeWriter(bubble, text);
         }
         bubble.textContent = text;
@@ -794,11 +789,11 @@ class StudioBot {
             return;
         }
 
-        const totalSeconds = Math.round((words / this.activeSpeed) * 60);
+        const totalSeconds = Math.round((words / 130) * 60);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         const paddedSeconds = String(seconds).padStart(2, '0');
-        this.result.textContent = `Dauer: ${minutes}:${paddedSeconds} min`;
+        this.result.textContent = `Min:Sek ${minutes}:${paddedSeconds}`;
     }
 
     typeWriter(bubble, text) {
@@ -806,16 +801,23 @@ class StudioBot {
         bubble.textContent = '';
         return new Promise((resolve) => {
             let index = 0;
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'studio-connect-bubble bot studio-connect-typing';
+            typingIndicator.textContent = '...';
+            this.messages.appendChild(typingIndicator);
+            this.messages.scrollTop = this.messages.scrollHeight;
             const timer = setInterval(() => {
                 bubble.textContent += text.charAt(index);
                 index += 1;
                 this.messages.scrollTop = this.messages.scrollHeight;
                 if (index >= text.length) {
                     clearInterval(timer);
+                    typingIndicator.remove();
                     this.isTyping = false;
+                    bubble.innerHTML = this.createCopyMarkup(text);
                     resolve();
                 }
-            }, 18);
+            }, 15);
         });
     }
 
@@ -857,16 +859,17 @@ class StudioBot {
 
         this.messages.appendChild(bubble);
         this.messages.scrollTop = this.messages.scrollHeight;
-        this.soundEngine.play('pop');
+        this.soundEngine.play('msg_in');
     }
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Studio Hamburg • Online',
-            demos: 'Demos & Hörproben',
-            preise: 'Preise & Infos',
-            buyouts: 'Preise & Infos',
-            technik: 'Technik & Setup',
+            start: '● Online',
+            demos: 'Demos & Casting',
+            preise: 'Gagen & Preise',
+            vdsinfo: 'Gagen & Preise',
+            technik: 'Studio & Technik',
+            remote: 'Studio & Technik',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner'
         };
@@ -879,7 +882,7 @@ class StudioBot {
         this.widget.classList.add('is-open');
         this.panel.setAttribute('aria-hidden', 'false');
         this.isOpen = true;
-        this.soundEngine.play('swoosh');
+        this.soundEngine.play('open');
     }
 
     closePanel() {
@@ -915,7 +918,7 @@ class StudioBot {
             window.setTimeout(() => {
                 this.launcher.classList.remove('is-pulsing');
             }, 1600);
-        }, 10000);
+        }, 15000);
     }
 
     startCollisionCheck() {
@@ -927,41 +930,56 @@ class StudioBot {
             return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
         };
 
-        const matchesDemoSaved = (element) => {
-            const idText = (element.id || '').toLowerCase();
-            const classText = (element.className || '').toString().toLowerCase();
-            const idMatch = idText.includes('demo') && idText.includes('saved');
-            const classMatch = classText.includes('demo') && classText.includes('saved');
-            return idMatch || classMatch;
-        };
-
         const updateLift = () => {
-            const candidates = document.querySelectorAll('[id*="demo"], [class*="demo"]');
+            const candidates = document.querySelectorAll('.gemerkte-demos, .saved-demos, [id*="saved"]');
             let shouldLift = false;
             candidates.forEach((element) => {
-                if (matchesDemoSaved(element) && isVisible(element)) {
+                if (isVisible(element)) {
                     shouldLift = true;
                 }
             });
             if (shouldLift) {
-                this.widget.classList.add('lifted');
+                this.widget.classList.add('lift-up');
             } else {
-                this.widget.classList.remove('lifted');
+                this.widget.classList.remove('lift-up');
             }
         };
 
         updateLift();
         window.setInterval(updateLift, 1000);
     }
+
+    createCopyMarkup(text) {
+        const escaped = this.escapeHtml(text);
+        const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+        const phoneRegex = /(\+?\d[\d\s().-]{6,}\d)/g;
+        let withEmails = escaped.replace(emailRegex, (match) => {
+            return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
+        });
+        withEmails = withEmails.replace(phoneRegex, (match) => {
+            return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
+        });
+        return withEmails;
+    }
+
+    escapeHtml(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 }
 
-class SoundEngine {
+class SoundController {
     constructor() {
+        // User: Replace with real MP3 Base64
         // Kurze Dummy-Sounds als Base64-Platzhalter.
         this.sounds = {
             click: this.createAudio('data:audio/mp3;base64,SUQzBAAAAAAA'),
-            pop: this.createAudio('data:audio/mp3;base64,SUQzBAAAAAAB'),
-            swoosh: this.createAudio('data:audio/mp3;base64,SUQzBAAAAAAC')
+            msg_in: this.createAudio('data:audio/mp3;base64,SUQzBAAAAAAB'),
+            open: this.createAudio('data:audio/mp3;base64,SUQzBAAAAAAC')
         };
         this.unlocked = false;
     }
