@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SpeakerConcierge Bot
  * Description: Rule-basiertes Chat-Widget für Sprecher-Webseiten ohne externe KI.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: SpeakerConcierge
  * License: GPL-2.0+
  */
@@ -28,10 +28,10 @@ function scb_register_settings(): void
         'default' => '',
     ]);
 
-    register_setting('scb_settings', 'scb_demo_link', [
+    register_setting('scb_settings', 'scb_greeting_text', [
         'type' => 'string',
-        'sanitize_callback' => 'esc_url_raw',
-        'default' => '',
+        'sanitize_callback' => 'sanitize_textarea_field',
+        'default' => 'Hallo! Wie kann ich deinem Projekt helfen?',
     ]);
 }
 add_action('admin_init', 'scb_register_settings');
@@ -81,10 +81,11 @@ function scb_render_settings_page(): void
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><label for="scb_demo_link">Link zur Demo-Seite</label></th>
+                    <th scope="row"><label for="scb_greeting_text">Standard-Begrüßungstext</label></th>
                     <td>
-                        <input type="url" id="scb_demo_link" name="scb_demo_link" class="regular-text"
-                               value="<?php echo esc_attr(get_option('scb_demo_link', '')); ?>" />
+                        <textarea id="scb_greeting_text" name="scb_greeting_text" class="large-text" rows="3"><?php
+                            echo esc_textarea(get_option('scb_greeting_text', 'Hallo! Wie kann ich deinem Projekt helfen?'));
+                        ?></textarea>
                     </td>
                 </tr>
             </table>
@@ -102,21 +103,23 @@ function scb_render_frontend_widget(): void
     $settings = [
         'email' => get_option('scb_contact_email', ''),
         'phone' => get_option('scb_contact_phone', ''),
-        'demoLink' => get_option('scb_demo_link', ''),
+        'greeting' => get_option('scb_greeting_text', 'Hallo! Wie kann ich deinem Projekt helfen?'),
     ];
 
     ?>
     <div id="scb-chat-root">
-        <button id="scb-fab" aria-label="Chat öffnen">
+        <button id="my-chat-trigger" aria-label="Chat öffnen">
             <span class="scb-fab-icon">💬</span>
         </button>
 
         <div id="scb-chat-window" aria-live="polite" aria-hidden="true">
             <div class="scb-header">
-                <div class="scb-avatar" aria-hidden="true">🎙️</div>
                 <div class="scb-title">
-                    <strong>SpeakerConcierge</strong>
-                    <span>Dein Voice Assistant</span>
+                    <span class="scb-title-row">
+                        <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+                        <strong>Studio Assistenz</strong>
+                    </span>
+                    <span class="scb-subtext">Hilfe &amp; Direktdraht</span>
                 </div>
                 <button id="scb-close" aria-label="Chat schließen">✕</button>
             </div>
@@ -125,6 +128,10 @@ function scb_render_frontend_widget(): void
                 <span></span><span></span><span></span>
             </div>
             <div class="scb-chips" id="scb-chips"></div>
+            <form class="scb-input" id="scb-input" aria-label="Chat Eingabe">
+                <input type="text" id="scb-input-field" placeholder="Nachricht schreiben..." autocomplete="off" />
+                <button type="submit" id="scb-send">Senden</button>
+            </form>
         </div>
     </div>
 
@@ -137,39 +144,52 @@ function scb_render_frontend_widget(): void
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
-        #scb-fab {
+        #my-chat-trigger {
             width: 56px;
             height: 56px;
             border-radius: 50%;
             border: none;
-            background: #0b1f3a;
+            background: #1a93ee;
             color: #fff;
             font-size: 24px;
-            box-shadow: 0 12px 30px rgba(11, 31, 58, 0.35);
+            box-shadow: 0 18px 40px rgba(26, 147, 238, 0.35);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        #my-chat-trigger.scb-shifted {
+            transform: translateY(-70px);
         }
 
         #scb-chat-window {
             position: absolute;
-            bottom: 72px;
+            bottom: 76px;
             right: 0;
-            width: 320px;
-            max-height: 480px;
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 20px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            display: none;
+            width: 340px;
+            max-height: 520px;
+            background: rgba(255, 255, 255, 0.72);
+            border-radius: 22px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            display: flex;
             flex-direction: column;
             overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
         }
 
         #scb-chat-window.is-open {
-            display: flex;
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
         }
 
         .scb-header {
@@ -177,32 +197,26 @@ function scb_render_frontend_widget(): void
             align-items: center;
             justify-content: space-between;
             padding: 16px;
-            background: #0b1f3a;
+            background: #1a93ee;
             color: #fff;
         }
 
-        .scb-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 12px;
-            font-size: 20px;
-        }
-
         .scb-title {
-            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 2px;
             font-size: 13px;
         }
 
-        .scb-title strong {
+        .scb-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 15px;
+        }
+
+        .scb-subtext {
+            opacity: 0.9;
         }
 
         #scb-close {
@@ -231,28 +245,28 @@ function scb_render_frontend_widget(): void
         }
 
         .scb-message.bot {
-            background: #f0f4ff;
+            background: rgba(255, 255, 255, 0.9);
             color: #0b1f3a;
             align-self: flex-start;
+            border: 1px solid rgba(26, 147, 238, 0.15);
         }
 
         .scb-message.user {
-            background: #0b1f3a;
+            background: #1a93ee;
             color: #fff;
             align-self: flex-end;
         }
 
         .scb-chips {
-            padding: 12px 16px 16px;
+            padding: 0 16px 12px;
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            border-top: 1px solid rgba(11, 31, 58, 0.08);
         }
 
         .scb-chip {
-            background: #fff;
-            border: 1px solid rgba(11, 31, 58, 0.2);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(26, 147, 238, 0.3);
             color: #0b1f3a;
             padding: 8px 12px;
             border-radius: 999px;
@@ -262,7 +276,7 @@ function scb_render_frontend_widget(): void
         }
 
         .scb-chip:hover {
-            background: #0b1f3a;
+            background: #1a93ee;
             color: #fff;
         }
 
@@ -270,13 +284,13 @@ function scb_render_frontend_widget(): void
             display: none;
             align-items: center;
             gap: 6px;
-            padding: 0 16px 12px;
+            padding: 0 16px 10px;
         }
 
         .scb-typing span {
             width: 6px;
             height: 6px;
-            background: #0b1f3a;
+            background: #1a93ee;
             border-radius: 50%;
             display: inline-block;
             animation: scb-bounce 0.6s infinite alternate;
@@ -288,6 +302,35 @@ function scb_render_frontend_widget(): void
 
         .scb-typing span:nth-child(3) {
             animation-delay: 0.4s;
+        }
+
+        .scb-input {
+            padding: 12px 16px 16px;
+            display: flex;
+            gap: 8px;
+            border-top: 1px solid rgba(26, 147, 238, 0.15);
+        }
+
+        #scb-input-field {
+            flex: 1;
+            border-radius: 999px;
+            border: 1px solid rgba(26, 147, 238, 0.25);
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        #scb-send {
+            border: none;
+            background: #1a93ee;
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #scb-send:hover {
+            filter: brightness(0.95);
         }
 
         @keyframes scb-bounce {
@@ -318,17 +361,33 @@ function scb_get_inline_script(): string
 {
     return <<<JS
     (function() {
-        const fab = document.getElementById('scb-fab');
+        const fab = document.getElementById('my-chat-trigger');
         const chatWindow = document.getElementById('scb-chat-window');
         const closeBtn = document.getElementById('scb-close');
         const messages = document.getElementById('scb-messages');
         const chips = document.getElementById('scb-chips');
         const typing = document.getElementById('scb-typing');
+        const inputForm = document.getElementById('scb-input');
+        const inputField = document.getElementById('scb-input-field');
 
         const settings = window.SCB_SETTINGS || {};
         const safeEmail = settings.email || 'kontakt@example.com';
         const safePhone = settings.phone || '+49 000 000000';
-        const safeDemo = settings.demoLink || '#';
+        const safeGreeting = settings.greeting || 'Hallo! Wie kann ich deinem Projekt helfen?';
+
+        let awaitingWordCount = false;
+
+        function ensureFontAwesome() {
+            const existing = document.querySelector('link[href*="fontawesome"], link[href*="font-awesome"], link[href*="use.fontawesome"]');
+            if (existing) {
+                return;
+            }
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css';
+            link.crossOrigin = 'anonymous';
+            document.head.appendChild(link);
+        }
 
         function appendMessage(text, type) {
             const message = document.createElement('div');
@@ -343,6 +402,7 @@ function scb_get_inline_script(): string
             options.forEach(option => {
                 const button = document.createElement('button');
                 button.className = 'scb-chip';
+                button.type = 'button';
                 button.textContent = option.label;
                 button.addEventListener('click', option.onClick);
                 chips.appendChild(button);
@@ -354,17 +414,17 @@ function scb_get_inline_script(): string
             setTimeout(() => {
                 typing.style.display = 'none';
                 callback();
-            }, 600);
+            }, 500);
         }
 
         function showStart() {
             showTyping(() => {
-                appendMessage('Hallo! Suchst du eine Stimme für dein Projekt?', 'bot');
+                appendMessage(safeGreeting, 'bot');
                 setChips([
-                    { label: 'Demos hören', onClick: () => handleUser('Demos hören', showDemos) },
-                    { label: 'Kontakt aufnehmen', onClick: () => handleUser('Kontakt aufnehmen', showContact) },
-                    { label: 'Preise/Rates', onClick: () => handleUser('Preise/Rates', showRates) },
-                    { label: 'Studio-Info', onClick: () => handleUser('Studio-Info', showStudio) },
+                    { label: 'Preise', onClick: () => handleUser('Preise', handleKeyword) },
+                    { label: 'Kontakt', onClick: () => handleUser('Kontakt', handleKeyword) },
+                    { label: 'Studio-Technik', onClick: () => handleUser('Studio-Technik', handleKeyword) },
+                    { label: 'Wort-Rechner', onClick: () => handleUser('Wort-Rechner', handleKeyword) },
                 ]);
             });
         }
@@ -372,74 +432,73 @@ function scb_get_inline_script(): string
         function handleUser(text, next) {
             appendMessage(text, 'user');
             setChips([]);
-            showTyping(next);
+            showTyping(() => next(text));
         }
 
-        function showDemos() {
-            appendMessage('Welches Genre interessiert dich?', 'bot');
-            setChips([
-                { label: 'Werbung', onClick: () => handleUser('Werbung', () => showDemoLinks('Werbung')) },
-                { label: 'Doku', onClick: () => handleUser('Doku', () => showDemoLinks('Doku')) },
-                { label: 'Imagefilm', onClick: () => handleUser('Imagefilm', () => showDemoLinks('Imagefilm')) },
-            ]);
+        function handleKeyword(input) {
+            const lower = (input || '').toLowerCase();
+
+            if (awaitingWordCount) {
+                const wordCount = parseInt(lower.replace(/[^0-9]/g, ''), 10);
+                if (!Number.isNaN(wordCount) && wordCount > 0) {
+                    const totalMinutes = wordCount / 130;
+                    const minutes = Math.floor(totalMinutes);
+                    const seconds = Math.round((totalMinutes - minutes) * 60);
+                    appendMessage(`Bei normalem Sprechtempo sind das ca. ${minutes} Minuten und ${seconds} Sekunden.`, 'bot');
+                    awaitingWordCount = false;
+                    showStart();
+                    return;
+                }
+                appendMessage('Bitte nenne mir eine Zahl, damit ich die Dauer berechnen kann.', 'bot');
+                return;
+            }
+
+            if (lower.includes('rechner') || lower.includes('wort')) {
+                awaitingWordCount = true;
+                appendMessage('Wie viele Wörter hat dein Skript ca.?', 'bot');
+                return;
+            }
+
+            if (lower.includes('preis') || lower.includes('kosten') || lower.includes('budget') || lower.includes('rate')) {
+                appendMessage('Meine Preise orientieren sich an der VDS-Liste. Soll ich dir den Link senden?', 'bot');
+                return;
+            }
+
+            if (lower.includes('technik') || lower.includes('mikro') || lower.includes('studio')) {
+                appendMessage('Ich nehme in einer Studiobricks Kabine mit einem Neumann U87 auf.', 'bot');
+                return;
+            }
+
+            if (lower.includes('hallo') || lower.includes('hi') || lower.includes('moin')) {
+                appendMessage('Hallo! Wie kann ich deinem Projekt helfen?', 'bot');
+                return;
+            }
+
+            if (lower.includes('kontakt') || lower.includes('mail') || lower.includes('email') || lower.includes('telefon')) {
+                appendMessage(`Du erreichst mich per E-Mail (${safeEmail}) oder telefonisch unter ${safePhone}.`, 'bot');
+                return;
+            }
+
+            appendMessage('Das habe ich nicht ganz verstanden. Wähle lieber eine der Optionen unten oder schreibe mir direkt eine Mail.', 'bot');
         }
 
-        function showDemoLinks(category) {
-            appendMessage(`Hier sind ${category}-Demos:`, 'bot');
-            appendMessage(`🔗 ${safeDemo}`, 'bot');
-            setChips([
-                { label: 'Mehr Demos', onClick: () => handleUser('Mehr Demos', showDemos) },
-                { label: 'Kontakt aufnehmen', onClick: () => handleUser('Kontakt aufnehmen', showContact) },
-            ]);
-        }
-
-        function showContact() {
-            appendMessage('Super! Wie möchtest du Kontakt aufnehmen?', 'bot');
-            setChips([
-                { label: 'E-Mail schreiben', onClick: () => handleUser('E-Mail schreiben', showEmail) },
-                { label: 'Anrufen', onClick: () => handleUser('Anrufen', showPhone) },
-                { label: 'WhatsApp', onClick: () => handleUser('WhatsApp', showWhatsApp) },
-            ]);
-        }
-
-        function showEmail() {
-            appendMessage(`Schreib gerne an: ${safeEmail}`, 'bot');
-            setChips([
-                { label: 'Zurück zum Start', onClick: () => handleUser('Zurück', showStart) },
-            ]);
-        }
-
-        function showPhone() {
-            appendMessage(`Ruf mich an: ${safePhone}`, 'bot');
-            setChips([
-                { label: 'Zurück zum Start', onClick: () => handleUser('Zurück', showStart) },
-            ]);
-        }
-
-        function showWhatsApp() {
-            appendMessage(`WhatsApp: ${safePhone}`, 'bot');
-            setChips([
-                { label: 'Zurück zum Start', onClick: () => handleUser('Zurück', showStart) },
-            ]);
-        }
-
-        function showRates() {
-            appendMessage('Preise sind abhängig vom Projektumfang. Schreib mir kurz dein Briefing, dann erstelle ich ein Angebot.', 'bot');
-            setChips([
-                { label: 'Kontakt aufnehmen', onClick: () => handleUser('Kontakt aufnehmen', showContact) },
-                { label: 'Zurück zum Start', onClick: () => handleUser('Zurück', showStart) },
-            ]);
-        }
-
-        function showStudio() {
-            appendMessage('Ich arbeite aus einem professionellen Studio mit Broadcast-Qualität und schneller Lieferung.', 'bot');
-            setChips([
-                { label: 'Demos hören', onClick: () => handleUser('Demos hören', showDemos) },
-                { label: 'Kontakt aufnehmen', onClick: () => handleUser('Kontakt aufnehmen', showContact) },
-            ]);
+        function handleSubmit(event) {
+            event.preventDefault();
+            if (!inputField) {
+                return;
+            }
+            const text = inputField.value.trim();
+            if (!text) {
+                return;
+            }
+            inputField.value = '';
+            handleUser(text, handleKeyword);
         }
 
         function toggleChat(open) {
+            if (!chatWindow) {
+                return;
+            }
             if (open) {
                 chatWindow.classList.add('is-open');
                 chatWindow.setAttribute('aria-hidden', 'false');
@@ -452,6 +511,18 @@ function scb_get_inline_script(): string
             }
         }
 
+        function updateFabPosition() {
+            if (!fab) {
+                return;
+            }
+            const blocker = document.querySelector('.has-saved-demos, .gemerkte-demos-container');
+            if (blocker) {
+                fab.classList.add('scb-shifted');
+            } else {
+                fab.classList.remove('scb-shifted');
+            }
+        }
+
         if (fab && chatWindow) {
             fab.addEventListener('click', () => toggleChat(true));
         }
@@ -459,6 +530,16 @@ function scb_get_inline_script(): string
         if (closeBtn) {
             closeBtn.addEventListener('click', () => toggleChat(false));
         }
+
+        if (inputForm) {
+            inputForm.addEventListener('submit', handleSubmit);
+        }
+
+        const observer = new MutationObserver(updateFabPosition);
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+        ensureFontAwesome();
+        updateFabPosition();
     })();
     JS;
 }
