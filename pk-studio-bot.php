@@ -2,7 +2,7 @@
 /**
  * Plugin Name: StudioConnect Pro
  * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
- * Version: 5.1.0
+ * Version: 6.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -174,9 +174,9 @@ function studio_connect_render_widget(): void
                     </div>
                 </div>
                 <div class="studio-connect-footer">
-                    <button class="studio-connect-home" id="studio-connect-home" type="button" aria-label="Home / Neustart">
+                    <button class="studio-connect-home" id="sc-reset" type="button" aria-label="Home / Neustart">
                         <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                        <span class="studio-connect-home-tooltip" aria-hidden="true">Zurück zum Start</span>
+                        <span class="studio-connect-home-tooltip" aria-hidden="true">Neustart</span>
                         <span class="studio-connect-home-badge" aria-hidden="true"></span>
                     </button>
                     <div class="studio-connect-footer-socials">
@@ -738,7 +738,7 @@ class StudioBot {
         this.dock = document.getElementById('sc-dock');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
-        this.homeButton = document.getElementById('studio-connect-home');
+        this.homeButton = document.getElementById('sc-reset');
         this.closeButton = document.getElementById('studio-connect-close');
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
         this.avatarUrl = this.settings.avatarUrl || 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar_Sprecher-Pascal-Krell.webp';
@@ -749,7 +749,7 @@ class StudioBot {
         this.logicTree = this.buildLogicTree();
         this.currentStep = 'start';
         this.restoredFromSession = false;
-        this.storageKey = 'studio_connect_state_v51';
+        this.storageKey = 'sc_chat_state';
 
         this.restoreState();
         this.refreshDomReferences();
@@ -763,78 +763,110 @@ class StudioBot {
 
     buildLogicTree() {
         return {
-            start: {
-                id: 'start',
-                text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
-                options: [
-                    { label: '🎧 Casting & Demos', nextId: 'demos' },
-                    { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
-                    { label: 'Technik Check', nextId: 'technik' },
-                    { label: 'Wort-Rechner', nextId: 'rechner' },
-                    { label: '🔄 Ablauf einer Buchung', nextId: 'booking' }
-                ]
-            },
-            demos: {
-                id: 'demos',
-                text: 'Welche Kategorie interessiert Dich?',
-                options: [
-                    { label: 'Werbung', action: 'hardlink', target: '/sprecher-audio-leistungen/werbesprecher/' },
-                    { label: 'Webvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
-                    { label: 'Telefonansage', action: 'hardlink', target: '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
-                    { label: 'Podcast', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
-                    { label: 'Imagefilm', action: 'hardlink', target: '/sprecher-audio-leistungen/imagefilm-sprecher/' },
-                    { label: 'Erklärvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
-                    { label: 'E-Learning', action: 'hardlink', target: '/sprecher-audio-leistungen/e-learning-sprecher/' }
-                ]
-            },
-            preise: {
-                id: 'preise',
-                text: 'Ich arbeite transparent nach Industriestandard (VDS). Für genaue Kalkulationen nutze bitte mein Online-Tool.',
-                options: [
-                    { label: '📄 VDS Gagenliste', action: 'vdslink' },
-                    { label: '🧮 Zum Gagenrechner', action: 'gagenrechner' },
-                    { label: '💬 Direkt anfragen', nextId: 'kontakt' }
-                ]
-            },
-            technik: {
-                id: 'technik',
-                text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & High-End Akustikkabine. DAW: Logic Pro X auf Mac Studio.',
-                options: [
-                    { label: 'SessionLinkPRO', action: 'form' },
-                    { label: 'SourceConnect Now', action: 'form' },
-                    { label: 'Test-File anfordern', action: 'form' },
-                    { label: 'Kontakt', nextId: 'kontakt' },
-                    { label: 'Zurück', nextId: 'start' }
-                ]
-            },
-            rechner: {
-                id: 'rechner',
-                text: 'Wort-Rechner aktiviert. Gib die Wortanzahl ein.',
-                action: 'calculator',
-                options: [
-                    { label: 'Kontakt', nextId: 'kontakt' },
-                    { label: 'Zurück', nextId: 'start' }
-                ]
-            },
-            kontakt: {
-                id: 'kontakt',
-                text: 'Wie möchtest Du mich kontaktieren?',
-                options: [
-                    { label: 'Anruf', action: 'phone' },
-                    { label: 'WhatsApp', action: 'whatsapp' },
-                    { label: 'Mail', action: 'email' },
-                    { label: '📝 Formular', action: 'form' }
-                ]
-            },
-            booking: {
-                id: 'booking',
-                text: 'So einfach ist der Prozess bei mir:\n\n1. Anfrage & Skript-Check\n2. Angebot & Bestätigung\n3. Aufnahme (meist innerhalb 24h)\n4. Datenlieferung & Abnahme\n5. Rechnung & Nutzungslizenz',
-                options: [
-                    { label: '⚡ Jetzt Projekt anfragen', action: 'form' },
-                    { label: 'Zurück', nextId: 'start' }
-                ]
-            }
+            start: this.getStepConfig('start'),
+            demos: this.getStepConfig('demos'),
+            preise: this.getStepConfig('preise'),
+            technik: this.getStepConfig('technik'),
+            ablauf: this.getStepConfig('ablauf'),
+            rechner: this.getStepConfig('rechner'),
+            kontakt: this.getStepConfig('kontakt')
         };
+    }
+
+    getStepConfig(stepId) {
+        switch (stepId) {
+            case 'start':
+                return {
+                    id: 'start',
+                    text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
+                    options: [
+                        { label: '🎧 Casting & Demos', nextId: 'demos' },
+                        { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
+                        { label: 'Technik Check', nextId: 'technik' },
+                        { label: '🔄 Ablauf einer Buchung', nextId: 'ablauf' },
+                        { label: 'Kontakt', nextId: 'kontakt' }
+                    ]
+                };
+            case 'demos':
+                return {
+                    id: 'demos',
+                    text: 'Welche Kategorie interessiert Dich?',
+                    options: [
+                        { label: 'Werbung', action: 'hardlink', target: '/sprecher-audio-leistungen/werbesprecher/' },
+                        { label: 'Webvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
+                        { label: 'Telefonansage', action: 'hardlink', target: '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
+                        { label: 'Podcast', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
+                        { label: 'Imagefilm', action: 'hardlink', target: '/sprecher-audio-leistungen/imagefilm-sprecher/' },
+                        { label: 'Erklärvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
+                        { label: 'E-Learning', action: 'hardlink', target: '/sprecher-audio-leistungen/e-learning-sprecher/' }
+                    ]
+                };
+            case 'preise':
+                return {
+                    id: 'preise',
+                    text: 'Ich arbeite transparent nach Industriestandard (VDS). Für genaue Kalkulationen nutze bitte mein Online-Tool.',
+                    options: [
+                        { label: '📄 VDS Gagenliste', action: 'vdslink' },
+                        { label: '🧮 Zum Gagenrechner', action: 'gagenrechner' },
+                        { label: 'Wort-Rechner', nextId: 'rechner' },
+                        { label: '💬 Direkt anfragen', nextId: 'kontakt' }
+                    ]
+                };
+            case 'technik':
+                return {
+                    id: 'technik',
+                    text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & High-End Akustikkabine. DAW: Logic Pro X auf Mac Studio.',
+                    options: [
+                        { label: 'SessionLinkPRO', action: 'form' },
+                        { label: 'SourceConnect Now', action: 'form' },
+                        { label: 'Test-File anfordern', action: 'form' },
+                        { label: 'Kontakt', nextId: 'kontakt' },
+                        { label: 'Zurück', nextId: 'start' }
+                    ]
+                };
+            case 'ablauf':
+                return {
+                    id: 'ablauf',
+                    text: 'So einfach ist der Prozess bei mir:\n\n1. Anfrage & Skript-Check\n2. Angebot & Bestätigung\n3. Aufnahme (meist innerhalb 24h)\n4. Datenlieferung & Abnahme\n5. Rechnung & Nutzungslizenz',
+                    options: [
+                        { label: '⚡ Jetzt Projekt anfragen', action: 'form' },
+                        { label: 'Zurück', nextId: 'start' }
+                    ]
+                };
+            case 'rechner':
+                return {
+                    id: 'rechner',
+                    text: 'Wort-Rechner aktiviert. Gib die Wortanzahl ein.',
+                    action: 'calculator',
+                    options: [
+                        { label: 'Kontakt', nextId: 'kontakt' },
+                        { label: 'Zurück', nextId: 'start' }
+                    ]
+                };
+            case 'kontakt':
+                return {
+                    id: 'kontakt',
+                    text: 'Wie möchtest Du mich kontaktieren?',
+                    options: [
+                        { label: 'Anruf', action: 'phone' },
+                        { label: 'WhatsApp', action: 'whatsapp' },
+                        { label: 'Mail', action: 'email' },
+                        { label: '📝 Formular', action: 'form' }
+                    ]
+                };
+            default:
+                return {
+                    id: 'start',
+                    text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
+                    options: [
+                        { label: '🎧 Casting & Demos', nextId: 'demos' },
+                        { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
+                        { label: 'Technik Check', nextId: 'technik' },
+                        { label: '🔄 Ablauf einer Buchung', nextId: 'ablauf' },
+                        { label: 'Kontakt', nextId: 'kontakt' }
+                    ]
+                };
+        }
     }
 
     bindEvents() {
@@ -852,13 +884,6 @@ class StudioBot {
             this.registerInteraction();
             this.handleContactAction('form');
         });
-
-        if (this.homeButton) {
-            this.homeButton.addEventListener('click', () => {
-                this.registerInteraction();
-                this.resetConversation();
-            });
-        }
 
         if (this.closeButton) {
             this.closeButton.addEventListener('click', () => {
@@ -886,11 +911,7 @@ class StudioBot {
             if (!value) {
                 return;
             }
-            navigator.clipboard.writeText(value).then(() => {
-                this.showToast('Kopiert');
-            }).catch(() => {
-                this.showToast('Kopiert');
-            });
+            this.handleUtilityAction('copy', value);
         });
 
         window.addEventListener('beforeunload', () => this.persistState());
@@ -1055,7 +1076,7 @@ class StudioBot {
     createContactBubble() {
         const { row: messageRow, bubble } = this.createMessageRow('bot');
         const label = document.createElement('div');
-        label.textContent = 'Zum Kopieren klicken:';
+        label.textContent = 'Wie möchtest Du mich kontaktieren?';
         bubble.appendChild(label);
 
         const copyRow = document.createElement('div');
@@ -1118,7 +1139,7 @@ class StudioBot {
             technik: 'Technik Check',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner',
-            booking: 'Ablauf einer Buchung'
+            ablauf: 'Ablauf einer Buchung'
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
@@ -1411,6 +1432,23 @@ class StudioBot {
             // Ignorieren.
         }
     }
+
+    handleUtilityAction(action, value) {
+        switch (action) {
+            case 'copy':
+                if (!value) {
+                    return false;
+                }
+                navigator.clipboard.writeText(value).then(() => {
+                    this.showToast('Kopiert');
+                }).catch(() => {
+                    this.showToast('Kopiert');
+                });
+                return true;
+            default:
+                return false;
+        }
+    }
 }
 
 class SoundController {
@@ -1454,6 +1492,13 @@ class SoundController {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const resetButton = document.getElementById('sc-reset');
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            sessionStorage.removeItem('sc_chat_state');
+            location.reload();
+        });
+    }
     if (document.getElementById('studio-connect-widget')) {
         new StudioBot(window.StudioConnectSettings || {});
     }
