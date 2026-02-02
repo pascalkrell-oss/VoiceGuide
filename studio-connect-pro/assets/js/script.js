@@ -10,6 +10,9 @@ const getDefaultState = () => ({
     navStack: [],
     context: {
         wordCount: 0
+    },
+    flags: {
+        welcomed: false
     }
 });
 
@@ -25,6 +28,9 @@ const normalizeState = (state) => {
         context: {
             ...(state.context && typeof state.context === 'object' ? state.context : {}),
             wordCount: typeof state.context?.wordCount === 'number' ? state.context.wordCount : 0
+        },
+        flags: {
+            welcomed: Boolean(state.flags?.welcomed)
         }
     };
 };
@@ -133,7 +139,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
 
     const formBtn = document.createElement('button');
     formBtn.type = 'button';
-    formBtn.className = 'studio-connect-copy is-primary';
+    formBtn.className = 'studio-connect-copy is-primary sc-contact-btn';
     formBtn.innerHTML = '<i class="fa-solid fa-file-pen" aria-hidden="true"></i><span>Formular</span>';
     formBtn.addEventListener('click', () => {
         helpers.registerInteraction();
@@ -145,7 +151,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     if (sc_vars.email) {
         const emailBtn = document.createElement('button');
         emailBtn.type = 'button';
-        emailBtn.className = 'studio-connect-copy is-copy';
+        emailBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
         emailBtn.innerHTML = '<i class="fa-solid fa-envelope" aria-hidden="true"></i><span>E-Mail</span>';
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
@@ -158,7 +164,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     if (sc_vars.phone) {
         const phoneBtn = document.createElement('button');
         phoneBtn.type = 'button';
-        phoneBtn.className = 'studio-connect-copy is-copy';
+        phoneBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
         phoneBtn.innerHTML = '<i class="fa-solid fa-phone" aria-hidden="true"></i><span>Telefon</span>';
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
@@ -171,7 +177,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     if (sc_vars.whatsapp) {
         const whatsappBtn = document.createElement('button');
         whatsappBtn.type = 'button';
-        whatsappBtn.className = 'studio-connect-copy is-copy';
+        whatsappBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
         whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp</span>';
         whatsappBtn.addEventListener('click', () => {
             helpers.registerInteraction();
@@ -313,6 +319,11 @@ class StudioBot {
         this.isOpen = false;
         this.hasInteraction = false;
         this.lastRenderedHistoryLength = 0;
+        this.ui = {
+            isTyping: false,
+            typingTimer: null,
+            typingRow: null
+        };
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
@@ -351,6 +362,8 @@ class StudioBot {
             technik: this.getStepConfig('technik'),
             ablauf: this.getStepConfig('ablauf'),
             rechner: this.getStepConfig('rechner'),
+            rechte: this.getStepConfig('rechte'),
+            rechte_beispiele: this.getStepConfig('rechte_beispiele'),
             kontakt: this.getStepConfig('kontakt')
         };
     }
@@ -366,6 +379,11 @@ class StudioBot {
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+                        {
+                            label: 'Einsatz & Rechte',
+                            userPromptText: 'Kannst du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            nextId: 'rechte'
+                        },
                         { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
@@ -421,6 +439,25 @@ class StudioBot {
                         { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
+            case 'rechte':
+                return {
+                    id: 'rechte',
+                    text: 'Kurz erklärt: Produktion ist die Aufnahme selbst – Nutzung regelt, wo und wie lange der Spot/Clip laufen darf.\n\n• Einsatzorte wie Website, Social Organic, Social Ads, YouTube PreRoll oder Radio/TV regional zählen unterschiedlich.\n• Nutzungsrechte hängen von Reichweite, Mediaspend und Zeitraum ab.\n• Je klarer der Einsatz, desto fairer kann ich kalkulieren.\n\nSag mir einfach, wo und wie lange – ich kalkuliere fair & transparent.',
+                    options: [
+                        { label: 'Beispiele sehen', userPromptText: 'Hast du Beispiele für typische Einsätze?', nextId: 'rechte_beispiele' },
+                        { label: 'Zurück', userPromptText: 'Zurück zur Übersicht.', action: 'back' },
+                        { label: 'Kontakt', userPromptText: 'Ich möchte kurz Rücksprache halten.', nextId: 'kontakt' }
+                    ]
+                };
+            case 'rechte_beispiele':
+                return {
+                    id: 'rechte_beispiele',
+                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWenn du willst, schlage ich dir sofort die passende Rechte-Kombi vor.',
+                    options: [
+                        { label: 'Zurück', userPromptText: 'Zurück zu Einsatz & Rechten.', action: 'back' },
+                        { label: 'Kontakt', userPromptText: 'Bitte kalkuliere mir das kurz.', nextId: 'kontakt' }
+                    ]
+                };
             case 'kontakt':
                 return {
                     id: 'kontakt',
@@ -436,6 +473,11 @@ class StudioBot {
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+                        {
+                            label: 'Einsatz & Rechte',
+                            userPromptText: 'Kannst du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            nextId: 'rechte'
+                        },
                         { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
@@ -506,7 +548,11 @@ class StudioBot {
         this.ensureValidStep();
         this.updateHeaderSubtext(this.state.currentStepId);
         this.messages.innerHTML = '';
+        if (this.ui.typingRow) {
+            this.ui.typingRow = null;
+        }
 
+        const previousLength = this.lastRenderedHistoryLength;
         if (this.state.history.length < this.lastRenderedHistoryLength) {
             this.lastRenderedHistoryLength = this.state.history.length;
         }
@@ -598,6 +644,21 @@ class StudioBot {
             step.options.forEach((option) => this.appendOption(option));
         }
 
+        if (this.ui.isTyping) {
+            this.showTypingIndicator();
+        }
+
+        if (this.state.history.length > previousLength) {
+            const rows = this.messages.querySelectorAll('.studio-connect-message');
+            const lastRow = rows[rows.length - 1];
+            if (lastRow && lastRow.classList.contains('bot')) {
+                const bubble = lastRow.querySelector('.studio-connect-bubble');
+                if (bubble) {
+                    bubble.classList.add('is-revealing');
+                }
+            }
+        }
+
         this.scrollToBottom();
     }
 
@@ -614,6 +675,7 @@ class StudioBot {
 
     handleOption(option) {
         this.registerInteraction();
+        this.clearTypingState();
         this.soundEngine.play('click');
         const label = option.userPromptText || option.userLabel || option.label;
         this.pushMessage('user', label);
@@ -638,12 +700,16 @@ class StudioBot {
         }
 
         if (option.action) {
+            if (option.action === 'back') {
+                this.handleBack();
+                return;
+            }
             this.transitionToStep(this.state.currentStepId, { repeatCurrent: true });
         }
     }
 
     transitionToStep(stepId, options = {}) {
-        const { repeatCurrent = false, skipStack = false } = options;
+        const { repeatCurrent = false, skipStack = false, suppressBotMessage = false } = options;
         const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
         if (!nextStep) {
             return;
@@ -652,8 +718,11 @@ class StudioBot {
             this.state.navStack = [...this.state.navStack, this.state.currentStepId];
         }
         this.state.currentStepId = nextStep.id;
-        this.pushMessage('bot', nextStep.text);
-        this.renderAndSave();
+        if (suppressBotMessage) {
+            this.renderAndSave();
+            return;
+        }
+        this.enqueueBotMessage(nextStep.text);
     }
 
     createBackButton() {
@@ -667,17 +736,23 @@ class StudioBot {
 
     handleBack() {
         this.registerInteraction();
+        this.clearTypingState();
+        if (this.state.history.length === 0) {
+            this.ensureStartMessage();
+            this.renderAndSave();
+            return;
+        }
         if (!this.state.navStack.length) {
-            this.transitionToStep('start', { skipStack: true });
+            this.transitionToStep('start', { skipStack: true, suppressBotMessage: true });
             return;
         }
         const nextStack = [...this.state.navStack];
         const previousStep = nextStack.pop();
         this.state.navStack = nextStack;
         if (previousStep) {
-            this.transitionToStep(previousStep, { skipStack: true });
+            this.transitionToStep(previousStep, { skipStack: true, suppressBotMessage: true });
         } else {
-            this.transitionToStep('start', { skipStack: true });
+            this.transitionToStep('start', { skipStack: true, suppressBotMessage: true });
         }
     }
 
@@ -687,6 +762,64 @@ class StudioBot {
             text,
             ts: Date.now()
         });
+    }
+
+    clearTypingState() {
+        if (this.ui.typingTimer) {
+            window.clearTimeout(this.ui.typingTimer);
+        }
+        this.ui.typingTimer = null;
+        this.ui.isTyping = false;
+        this.removeTypingIndicator();
+    }
+
+    getTypingDelay() {
+        return 450 + Math.floor(Math.random() * 351);
+    }
+
+    showTypingIndicator() {
+        if (!this.messages || this.ui.typingRow) {
+            return;
+        }
+        const { row, bubble } = this.createMessageRow('bot');
+        row.classList.add('is-typing');
+        bubble.classList.add('is-typing');
+        bubble.innerHTML = '<span class="studio-connect-typing-dots"><span></span><span></span><span></span></span>';
+        this.messages.appendChild(row);
+        this.ui.typingRow = row;
+        this.scrollToBottom();
+    }
+
+    removeTypingIndicator() {
+        if (!this.ui.typingRow) {
+            return;
+        }
+        if (this.ui.typingRow.parentNode) {
+            this.ui.typingRow.parentNode.removeChild(this.ui.typingRow);
+        }
+        this.ui.typingRow = null;
+    }
+
+    enqueueBotMessage(text, options = {}) {
+        const { immediate = false } = options;
+        if (!text) {
+            return;
+        }
+        if (immediate || !this.messages) {
+            this.pushMessage('bot', text);
+            this.renderAndSave();
+            return;
+        }
+        this.clearTypingState();
+        this.ui.isTyping = true;
+        this.showTypingIndicator();
+        const delay = this.getTypingDelay();
+        this.ui.typingTimer = window.setTimeout(() => {
+            this.ui.isTyping = false;
+            this.removeTypingIndicator();
+            this.pushMessage('bot', text);
+            this.renderAndSave();
+        }, delay);
     }
 
     renderAndSave() {
@@ -769,6 +902,8 @@ class StudioBot {
             demos: 'Casting & Demos',
             preise: 'Preise & Buyouts',
             technik: 'Technik-Setup',
+            rechte: 'Einsatz & Rechte',
+            rechte_beispiele: 'Einsatz-Beispiele',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner',
             ablauf: 'Ablauf der Zusammenarbeit'
@@ -969,6 +1104,7 @@ class StudioBot {
         clearLegacyState();
         this.state = getDefaultState();
         this.state.isOpen = true;
+        this.clearTypingState();
         this.ensureStartMessage();
         this.applyOpenState(true, true);
         this.renderAndSave();
@@ -1030,8 +1166,9 @@ class StudioBot {
     ensureStartMessage() {
         this.state.currentStepId = 'start';
         const startStep = this.logicTree.start;
-        if (startStep) {
-            this.pushMessage('bot', startStep.text);
+        if (startStep && !this.state.flags?.welcomed) {
+            this.state.flags = { ...this.state.flags, welcomed: true };
+            this.enqueueBotMessage(startStep.text);
         }
     }
 

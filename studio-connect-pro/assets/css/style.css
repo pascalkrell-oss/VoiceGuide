@@ -91,7 +91,7 @@ div[class*="gemerkte"],
     border: 1px solid var(--sc-border);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     opacity: 0;
     pointer-events: none;
     transform: translateY(12px);
@@ -179,6 +179,7 @@ div[class*="gemerkte"],
     flex-direction: column;
     background: #ffffff;
     min-height: 0;
+    overflow: hidden;
 }
 
 .studio-connect-chat-area {
@@ -244,6 +245,21 @@ div[class*="gemerkte"],
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+.studio-connect-bubble.is-revealing {
+    animation: sc-bubble-in 0.25s ease;
+}
+
+@keyframes sc-bubble-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .studio-connect-bubble.bot {
     background: #e3f2fd;
     color: #2f2f2f;
@@ -295,6 +311,10 @@ div[class*="gemerkte"],
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .studio-connect-option-btn:hover {
@@ -384,6 +404,10 @@ div[class*="gemerkte"],
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .studio-connect-calculator-btn:hover {
@@ -408,9 +432,12 @@ div[class*="gemerkte"],
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     box-shadow: 0 10px 20px rgba(26, 40, 70, 0.08);
+    text-align: center;
+    position: relative;
 }
 
 .studio-connect-copy i {
@@ -431,6 +458,29 @@ div[class*="gemerkte"],
 .studio-connect-copy:hover {
     transform: translateY(-1px);
     box-shadow: 0 18px 26px rgba(26, 40, 70, 0.16);
+}
+
+.sc-contact-btn {
+    width: 100%;
+    padding-left: 44px;
+    padding-right: 44px;
+}
+
+.sc-contact-btn i {
+    position: absolute;
+    left: 16px;
+    width: 18px;
+    text-align: center;
+}
+
+.sc-contact-btn span {
+    flex: 1;
+    text-align: center;
+}
+
+.sc-contact-btn:hover {
+    transform: none;
+    box-shadow: 0 10px 20px rgba(26, 40, 70, 0.08);
 }
 
 .studio-connect-copy.inline {
@@ -461,6 +511,49 @@ div[class*="gemerkte"],
     animation: sc-typing 1s ease-in-out infinite;
 }
 
+.studio-connect-bubble.is-typing {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    padding: 10px 14px;
+}
+
+.studio-connect-typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.studio-connect-typing-dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #7b7e87;
+    animation: sc-typing-bounce 1.1s infinite ease-in-out;
+}
+
+.studio-connect-typing-dots span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.studio-connect-typing-dots span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes sc-typing-bounce {
+    0%,
+    80%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
 @keyframes sc-typing {
     0%,
     100% {
@@ -481,6 +574,9 @@ div[class*="gemerkte"],
     align-items: center;
     justify-content: space-between;
     min-height: 54px;
+    position: relative;
+    overflow: visible;
+    z-index: 3;
 }
 
 .studio-connect-home {
@@ -493,11 +589,13 @@ div[class*="gemerkte"],
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     position: relative;
     pointer-events: auto;
     z-index: 9999;
+    text-align: center;
 }
 
 .studio-connect-home:hover {
@@ -519,6 +617,7 @@ div[class*="gemerkte"],
     pointer-events: none;
     white-space: nowrap;
     transition: opacity 0.2s ease;
+    z-index: 10000;
 }
 
 .studio-connect-home:hover .studio-connect-home-tooltip {
