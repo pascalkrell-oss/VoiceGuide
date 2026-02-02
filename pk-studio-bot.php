@@ -2,7 +2,7 @@
 /**
  * Plugin Name: StudioConnect Pro
  * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
- * Version: 6.0.0
+ * Version: 7.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -639,6 +639,8 @@ div[class*="gemerkte"],
     gap: 6px;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     position: relative;
+    pointer-events: auto;
+    z-index: 9999;
 }
 
 .studio-connect-home:hover {
@@ -847,12 +849,7 @@ class StudioBot {
                 return {
                     id: 'kontakt',
                     text: 'Wie möchtest Du mich kontaktieren?',
-                    options: [
-                        { label: 'Anruf', action: 'phone' },
-                        { label: 'WhatsApp', action: 'whatsapp' },
-                        { label: 'Mail', action: 'email' },
-                        { label: '📝 Formular', action: 'form' }
-                    ]
+                    options: []
                 };
             default:
                 return {
@@ -1089,38 +1086,33 @@ class StudioBot {
         formBtn.textContent = '📝 Formular';
         copyRow.appendChild(formBtn);
 
+        const emailBtn = document.createElement('button');
+        emailBtn.type = 'button';
+        emailBtn.className = 'studio-connect-copy';
+        emailBtn.textContent = 'E-Mail kopieren';
         if (this.settings.email) {
-            const emailBtn = document.createElement('button');
-            emailBtn.type = 'button';
-            emailBtn.className = 'studio-connect-copy';
             emailBtn.dataset.copy = this.settings.email;
-            emailBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> ' + this.settings.email;
-            copyRow.appendChild(emailBtn);
+        } else {
+            emailBtn.disabled = true;
         }
+        copyRow.appendChild(emailBtn);
 
+        const phoneBtn = document.createElement('button');
+        phoneBtn.type = 'button';
+        phoneBtn.className = 'studio-connect-copy';
+        phoneBtn.textContent = 'Telefon kopieren';
         if (this.settings.phone) {
-            const phoneBtn = document.createElement('button');
-            phoneBtn.type = 'button';
-            phoneBtn.className = 'studio-connect-copy';
             phoneBtn.dataset.copy = this.settings.phone;
-            phoneBtn.innerHTML = '<i class="fa-solid fa-phone"></i> ' + this.settings.phone;
-            copyRow.appendChild(phoneBtn);
+        } else {
+            phoneBtn.disabled = true;
         }
-
-        if (this.settings.whatsapp) {
-            const whatsappBtn = document.createElement('button');
-            whatsappBtn.type = 'button';
-            whatsappBtn.className = 'studio-connect-copy';
-            whatsappBtn.dataset.copy = this.settings.whatsapp;
-            whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> ' + this.settings.whatsapp;
-            copyRow.appendChild(whatsappBtn);
-        }
+        copyRow.appendChild(phoneBtn);
 
         bubble.appendChild(copyRow);
 
-        if (!this.settings.email && !this.settings.phone && !this.settings.whatsapp) {
+        if (!this.settings.email && !this.settings.phone) {
             const fallback = document.createElement('div');
-            fallback.textContent = 'Bitte E-Mail, Telefon und WhatsApp im Backend hinterlegen.';
+            fallback.textContent = 'Bitte E-Mail und Telefon im Backend hinterlegen.';
             bubble.appendChild(fallback);
         }
 
@@ -1492,15 +1484,27 @@ class SoundController {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    let studioConnectBot = null;
+    const startChat = () => {
+        if (studioConnectBot) {
+            studioConnectBot.refreshDomReferences();
+            studioConnectBot.resetConversation();
+            return;
+        }
+        studioConnectBot = new StudioBot(window.StudioConnectSettings || {});
+    };
     const resetButton = document.getElementById('sc-reset');
     if (resetButton) {
-        resetButton.addEventListener('click', () => {
+        resetButton.addEventListener('click', function (e) {
+            e.preventDefault();
             sessionStorage.removeItem('sc_chat_state');
-            location.reload();
+            document.getElementById('sc-body').innerHTML = '';
+            document.getElementById('sc-dock').innerHTML = '';
+            startChat();
         });
     }
     if (document.getElementById('studio-connect-widget')) {
-        new StudioBot(window.StudioConnectSettings || {});
+        startChat();
     }
 });
 JS;
