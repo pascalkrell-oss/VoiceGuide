@@ -179,6 +179,14 @@ class StudioBot {
             });
         }
 
+        if (this.homeButton) {
+            this.homeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.resetConversation();
+                this.applyOpenState(true, true);
+            });
+        }
+
         if (this.options) {
             this.options.addEventListener('click', (event) => {
                 const button = event.target.closest('.studio-connect-option-btn');
@@ -673,6 +681,7 @@ class StudioBot {
         this.wordsInput.value = '';
         this.clearState();
         this.renderStep('start');
+        this.persistState();
     }
 
     refreshDomReferences() {
@@ -806,21 +815,6 @@ class SoundController {
         audio.play().catch(() => {});
     }
 }
-
-document.addEventListener('click', (event) => {
-    const resetTarget = event.target.closest('#sc-reset');
-    if (!resetTarget) {
-        return;
-    }
-    event.preventDefault();
-    try {
-        sessionStorage.removeItem('studio_connect_state');
-        sessionStorage.removeItem('sc_chat_state');
-    } catch (error) {
-        // Ignorieren.
-    }
-    window.location.href = `${window.location.pathname}?reset-chat=1`;
-});
 
 document.addEventListener('DOMContentLoaded', () => {
     let studioConnectBot = null;
