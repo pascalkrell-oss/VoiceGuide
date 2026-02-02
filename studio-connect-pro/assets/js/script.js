@@ -32,7 +32,6 @@ class StudioBot {
         this.restoreState();
         this.refreshDomReferences();
         this.bindEvents();
-        this.rebindOptionButtons();
         if (!this.restoredFromSession) {
             this.renderStep('start');
         }
@@ -71,13 +70,13 @@ class StudioBot {
                     id: 'demos',
                     text: 'Welche Kategorie interessiert Dich?',
                     options: [
-                        { label: 'Werbung', action: 'hardlink', target: navLinks.werbung || '/sprecher-audio-leistungen/werbesprecher/' },
-                        { label: 'Webvideo', action: 'hardlink', target: navLinks.webvideo || '/sprecher-audio-leistungen/voiceover-social-media/' },
-                        { label: 'Telefonansage', action: 'hardlink', target: navLinks.telefonansage || '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
-                        { label: 'Podcast', action: 'hardlink', target: navLinks.podcast || '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
-                        { label: 'Imagefilm', action: 'hardlink', target: navLinks.imagefilm || '/sprecher-audio-leistungen/imagefilm-sprecher/' },
-                        { label: 'Erklärvideo', action: 'hardlink', target: navLinks.erklaervideo || '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
-                        { label: 'E-Learning', action: 'hardlink', target: navLinks.elearning || '/sprecher-audio-leistungen/e-learning-sprecher/' }
+                        { label: 'Werbung', action: 'hardlink', target: navLinks.werbung },
+                        { label: 'Webvideo', action: 'hardlink', target: navLinks.webvideo },
+                        { label: 'Telefonansage', action: 'hardlink', target: navLinks.telefonansage },
+                        { label: 'Podcast', action: 'hardlink', target: navLinks.podcast },
+                        { label: 'Imagefilm', action: 'hardlink', target: navLinks.imagefilm },
+                        { label: 'Erklärvideo', action: 'hardlink', target: navLinks.erklaervideo },
+                        { label: 'E-Learning', action: 'hardlink', target: navLinks.elearning }
                     ]
                 };
             case 'preise':
@@ -173,6 +172,23 @@ class StudioBot {
             });
         }
 
+        if (this.options) {
+            this.options.addEventListener('click', (event) => {
+                const button = event.target.closest('.studio-connect-option-btn');
+                if (!button) {
+                    return;
+                }
+                const option = {
+                    label: button.dataset.label || button.textContent,
+                    userLabel: button.dataset.userLabel || undefined,
+                    nextId: button.dataset.nextId || undefined,
+                    action: button.dataset.action || undefined,
+                    target: button.dataset.target || undefined
+                };
+                this.handleOption(option);
+            });
+        }
+
         if (this.messages) {
             this.messages.addEventListener('click', (event) => {
                 const target = event.target.closest('[data-copy]');
@@ -196,6 +212,12 @@ class StudioBot {
                 this.handleUtilityAction('copy', value);
             });
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && this.isOpen) {
+                this.closePanel();
+            }
+        });
 
         window.addEventListener('beforeunload', () => this.persistState());
         document.addEventListener('visibilitychange', () => {
@@ -317,9 +339,15 @@ class StudioBot {
     }
 
     updateCalculator() {
+        const maxWords = 10000;
         const words = Number.parseFloat(this.wordsInput.value);
         if (Number.isNaN(words) || words <= 0) {
-            this.result.textContent = '';
+            this.result.textContent = 'Bitte gib eine sinnvolle Wortanzahl ein.';
+            return;
+        }
+        if (words > maxWords) {
+            this.wordsInput.value = maxWords;
+            this.result.textContent = 'Maximal 10.000 Wörter erlaubt.';
             return;
         }
 
@@ -434,6 +462,12 @@ class StudioBot {
     openPanel() {
         this.applyOpenState(true);
         this.persistState();
+        window.setTimeout(() => {
+            const firstButton = this.panel ? this.panel.querySelector('button') : null;
+            if (firstButton) {
+                firstButton.focus();
+            }
+        }, 0);
     }
 
     closePanel() {
@@ -526,7 +560,6 @@ class StudioBot {
         button.type = 'button';
         button.className = 'studio-connect-option-btn';
         button.textContent = option.label;
-        button.addEventListener('click', () => this.handleOption(option));
         button.dataset.label = option.label;
         if (option.userLabel) {
             button.dataset.userLabel = option.userLabel;
@@ -636,23 +669,6 @@ class StudioBot {
         this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
         this.body = document.getElementById('sc-body');
         this.dock = document.getElementById('sc-dock');
-    }
-
-    rebindOptionButtons() {
-        if (!this.options) {
-            return;
-        }
-        const buttons = this.options.querySelectorAll('.studio-connect-option-btn');
-        buttons.forEach((button) => {
-            const option = {
-                label: button.dataset.label || button.textContent,
-                userLabel: button.dataset.userLabel || undefined,
-                nextId: button.dataset.nextId || undefined,
-                action: button.dataset.action || undefined,
-                target: button.dataset.target || undefined
-            };
-            button.addEventListener('click', () => this.handleOption(option));
-        });
     }
 
     applyOpenState(isOpen, silent = false) {
