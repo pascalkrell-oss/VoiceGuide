@@ -108,6 +108,15 @@ function scp_enqueue_assets(): void
         'phone' => get_option('studio_connect_contact_phone', ''),
         'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
         'avatar_url' => SCP_AVATAR_URL,
+        'nav_links' => [
+            'werbung' => home_url('/sprecher-audio-leistungen/werbesprecher/'),
+            'webvideo' => home_url('/sprecher-audio-leistungen/voiceover-social-media/'),
+            'telefonansage' => home_url('/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/'),
+            'podcast' => home_url('/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/'),
+            'imagefilm' => home_url('/sprecher-audio-leistungen/imagefilm-sprecher/'),
+            'erklaervideo' => home_url('/sprecher-audio-leistungen/erklaervideo-sprecher/'),
+            'elearning' => home_url('/sprecher-audio-leistungen/e-learning-sprecher/'),
+        ],
     ];
 
     wp_register_style(
@@ -149,7 +158,7 @@ function scp_render_widget(): void
                 <i class="fa-solid fa-question"></i>
             </span>
         </button>
-        <div class="studio-connect-panel" id="sc-container" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
+        <div class="studio-connect-panel" id="sc-container" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true" tabindex="-1">
             <div class="studio-connect-header">
                 <div class="studio-connect-header-icon" aria-hidden="true">
                     <i class="fa-solid fa-life-ring"></i>
