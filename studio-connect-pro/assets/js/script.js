@@ -7,7 +7,10 @@ const getDefaultState = () => ({
     isOpen: false,
     currentStepId: 'start',
     history: [],
-    context: {}
+    navStack: [],
+    context: {
+        wordCount: 0
+    }
 });
 
 const normalizeState = (state) => {
@@ -18,7 +21,11 @@ const normalizeState = (state) => {
         isOpen: Boolean(state.isOpen),
         currentStepId: typeof state.currentStepId === 'string' ? state.currentStepId : 'start',
         history: Array.isArray(state.history) ? state.history : [],
-        context: state.context && typeof state.context === 'object' ? state.context : {}
+        navStack: Array.isArray(state.navStack) ? state.navStack : [],
+        context: {
+            ...(state.context && typeof state.context === 'object' ? state.context : {}),
+            wordCount: typeof state.context?.wordCount === 'number' ? state.context.wordCount : 0
+        }
     };
 };
 
@@ -126,56 +133,60 @@ const renderContactCard = (state, sc_vars, helpers) => {
 
     const formBtn = document.createElement('button');
     formBtn.type = 'button';
-    formBtn.className = 'studio-connect-copy';
-    formBtn.textContent = '📝 Formular';
+    formBtn.className = 'studio-connect-copy is-primary';
+    formBtn.innerHTML = '<i class="fa-solid fa-file-pen" aria-hidden="true"></i><span>Formular</span>';
     formBtn.addEventListener('click', () => {
         helpers.registerInteraction();
         window.location.href = '/kontakt/';
     });
     actions.appendChild(formBtn);
 
+    let hasCopyAction = false;
     if (sc_vars.email) {
         const emailBtn = document.createElement('button');
         emailBtn.type = 'button';
-        emailBtn.className = 'studio-connect-copy';
-        emailBtn.textContent = 'E-Mail kopieren';
+        emailBtn.className = 'studio-connect-copy is-copy';
+        emailBtn.innerHTML = '<i class="fa-solid fa-envelope" aria-hidden="true"></i><span>E-Mail</span>';
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.email, 'Kopiert');
+            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
         });
         actions.appendChild(emailBtn);
+        hasCopyAction = true;
     }
 
     if (sc_vars.phone) {
         const phoneBtn = document.createElement('button');
         phoneBtn.type = 'button';
-        phoneBtn.className = 'studio-connect-copy';
-        phoneBtn.textContent = 'Telefon kopieren';
+        phoneBtn.className = 'studio-connect-copy is-copy';
+        phoneBtn.innerHTML = '<i class="fa-solid fa-phone" aria-hidden="true"></i><span>Telefon</span>';
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.phone, 'Kopiert');
+            helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert');
         });
         actions.appendChild(phoneBtn);
+        hasCopyAction = true;
     }
 
     if (sc_vars.whatsapp) {
         const whatsappBtn = document.createElement('button');
         whatsappBtn.type = 'button';
-        whatsappBtn.className = 'studio-connect-copy';
-        whatsappBtn.textContent = 'WhatsApp öffnen';
+        whatsappBtn.className = 'studio-connect-copy is-copy';
+        whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp</span>';
         whatsappBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             const digits = sc_vars.whatsapp.replace(/\D/g, '');
             if (digits) {
                 const popup = window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
                 if (!popup) {
-                    helpers.copyToClipboard(sc_vars.whatsapp, 'Nummer kopiert');
+                    helpers.copyToClipboard(sc_vars.whatsapp, 'WhatsApp-Nummer kopiert');
                 }
             } else {
-                helpers.copyToClipboard(sc_vars.whatsapp, 'Nummer kopiert');
+                helpers.copyToClipboard(sc_vars.whatsapp, 'WhatsApp-Nummer kopiert');
             }
         });
         actions.appendChild(whatsappBtn);
+        hasCopyAction = true;
     }
 
     if (!sc_vars.email && !sc_vars.phone && !sc_vars.whatsapp) {
@@ -185,6 +196,12 @@ const renderContactCard = (state, sc_vars, helpers) => {
     }
 
     wrapper.appendChild(actions);
+    if (hasCopyAction) {
+        const hint = document.createElement('div');
+        hint.className = 'studio-connect-copy-hint';
+        hint.textContent = 'Tippe, um die Daten zu kopieren.';
+        wrapper.appendChild(hint);
+    }
     return wrapper;
 };
 
@@ -208,7 +225,7 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
     cta.type = 'button';
     cta.id = 'studio-connect-calculator-cta';
     cta.className = 'studio-connect-option-btn';
-    cta.textContent = 'Angebot dafür anfragen';
+    cta.textContent = 'Angebot anfragen';
 
     const updateOutput = (value) => {
         const clamped = Math.min(10000, Math.max(0, value));
@@ -220,12 +237,44 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
     input.value = currentValue;
     updateOutput(currentValue);
 
+    let debounceTimer = null;
+    const scheduleSave = (value) => {
+        if (debounceTimer) {
+            window.clearTimeout(debounceTimer);
+        }
+        debounceTimer = window.setTimeout(() => {
+            onStatePatch({ context: { ...state.context, wordCount: value } }, { silent: true });
+        }, 300);
+    };
+
+    const commitValue = (value, { clampInput } = { clampInput: false }) => {
+        const clamped = Math.min(10000, Math.max(0, value));
+        if (clampInput) {
+            input.value = clamped;
+        }
+        updateOutput(clamped);
+        onStatePatch({ context: { ...state.context, wordCount: clamped } }, { silent: true });
+    };
+
     input.addEventListener('input', () => {
         helpers.registerInteraction();
         const rawValue = Number.parseInt(input.value, 10);
-        const clamped = updateOutput(Number.isNaN(rawValue) ? 0 : rawValue);
-        input.value = clamped;
-        onStatePatch({ context: { ...state.context, wordCount: clamped } });
+        const safeValue = Number.isNaN(rawValue) ? 0 : rawValue;
+        updateOutput(safeValue);
+        scheduleSave(safeValue);
+    });
+
+    input.addEventListener('blur', () => {
+        const rawValue = Number.parseInt(input.value, 10);
+        const safeValue = Number.isNaN(rawValue) ? 0 : rawValue;
+        commitValue(safeValue, { clampInput: true });
+    });
+
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            input.blur();
+        }
     });
 
     cta.addEventListener('click', () => {
@@ -311,88 +360,83 @@ class StudioBot {
             case 'start':
                 return {
                     id: 'start',
-                    text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
+                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für dein Projekt. Womit darf ich dir helfen?',
                     options: [
-                        { label: '🎧 Casting & Demos', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
-                        { label: 'Technik Check', nextId: 'technik' },
-                        { label: '🔄 Ablauf einer Buchung', nextId: 'ablauf' },
-                        { label: 'Kontakt', nextId: 'kontakt' }
+                        { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
+                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
+                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
+                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
             case 'demos':
                 const navLinks = this.settings.nav_links || {};
                 return {
                     id: 'demos',
-                    text: 'Welche Kategorie interessiert Dich?',
+                    text: 'Gerne! Welche Demo-Kategorie möchtest du hören? Ich schicke dir sofort die passenden Hörproben.',
                     options: [
-                        { label: 'Werbung', action: 'hardlink', target: navLinks.werbung },
-                        { label: 'Webvideo', action: 'hardlink', target: navLinks.webvideo },
-                        { label: 'Telefonansage', action: 'hardlink', target: navLinks.telefonansage },
-                        { label: 'Podcast', action: 'hardlink', target: navLinks.podcast },
-                        { label: 'Imagefilm', action: 'hardlink', target: navLinks.imagefilm },
-                        { label: 'Erklärvideo', action: 'hardlink', target: navLinks.erklaervideo },
-                        { label: 'E-Learning', action: 'hardlink', target: navLinks.elearning }
+                        { label: 'Werbung', userPromptText: 'Ich möchte Werbung-Demos hören.', action: 'hardlink', target: navLinks.werbung },
+                        { label: 'Webvideo', userPromptText: 'Gibt es Webvideo-Demos?', action: 'hardlink', target: navLinks.webvideo },
+                        { label: 'Telefonansage', userPromptText: 'Hast du Telefonansagen als Demo?', action: 'hardlink', target: navLinks.telefonansage },
+                        { label: 'Podcast', userPromptText: 'Kann ich Podcast-Demos hören?', action: 'hardlink', target: navLinks.podcast },
+                        { label: 'Imagefilm', userPromptText: 'Ich suche Imagefilm-Demos.', action: 'hardlink', target: navLinks.imagefilm },
+                        { label: 'Erklärvideo', userPromptText: 'Gibt es Erklärvideo-Demos?', action: 'hardlink', target: navLinks.erklaervideo },
+                        { label: 'E-Learning', userPromptText: 'Kann ich E-Learning-Demos hören?', action: 'hardlink', target: navLinks.elearning }
                     ]
                 };
             case 'preise':
                 return {
                     id: 'preise',
-                    text: 'Ich arbeite transparent nach Industriestandard (VDS). Für genaue Kalkulationen nutze bitte mein Online-Tool.',
+                    text: 'Ich arbeite transparent nach VDS-Standards. Du bekommst klare Buyouts, saubere Deliverables und verlässliche Timing-Zusagen. Womit soll ich starten?',
                     options: [
-                        { label: '📄 VDS Gagenliste', action: 'vdslink' },
-                        { label: '🧮 Zum Gagenrechner', action: 'gagenrechner' },
-                        { label: 'Wort-Rechner', nextId: 'rechner' },
-                        { label: '💬 Direkt anfragen', nextId: 'kontakt' }
+                        { label: 'VDS-Gagenliste', userPromptText: 'Kannst du mir die VDS-Gagenliste zeigen?', action: 'vdslink' },
+                        { label: 'Gagenrechner', userPromptText: 'Kannst du den Gagenrechner öffnen?', action: 'gagenrechner' },
+                        { label: 'Wort-Rechner', userPromptText: 'Wie lange dauert mein Text ungefähr?', nextId: 'rechner' },
+                        { label: 'Direkt anfragen', userPromptText: 'Ich möchte direkt anfragen.', nextId: 'kontakt' }
                     ]
                 };
             case 'technik':
                 return {
                     id: 'technik',
-                    text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & High-End Akustikkabine. DAW: Logic Pro X auf Mac Studio.',
+                    text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & akustisch optimierte Studioumgebung. DAW: Logic Pro X auf Mac Studio.\n\nGeräuscharmes Recording, sauberer Noise Floor und Lieferung als WAV/MP3 – inklusive klarer Dateibenennung und kurzen Abstimmungswegen.',
                     options: [
-                        { label: 'SessionLinkPRO', action: 'form' },
-                        { label: 'SourceConnect Now', action: 'form' },
-                        { label: 'Test-File anfordern', action: 'form' },
-                        { label: 'Kontakt', nextId: 'kontakt' },
-                        { label: 'Zurück', nextId: 'start' }
+                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
             case 'ablauf':
                 return {
                     id: 'ablauf',
-                    text: 'So läuft eine Buchung bei mir ab:\n\n1. Anfrage & Skript-Check\n2. Angebot & Bestätigung\n3. Aufnahme (meist innerhalb 24h)\n4. Datenlieferung & Abnahme\n5. Rechnung & Nutzungslizenz\n\nTimeline: Vom Erstkontakt bis zur Lieferung meist in 24–48 Stunden (Express möglich).',
+                    text: 'So läuft die Zusammenarbeit ab:\n\n1. Anfrage & kurzer Skript-Check (Timing, Aussprache, Stil)\n2. Angebot mit klaren Nutzungsrechten & Timing\n3. Aufnahme – meist innerhalb 24h\n4. Lieferung als WAV/MP3 inkl. sauberer Dateibenennung\n5. Feedbackrunde mit klar geregelten Revisionen\n\nMicro-Tipp: Kurze Sätze und klare Betonungen helfen für einen natürlichen Flow.',
                     options: [
-                        { label: '⚡ Jetzt Projekt anfragen', action: 'form' },
-                        { label: 'Zurück', nextId: 'start' }
+                        { label: 'Projekt anfragen', userPromptText: 'Ich möchte ein Projekt anfragen.', action: 'form' }
                     ]
                 };
             case 'rechner':
                 return {
                     id: 'rechner',
-                    text: 'Wort-Rechner aktiviert. Gib die Wortanzahl ein.',
+                    text: 'Gib die Wortanzahl ein – ich rechne live die ungefähre Dauer (mm:ss) bei moderatem Tempo.',
                     action: 'calculator',
                     options: [
-                        { label: 'Kontakt', nextId: 'kontakt' },
-                        { label: 'Zurück', nextId: 'start' }
+                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
             case 'kontakt':
                 return {
                     id: 'kontakt',
-                    text: 'Wie möchtest Du mich kontaktieren?',
+                    text: 'Du erreichst Pascal am schnellsten so – mein winkendes Mikrofon zeigt dir den kürzesten Weg.',
                     options: []
                 };
             default:
                 return {
                     id: 'start',
-                    text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
+                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für dein Projekt. Womit darf ich dir helfen?',
                     options: [
-                        { label: '🎧 Casting & Demos', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
-                        { label: 'Technik Check', nextId: 'technik' },
-                        { label: '🔄 Ablauf einer Buchung', nextId: 'ablauf' },
-                        { label: 'Kontakt', nextId: 'kontakt' }
+                        { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
+                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
+                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
+                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
                     ]
                 };
         }
@@ -423,6 +467,7 @@ class StudioBot {
                 this.resetConversation();
                 this.applyOpenState(true, true);
             });
+            this.setupHomeButtonHover();
         }
 
         if (this.messages) {
@@ -487,6 +532,11 @@ class StudioBot {
 
         this.dock.innerHTML = '';
         const step = this.logicTree[this.state.currentStepId];
+        const shouldShowBack = step && step.id !== 'start';
+        if (shouldShowBack) {
+            const backButton = this.createBackButton();
+            this.dock.appendChild(backButton);
+        }
 
         if (step && step.id === 'kontakt') {
             const card = renderContactCard(this.state, this.settings, {
@@ -497,21 +547,32 @@ class StudioBot {
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
-                (patch) => this.patchState(patch),
+                (patch, options) => this.patchState(patch, options),
                 { registerInteraction: this.registerInteraction.bind(this) }
             );
             this.dock.appendChild(calculator);
-
-            const backOption = (step.options || []).find((option) => option.nextId === 'start');
-            if (backOption) {
-                const backBtn = document.createElement('button');
-                backBtn.type = 'button';
-                backBtn.className = 'studio-connect-option-btn';
-                backBtn.textContent = backOption.label;
-                backBtn.dataset.label = backOption.label;
-                backBtn.dataset.nextId = backOption.nextId;
-                backBtn.addEventListener('click', () => this.handleOption(backOption));
-                this.dock.appendChild(backBtn);
+            if (step.options && step.options.length) {
+                const optionsContainer = document.createElement('div');
+                optionsContainer.id = 'studio-connect-options';
+                optionsContainer.className = 'studio-connect-options';
+                optionsContainer.addEventListener('click', (event) => {
+                    const button = event.target.closest('.studio-connect-option-btn');
+                    if (!button) {
+                        return;
+                    }
+                    const option = {
+                        label: button.dataset.label || button.textContent,
+                        userLabel: button.dataset.userLabel || undefined,
+                        userPromptText: button.dataset.userPromptText || undefined,
+                        nextId: button.dataset.nextId || undefined,
+                        action: button.dataset.action || undefined,
+                        target: button.dataset.target || undefined
+                    };
+                    this.handleOption(option);
+                });
+                this.dock.appendChild(optionsContainer);
+                this.options = optionsContainer;
+                step.options.forEach((option) => this.appendOption(option));
             }
         } else if (step) {
             const optionsContainer = document.createElement('div');
@@ -525,6 +586,7 @@ class StudioBot {
                 const option = {
                     label: button.dataset.label || button.textContent,
                     userLabel: button.dataset.userLabel || undefined,
+                    userPromptText: button.dataset.userPromptText || undefined,
                     nextId: button.dataset.nextId || undefined,
                     action: button.dataset.action || undefined,
                     target: button.dataset.target || undefined
@@ -539,19 +601,21 @@ class StudioBot {
         this.scrollToBottom();
     }
 
-    patchState(patch) {
+    patchState(patch, options = {}) {
         this.state = {
             ...this.state,
             ...patch
         };
         saveState(this.state);
-        this.renderApp();
+        if (!options.silent) {
+            this.renderApp();
+        }
     }
 
     handleOption(option) {
         this.registerInteraction();
         this.soundEngine.play('click');
-        const label = option.userLabel || option.label;
+        const label = option.userPromptText || option.userLabel || option.label;
         this.pushMessage('user', label);
 
         if (option.action === 'anchor' && option.target) {
@@ -574,18 +638,47 @@ class StudioBot {
         }
 
         if (option.action) {
-            this.transitionToStep(this.state.currentStepId, true);
+            this.transitionToStep(this.state.currentStepId, { repeatCurrent: true });
         }
     }
 
-    transitionToStep(stepId, repeatCurrent = false) {
+    transitionToStep(stepId, options = {}) {
+        const { repeatCurrent = false, skipStack = false } = options;
         const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
         if (!nextStep) {
             return;
         }
+        if (!repeatCurrent && !skipStack && nextStep.id !== this.state.currentStepId) {
+            this.state.navStack = [...this.state.navStack, this.state.currentStepId];
+        }
         this.state.currentStepId = nextStep.id;
         this.pushMessage('bot', nextStep.text);
         this.renderAndSave();
+    }
+
+    createBackButton() {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'studio-connect-option-btn studio-connect-back-btn';
+        button.textContent = 'Zurück';
+        button.addEventListener('click', () => this.handleBack());
+        return button;
+    }
+
+    handleBack() {
+        this.registerInteraction();
+        if (!this.state.navStack.length) {
+            this.transitionToStep('start', { skipStack: true });
+            return;
+        }
+        const nextStack = [...this.state.navStack];
+        const previousStep = nextStack.pop();
+        this.state.navStack = nextStack;
+        if (previousStep) {
+            this.transitionToStep(previousStep, { skipStack: true });
+        } else {
+            this.transitionToStep('start', { skipStack: true });
+        }
     }
 
     pushMessage(role, text) {
@@ -620,6 +713,47 @@ class StudioBot {
         return { row, bubble };
     }
 
+    setupHomeButtonHover() {
+        if (!this.homeButton) {
+            return;
+        }
+        const tooltip = this.homeButton.querySelector('.studio-connect-home-tooltip');
+        if (!tooltip) {
+            return;
+        }
+        const defaultLabel = tooltip.textContent.trim() || 'Neustart';
+        const hoverLabel = 'Zum Start zurück';
+        tooltip.dataset.defaultLabel = defaultLabel;
+        tooltip.dataset.hoverLabel = hoverLabel;
+        const maxWidth = Math.max(
+            this.measureButtonWidth(tooltip, defaultLabel),
+            this.measureButtonWidth(tooltip, hoverLabel)
+        );
+        if (Number.isFinite(maxWidth) && maxWidth > 0) {
+            tooltip.style.minWidth = `${Math.ceil(maxWidth)}px`;
+        }
+        this.homeButton.addEventListener('mouseenter', () => {
+            tooltip.textContent = hoverLabel;
+        });
+        this.homeButton.addEventListener('mouseleave', () => {
+            tooltip.textContent = defaultLabel;
+        });
+    }
+
+    measureButtonWidth(button, text) {
+        const clone = button.cloneNode(true);
+        clone.textContent = text;
+        clone.style.position = 'absolute';
+        clone.style.visibility = 'hidden';
+        clone.style.pointerEvents = 'none';
+        clone.style.left = '-9999px';
+        clone.style.top = '-9999px';
+        document.body.appendChild(clone);
+        const width = clone.getBoundingClientRect().width;
+        document.body.removeChild(clone);
+        return width;
+    }
+
     triggerAnchor(target) {
         const anchor = document.querySelector(`a[href*="${target}"]`);
         if (anchor) {
@@ -631,13 +765,13 @@ class StudioBot {
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Hilfe-System und Tipps',
+            start: 'Studio-Assistenz',
             demos: 'Casting & Demos',
-            preise: 'Preise & Gagen',
-            technik: 'Technik Check',
+            preise: 'Preise & Buyouts',
+            technik: 'Technik-Setup',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner',
-            ablauf: 'Ablauf einer Buchung'
+            ablauf: 'Ablauf der Zusammenarbeit'
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
@@ -740,6 +874,9 @@ class StudioBot {
         if (option.userLabel) {
             button.dataset.userLabel = option.userLabel;
         }
+        if (option.userPromptText) {
+            button.dataset.userPromptText = option.userPromptText;
+        }
         if (option.nextId) {
             button.dataset.nextId = option.nextId;
         }
@@ -758,7 +895,7 @@ class StudioBot {
                 window.location.href = `mailto:${this.settings.email}`;
                 return true;
             }
-            this.pushMessage('bot', 'Bitte eine E-Mail-Adresse im Backend hinterlegen.');
+            this.pushMessage('bot', 'Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie dir anbieten.');
             this.renderAndSave();
             return true;
         }
@@ -768,7 +905,7 @@ class StudioBot {
                 window.location.href = `tel:${this.settings.phone}`;
                 return true;
             }
-            this.pushMessage('bot', 'Bitte eine Telefonnummer im Backend hinterlegen.');
+            this.pushMessage('bot', 'Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich dich direkt weiter.');
             this.renderAndSave();
             return true;
         }
@@ -779,7 +916,7 @@ class StudioBot {
             if (digits) {
                 window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Bitte eine WhatsApp-Nummer im Backend hinterlegen.');
+                this.pushMessage('bot', 'Bitte im Backend eine WhatsApp-Nummer hinterlegen, dann öffne ich den Chat.');
                 this.renderAndSave();
             }
             return true;
@@ -789,7 +926,7 @@ class StudioBot {
             if (this.settings.vdsLink) {
                 window.open(this.settings.vdsLink, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.');
+                this.pushMessage('bot', 'Der VDS-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
                 this.renderAndSave();
             }
             return true;
@@ -799,7 +936,7 @@ class StudioBot {
             if (this.settings.gagenrechnerLink) {
                 window.open(this.settings.gagenrechnerLink, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Kein Gagenrechner-Link hinterlegt. Bitte im Backend ergänzen.');
+                this.pushMessage('bot', 'Der Gagenrechner-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
                 this.renderAndSave();
             }
             return true;
