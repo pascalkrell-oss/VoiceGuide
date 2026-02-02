@@ -28,8 +28,15 @@ class StudioBot {
         this.restoredFromSession = false;
         this.storageKey = 'sc_chat_state';
         this.skipTyping = false;
+        this.resetRequested = new URLSearchParams(window.location.search).has('reset-chat');
 
-        this.restoreState();
+        if (this.resetRequested) {
+            this.currentStep = 'start';
+            this.restoredFromSession = false;
+            this.clearState();
+        } else {
+            this.restoreState();
+        }
         this.refreshDomReferences();
         this.bindEvents();
         if (!this.restoredFromSession) {
@@ -807,11 +814,12 @@ document.addEventListener('click', (event) => {
     }
     event.preventDefault();
     try {
-        sessionStorage.clear();
+        sessionStorage.removeItem('studio_connect_state');
+        sessionStorage.removeItem('sc_chat_state');
     } catch (error) {
         // Ignorieren.
     }
-    window.location.reload();
+    window.location.href = `${window.location.pathname}?reset-chat=1`;
 });
 
 document.addEventListener('DOMContentLoaded', () => {
