@@ -300,6 +300,18 @@ div[class*="gemerkte"],
     background: #136db5;
 }
 
+.studio-connect-widget button:focus-visible,
+.studio-connect-widget [role="button"]:focus-visible,
+.studio-connect-launcher:focus-visible,
+.studio-connect-option-btn:focus-visible,
+.studio-connect-calculator-btn:focus-visible,
+.studio-connect-copy:focus-visible,
+.studio-connect-close:focus-visible {
+    outline: 3px solid rgba(26, 147, 238, 0.45);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(26, 147, 238, 0.2);
+}
+
 .studio-connect-calculator {
     display: none;
     border-radius: 14px;
@@ -333,10 +345,24 @@ div[class*="gemerkte"],
     color: #1c1e21;
 }
 
+#studio-connect-words.is-invalid {
+    border-color: #e04646;
+    background: #fff3f3;
+    box-shadow: 0 0 0 3px rgba(224, 70, 70, 0.2);
+}
+
 .studio-connect-result {
     font-size: 13px;
     color: #2f2f2f;
     min-height: 18px;
+}
+
+#studio-connect-result.is-success {
+    background: #e9f7ef;
+    border: 1px solid #cfe9d8;
+    color: #1f5d3a;
+    padding: 6px 10px;
+    border-radius: 10px;
 }
 
 .studio-connect-calculator-btn {

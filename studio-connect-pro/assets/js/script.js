@@ -246,6 +246,8 @@ class StudioBot {
         this.calculator.classList.remove('is-visible');
         this.calculator.setAttribute('aria-hidden', 'true');
         this.result.textContent = '';
+        this.result.classList.remove('is-success');
+        this.wordsInput.classList.remove('is-invalid');
         this.wordsInput.value = '';
 
         if (step.action === 'calculator') {
@@ -341,13 +343,17 @@ class StudioBot {
     updateCalculator() {
         const maxWords = 10000;
         const words = Number.parseFloat(this.wordsInput.value);
+        this.wordsInput.classList.remove('is-invalid');
+        this.result.classList.remove('is-success');
         if (Number.isNaN(words) || words <= 0) {
             this.result.textContent = 'Bitte gib eine sinnvolle Wortanzahl ein.';
+            this.wordsInput.classList.add('is-invalid');
             return;
         }
         if (words > maxWords) {
             this.wordsInput.value = maxWords;
             this.result.textContent = 'Maximal 10.000 Wörter erlaubt.';
+            this.wordsInput.classList.add('is-invalid');
             return;
         }
 
@@ -356,6 +362,7 @@ class StudioBot {
         const seconds = totalSeconds % 60;
         const paddedSeconds = String(seconds).padStart(2, '0');
         this.result.textContent = `⏱ Ca. ${minutes}:${paddedSeconds} Min bei moderatem Sprechtempo.`;
+        this.result.classList.add('is-success');
     }
 
     typeWriter(bubble, text) {
@@ -654,6 +661,8 @@ class StudioBot {
         this.calculator.classList.remove('is-visible');
         this.calculator.setAttribute('aria-hidden', 'true');
         this.result.textContent = '';
+        this.result.classList.remove('is-success');
+        this.wordsInput.classList.remove('is-invalid');
         this.wordsInput.value = '';
         this.clearState();
         this.renderStep('start');
