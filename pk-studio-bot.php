@@ -2,7 +2,7 @@
 /**
  * Plugin Name: StudioConnect Pro
  * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
- * Version: 4.0.0
+ * Version: 5.1.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -107,7 +107,7 @@ function studio_connect_enqueue_assets(): void
         'vdsLink' => 'https://www.sprecherverband.de/wp-content/uploads/2025/02/VDS_Gagenkompass_2025.pdf',
         'gagenrechnerLink' => 'https://dev.pascal-krell.de/gagenrechner/',
         'siteUrl' => home_url('/'),
-        'avatarUrl' => 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar.webp',
+        'avatarUrl' => 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar_Sprecher-Pascal-Krell.webp',
     ];
 
     wp_register_style(
@@ -148,7 +148,7 @@ function studio_connect_render_widget(): void
                 </div>
                 <div class="studio-connect-header-text">
                     <div class="studio-connect-title">Support Portal</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfen für die wichtigen Themen</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfe-System und Tipps</div>
                 </div>
                 <div class="studio-connect-header-actions">
                     <button class="studio-connect-close" id="studio-connect-close" type="button" aria-label="Chat schließen">
@@ -157,15 +157,15 @@ function studio_connect_render_widget(): void
                 </div>
             </div>
 
-            <div class="studio-connect-body">
+            <div class="studio-connect-body" id="sc-body">
                 <div class="studio-connect-chat-area" id="studio-connect-chat-area">
                     <div class="studio-connect-messages" id="studio-connect-messages"></div>
                 </div>
-                <div class="studio-connect-option-dock" id="studio-connect-option-dock">
+                <div class="studio-connect-option-dock" id="sc-dock">
                     <div class="studio-connect-options" id="studio-connect-options"></div>
                     <div class="studio-connect-calculator" id="studio-connect-calculator" aria-hidden="true">
                     <div class="studio-connect-result" id="studio-connect-result"></div>
-                    <div class="studio-connect-hint">Erhalte Infos zur Sprechzeit deines Skripts (Basis: 130 Wörter/Min).</div>
+                    <div class="studio-connect-hint">Erhalte Infos zur Sprechzeit Deines Skripts (Basis: 130 Wörter/Min).</div>
                     <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
                     <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
                         <button class="studio-connect-calculator-btn" id="studio-connect-calculator-cta" type="button">
@@ -176,6 +176,8 @@ function studio_connect_render_widget(): void
                 <div class="studio-connect-footer">
                     <button class="studio-connect-home" id="studio-connect-home" type="button" aria-label="Home / Neustart">
                         <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        <span class="studio-connect-home-tooltip" aria-hidden="true">Zurück zum Start</span>
+                        <span class="studio-connect-home-badge" aria-hidden="true"></span>
                     </button>
                     <div class="studio-connect-footer-socials">
                         <a class="studio-connect-social" href="https://www.tiktok.com/@sprecher_pascal" target="_blank" rel="noopener" aria-label="TikTok">
@@ -193,8 +195,8 @@ function studio_connect_render_widget(): void
                     </div>
                 </div>
             </div>
+            <div class="studio-connect-toast" id="studio-connect-toast" role="status" aria-live="polite"></div>
         </div>
-        <div class="studio-connect-toast" id="studio-connect-toast" role="status" aria-live="polite"></div>
     </div>
     <?php
 }
@@ -436,8 +438,8 @@ div[class*="gemerkte"],
 }
 
 .studio-connect-avatar {
-    width: 32px;
-    height: 32px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
     object-fit: cover;
     flex: 0 0 auto;
@@ -475,6 +477,9 @@ div[class*="gemerkte"],
     display: flex;
     flex-direction: column;
     gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 .studio-connect-options {
@@ -633,11 +638,42 @@ div[class*="gemerkte"],
     align-items: center;
     gap: 6px;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    position: relative;
 }
 
 .studio-connect-home:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: #2d3138;
+}
+
+.studio-connect-home-tooltip {
+    position: absolute;
+    bottom: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f242c;
+    color: #ffffff;
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+.studio-connect-home:hover .studio-connect-home-tooltip {
+    opacity: 1;
+}
+
+.studio-connect-home-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #1a93ee;
 }
 
 .studio-connect-footer-socials {
@@ -648,15 +684,17 @@ div[class*="gemerkte"],
 
 .studio-connect-toast {
     position: absolute;
-    right: 0;
-    bottom: 72px;
+    top: 90px;
+    left: 50%;
+    right: auto;
+    bottom: auto;
     background: #222222;
     color: #ffffff;
     padding: 8px 12px;
     border-radius: 12px;
     font-size: 12px;
     opacity: 0;
-    transform: translateY(6px);
+    transform: translate(-50%, -6px);
     transition: opacity 0.2s ease, transform 0.2s ease;
     pointer-events: none;
     z-index: 2147483647;
@@ -664,7 +702,7 @@ div[class*="gemerkte"],
 
 .studio-connect-toast.is-visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
 }
 
 @media (max-width: 480px) {
@@ -696,28 +734,30 @@ class StudioBot {
         this.widget = document.getElementById('studio-connect-widget');
         this.panel = document.querySelector('.studio-connect-panel');
         this.launcher = document.getElementById('studio-connect-launcher');
-        this.messages = document.getElementById('studio-connect-messages');
-        this.options = document.getElementById('studio-connect-options');
-        this.chatArea = document.getElementById('studio-connect-chat-area');
-        this.calculator = document.getElementById('studio-connect-calculator');
-        this.wordsInput = document.getElementById('studio-connect-words');
-        this.result = document.getElementById('studio-connect-result');
-        this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
+        this.body = document.getElementById('sc-body');
+        this.dock = document.getElementById('sc-dock');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
         this.homeButton = document.getElementById('studio-connect-home');
         this.closeButton = document.getElementById('studio-connect-close');
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
-        this.avatarUrl = this.settings.avatarUrl || 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar.webp';
+        this.avatarUrl = this.settings.avatarUrl || 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar_Sprecher-Pascal-Krell.webp';
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.currentStep = 'start';
+        this.restoredFromSession = false;
+        this.storageKey = 'studio_connect_state_v51';
 
+        this.restoreState();
+        this.refreshDomReferences();
         this.bindEvents();
-        this.renderStep('start');
+        this.rebindOptionButtons();
+        if (!this.restoredFromSession) {
+            this.renderStep('start');
+        }
         this.startPulseCycle();
     }
 
@@ -725,22 +765,23 @@ class StudioBot {
         return {
             start: {
                 id: 'start',
-                text: 'Moin! Ich bin dein Studio-Assistent. Womit starten wir?',
+                text: 'Moin! Ich bin Dein Studio-Assistent. Womit starten wir?',
                 options: [
                     { label: '🎧 Casting & Demos', nextId: 'demos' },
                     { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
                     { label: 'Technik Check', nextId: 'technik' },
-                    { label: 'Wort-Rechner', nextId: 'rechner' }
+                    { label: 'Wort-Rechner', nextId: 'rechner' },
+                    { label: '🔄 Ablauf einer Buchung', nextId: 'booking' }
                 ]
             },
             demos: {
                 id: 'demos',
-                text: 'Welche Kategorie interessiert dich?',
+                text: 'Welche Kategorie interessiert Dich?',
                 options: [
                     { label: 'Werbung', action: 'hardlink', target: '/sprecher-audio-leistungen/werbesprecher/' },
-                    { label: 'Webvideo & Social', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
+                    { label: 'Webvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
                     { label: 'Telefonansage', action: 'hardlink', target: '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
-                    { label: 'Podcast Service', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
+                    { label: 'Podcast', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
                     { label: 'Imagefilm', action: 'hardlink', target: '/sprecher-audio-leistungen/imagefilm-sprecher/' },
                     { label: 'Erklärvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
                     { label: 'E-Learning', action: 'hardlink', target: '/sprecher-audio-leistungen/e-learning-sprecher/' }
@@ -777,12 +818,20 @@ class StudioBot {
             },
             kontakt: {
                 id: 'kontakt',
-                text: 'Hier sind die Kontaktmöglichkeiten.',
+                text: 'Wie möchtest Du mich kontaktieren?',
                 options: [
                     { label: 'Anruf', action: 'phone' },
                     { label: 'WhatsApp', action: 'whatsapp' },
                     { label: 'Mail', action: 'email' },
                     { label: '📝 Formular', action: 'form' }
+                ]
+            },
+            booking: {
+                id: 'booking',
+                text: 'So einfach ist der Prozess bei mir:\n\n1. Anfrage & Skript-Check\n2. Angebot & Bestätigung\n3. Aufnahme (meist innerhalb 24h)\n4. Datenlieferung & Abnahme\n5. Rechnung & Nutzungslizenz',
+                options: [
+                    { label: '⚡ Jetzt Projekt anfragen', action: 'form' },
+                    { label: 'Zurück', nextId: 'start' }
                 ]
             }
         };
@@ -820,6 +869,15 @@ class StudioBot {
 
         this.messages.addEventListener('click', (event) => {
             const target = event.target.closest('[data-copy]');
+            const actionTarget = event.target.closest('[data-action]');
+            if (actionTarget) {
+                this.registerInteraction();
+                const action = actionTarget.dataset.action;
+                if (action) {
+                    this.handleContactAction(action);
+                }
+                return;
+            }
             if (!target) {
                 return;
             }
@@ -829,10 +887,17 @@ class StudioBot {
                 return;
             }
             navigator.clipboard.writeText(value).then(() => {
-                this.showToast('In Zwischenablage kopiert');
+                this.showToast('Kopiert');
             }).catch(() => {
-                this.showToast('In Zwischenablage kopiert');
+                this.showToast('Kopiert');
             });
+        });
+
+        window.addEventListener('beforeunload', () => this.persistState());
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.persistState();
+            }
         });
     }
 
@@ -863,6 +928,7 @@ class StudioBot {
         }
 
         step.options.forEach((option) => this.appendOption(option));
+        this.persistState();
     }
 
     async handleOption(option) {
@@ -907,6 +973,7 @@ class StudioBot {
             return this.typeWriter(bubble, text);
         }
         bubble.textContent = text;
+        this.persistState();
         return Promise.resolve();
     }
 
@@ -955,6 +1022,7 @@ class StudioBot {
     typeWriter(bubble, text) {
         if (bubble.dataset.typed === 'true') {
             bubble.innerHTML = this.createCopyMarkup(text);
+            this.persistState();
             return Promise.resolve();
         }
         this.isTyping = true;
@@ -977,6 +1045,7 @@ class StudioBot {
                     bubble.classList.remove('studio-connect-typing');
                     bubble.innerHTML = this.createCopyMarkup(text);
                     bubble.dataset.typed = 'true';
+                    this.persistState();
                     resolve();
                 }
             }, 15);
@@ -995,10 +1064,8 @@ class StudioBot {
         const formBtn = document.createElement('button');
         formBtn.type = 'button';
         formBtn.className = 'studio-connect-copy';
-        formBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 📝 Formular';
-        formBtn.addEventListener('click', () => {
-            this.handleContactAction('form');
-        });
+        formBtn.dataset.action = 'form';
+        formBtn.textContent = '📝 Formular';
         copyRow.appendChild(formBtn);
 
         if (this.settings.email) {
@@ -1040,16 +1107,18 @@ class StudioBot {
         this.messages.appendChild(messageRow);
         this.scrollToBottom();
         this.soundEngine.play('msg_in');
+        this.persistState();
     }
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Hilfen für die wichtigen Themen',
+            start: 'Hilfe-System und Tipps',
             demos: 'Casting & Demos',
             preise: 'Preise & Gagen',
             technik: 'Technik Check',
             kontakt: 'Kontakt',
-            rechner: 'Wort-Rechner'
+            rechner: 'Wort-Rechner',
+            booking: 'Ablauf einer Buchung'
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
@@ -1057,18 +1126,13 @@ class StudioBot {
     }
 
     openPanel() {
-        this.widget.classList.add('is-open');
-        this.panel.setAttribute('aria-hidden', 'false');
-        this.isOpen = true;
-        this.updateLauncherState();
-        this.soundEngine.play('open');
+        this.applyOpenState(true);
+        this.persistState();
     }
 
     closePanel() {
-        this.widget.classList.remove('is-open');
-        this.panel.setAttribute('aria-hidden', 'true');
-        this.isOpen = false;
-        this.updateLauncherState();
+        this.applyOpenState(false, true);
+        this.persistState();
     }
 
     showToast(message) {
@@ -1114,7 +1178,8 @@ class StudioBot {
         const escaped = this.escapeHtml(text);
         const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
         const phoneRegex = /(\+?\d[\d\s().-]{6,}\d)/g;
-        let withEmails = escaped.replace(emailRegex, (match) => {
+        let withEmails = escaped.replace(/\n/g, '<br>');
+        withEmails = withEmails.replace(emailRegex, (match) => {
             return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
         });
         withEmails = withEmails.replace(phoneRegex, (match) => {
@@ -1138,6 +1203,7 @@ class StudioBot {
         }
         this.options.innerHTML = '';
         this.options.classList.remove('is-disabled');
+        this.persistState();
     }
 
     ensureOptionsContainer() {
@@ -1155,6 +1221,19 @@ class StudioBot {
         button.className = 'studio-connect-option-btn';
         button.textContent = option.label;
         button.addEventListener('click', () => this.handleOption(option));
+        button.dataset.label = option.label;
+        if (option.userLabel) {
+            button.dataset.userLabel = option.userLabel;
+        }
+        if (option.nextId) {
+            button.dataset.nextId = option.nextId;
+        }
+        if (option.action) {
+            button.dataset.action = option.action;
+        }
+        if (option.target) {
+            button.dataset.target = option.target;
+        }
         this.options.appendChild(button);
     }
 
@@ -1237,7 +1316,100 @@ class StudioBot {
         this.calculator.setAttribute('aria-hidden', 'true');
         this.result.textContent = '';
         this.wordsInput.value = '';
+        this.clearState();
         this.renderStep('start');
+    }
+
+    refreshDomReferences() {
+        this.messages = document.getElementById('studio-connect-messages');
+        this.options = document.getElementById('studio-connect-options');
+        this.chatArea = document.getElementById('studio-connect-chat-area');
+        this.calculator = document.getElementById('studio-connect-calculator');
+        this.wordsInput = document.getElementById('studio-connect-words');
+        this.result = document.getElementById('studio-connect-result');
+        this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
+        this.body = document.getElementById('sc-body');
+        this.dock = document.getElementById('sc-dock');
+    }
+
+    rebindOptionButtons() {
+        if (!this.options) {
+            return;
+        }
+        const buttons = this.options.querySelectorAll('.studio-connect-option-btn');
+        buttons.forEach((button) => {
+            const option = {
+                label: button.dataset.label || button.textContent,
+                userLabel: button.dataset.userLabel || undefined,
+                nextId: button.dataset.nextId || undefined,
+                action: button.dataset.action || undefined,
+                target: button.dataset.target || undefined
+            };
+            button.addEventListener('click', () => this.handleOption(option));
+        });
+    }
+
+    applyOpenState(isOpen, silent = false) {
+        this.widget.classList.toggle('is-open', isOpen);
+        this.panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        this.isOpen = isOpen;
+        this.updateLauncherState();
+        if (!silent && isOpen) {
+            this.soundEngine.play('open');
+        }
+    }
+
+    persistState() {
+        if (!this.body || !this.dock || this.isTyping) {
+            return;
+        }
+        const state = {
+            bodyHtml: this.body.innerHTML,
+            dockHtml: this.dock.innerHTML,
+            isOpen: this.isOpen,
+            currentStep: this.currentStep
+        };
+        try {
+            sessionStorage.setItem(this.storageKey, JSON.stringify(state));
+        } catch (error) {
+            // Fallback: Kein Storage verfügbar.
+        }
+    }
+
+    restoreState() {
+        if (!this.body || !this.dock) {
+            return;
+        }
+        const rawState = sessionStorage.getItem(this.storageKey);
+        if (!rawState) {
+            return;
+        }
+        try {
+            const state = JSON.parse(rawState);
+            if (state.bodyHtml) {
+                this.body.innerHTML = state.bodyHtml;
+            }
+            if (state.dockHtml) {
+                const dock = this.body.querySelector('#sc-dock');
+                if (dock) {
+                    dock.innerHTML = state.dockHtml;
+                }
+            }
+            this.currentStep = state.currentStep || 'start';
+            this.applyOpenState(Boolean(state.isOpen), true);
+            this.updateHeaderSubtext(this.currentStep);
+            this.restoredFromSession = true;
+        } catch (error) {
+            this.clearState();
+        }
+    }
+
+    clearState() {
+        try {
+            sessionStorage.removeItem(this.storageKey);
+        } catch (error) {
+            // Ignorieren.
+        }
     }
 }
 
