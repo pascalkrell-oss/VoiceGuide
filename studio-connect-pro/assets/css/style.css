@@ -1,0 +1,513 @@
+:root {
+    --sc-primary: #1a93ee;
+    --sc-dark: #0f141a;
+    --sc-light: #ffffff;
+    --sc-text-main: #1c1e21;
+    --sc-text-sub: #1a93ee;
+    --sc-border: #eef0f5;
+    --sc-muted: #f2f2f5;
+    --sc-soft: #fcfcfd;
+    --sc-shadow: 0 25px 90px rgba(0, 0, 0, 0.2);
+}
+
+div[class*="gemerkte"],
+.saved-demos {
+    right: 100px !important;
+    bottom: 30px !important;
+}
+
+.studio-connect-widget {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.studio-connect-launcher {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 999999;
+    width: 60px;
+    height: 60px;
+    border-radius: 999px;
+    border: none;
+    background: var(--sc-primary);
+    color: #ffffff;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.studio-connect-launcher.is-pulsing {
+    animation: sc-pulse 1.6s ease-out;
+}
+
+.studio-connect-launcher-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.studio-connect-launcher-icon i {
+    transition: transform 0.2s ease;
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher {
+    background: var(--sc-dark);
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher-icon i {
+    transform: rotate(90deg);
+}
+
+@keyframes sc-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(26, 147, 238, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 14px rgba(26, 147, 238, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(26, 147, 238, 0);
+    }
+}
+
+.studio-connect-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 420px;
+    height: 720px;
+    max-height: 85vh;
+    z-index: 999998;
+    background: var(--sc-light);
+    border-radius: 18px;
+    box-shadow: var(--sc-shadow);
+    border: 1px solid var(--sc-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.studio-connect-widget.is-open .studio-connect-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.studio-connect-header {
+    height: 80px;
+    background: var(--sc-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 28px;
+    color: #ffffff;
+    flex: 0 0 auto;
+}
+
+.studio-connect-header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.studio-connect-header-text {
+    flex: 1;
+}
+
+.studio-connect-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.studio-connect-social {
+    color: #c7cdd8;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.studio-connect-social:hover {
+    color: #ffffff;
+}
+
+.studio-connect-close {
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.studio-connect-title {
+    font-weight: 700;
+    font-size: 18px;
+    color: #ffffff;
+}
+
+.studio-connect-subtitle {
+    font-size: 12px;
+    color: #8b9bb4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.studio-connect-body {
+    flex: 1 1 auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    min-height: 0;
+}
+
+.studio-connect-chat-area {
+    flex: 1 1 auto;
+    padding: 20px 20px 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.studio-connect-chat-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.studio-connect-chat-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.studio-connect-chat-area::-webkit-scrollbar-thumb {
+    background: #d2d2d7;
+    border-radius: 8px;
+}
+
+.studio-connect-chat-area {
+    scrollbar-color: #d2d2d7 transparent;
+    scrollbar-width: thin;
+}
+
+.studio-connect-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.studio-connect-message {
+    display: flex;
+}
+
+.studio-connect-message.bot {
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.studio-connect-message.user {
+    justify-content: flex-end;
+}
+
+.studio-connect-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+}
+
+.studio-connect-bubble {
+    max-width: 85%;
+    padding: 14px 18px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.studio-connect-bubble.bot {
+    background: #e3f2fd;
+    color: #2f2f2f;
+    border-radius: 18px 18px 18px 4px;
+    align-self: flex-start;
+}
+
+.studio-connect-bubble.user {
+    border: none;
+    color: #2f2f2f;
+    align-self: flex-end;
+    background: linear-gradient(135deg, #f3f4f6, #e7e9ee);
+    border-radius: 16px 16px 4px 16px;
+}
+
+.studio-connect-option-dock {
+    flex: 0 0 auto;
+    padding: 12px 20px 14px;
+    border-top: 1px solid var(--sc-border);
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+}
+
+.studio-connect-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.studio-connect-options.is-disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.studio-connect-option-btn {
+    border: none;
+    outline: none;
+    box-shadow: none;
+    background: var(--sc-primary);
+    color: #ffffff;
+    border-radius: 50px;
+    padding: 10px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.studio-connect-option-btn:hover {
+    background: #136db5;
+}
+
+.studio-connect-calculator {
+    display: none;
+    border-radius: 14px;
+    padding: 12px;
+    gap: 10px;
+    flex-direction: column;
+    background: #f7f8fb;
+}
+
+.studio-connect-calculator.is-visible {
+    display: flex;
+}
+
+.studio-connect-hint {
+    font-size: 11px;
+    color: #8b9bb4;
+    font-style: italic;
+}
+
+.studio-connect-label {
+    font-size: 12px;
+    color: #7b7e87;
+}
+
+#studio-connect-words {
+    border: 1px solid transparent;
+    background: #f3f4f6;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #1c1e21;
+}
+
+.studio-connect-result {
+    font-size: 13px;
+    color: #2f2f2f;
+    min-height: 18px;
+}
+
+.studio-connect-calculator-btn {
+    border: none;
+    background: var(--sc-primary);
+    color: #ffffff;
+    border-radius: 50px;
+    padding: 10px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.studio-connect-calculator-btn:hover {
+    background: #136db5;
+}
+
+.studio-connect-copy-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.studio-connect-copy {
+    border: 1px solid var(--sc-border);
+    background: #ffffff;
+    color: #333333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.studio-connect-copy i {
+    color: var(--sc-primary);
+}
+
+.studio-connect-copy.inline {
+    border-color: var(--sc-primary);
+    color: var(--sc-primary);
+    background: transparent;
+    font-size: 13px;
+    padding: 4px 8px;
+    margin: 0 2px;
+}
+
+.studio-connect-typing {
+    font-size: 13px;
+    color: #7b7e87;
+    letter-spacing: 2px;
+    animation: sc-typing 1s ease-in-out infinite;
+}
+
+@keyframes sc-typing {
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.studio-connect-footer {
+    flex: 0 0 auto;
+    padding: 0 20px;
+    border-top: 1px solid #222;
+    background: var(--sc-dark);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 54px;
+}
+
+.studio-connect-home {
+    border: 1px solid #222;
+    background: transparent;
+    color: #ffffff;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    position: relative;
+    pointer-events: auto;
+    z-index: 9999;
+}
+
+.studio-connect-home:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #2d3138;
+}
+
+.studio-connect-home-tooltip {
+    position: absolute;
+    bottom: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f242c;
+    color: #ffffff;
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+}
+
+.studio-connect-home:hover .studio-connect-home-tooltip {
+    opacity: 1;
+}
+
+.studio-connect-home-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #1a93ee;
+}
+
+.studio-connect-footer-socials {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.studio-connect-toast {
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    background: #222222;
+    color: #ffffff;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    opacity: 0;
+    transform: translate(-50%, -6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    z-index: 2147483647;
+}
+
+.studio-connect-toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+@media (max-width: 480px) {
+    .studio-connect-panel {
+        width: 100%;
+        height: 80vh;
+        right: 12px;
+        left: 12px;
+        bottom: 90px;
+    }
+
+    .studio-connect-launcher {
+        right: 16px;
+        bottom: 20px;
+    }
+}
