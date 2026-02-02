@@ -4,7 +4,8 @@ class StudioBot {
             vdsLink: 'https://www.sprecherverband.de/wp-content/uploads/2025/02/VDS_Gagenkompass_2025.pdf',
             gagenrechnerLink: 'https://dev.pascal-krell.de/gagenrechner/',
             siteUrl: window.location.origin,
-            avatar_url: ''
+            avatar_url: '',
+            nav_links: {}
         };
         this.settings = { ...defaults, ...settings };
         this.widget = document.getElementById('sc-widget');
@@ -65,17 +66,18 @@ class StudioBot {
                     ]
                 };
             case 'demos':
+                const navLinks = this.settings.nav_links || {};
                 return {
                     id: 'demos',
                     text: 'Welche Kategorie interessiert Dich?',
                     options: [
-                        { label: 'Werbung', action: 'hardlink', target: '/sprecher-audio-leistungen/werbesprecher/' },
-                        { label: 'Webvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
-                        { label: 'Telefonansage', action: 'hardlink', target: '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
-                        { label: 'Podcast', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
-                        { label: 'Imagefilm', action: 'hardlink', target: '/sprecher-audio-leistungen/imagefilm-sprecher/' },
-                        { label: 'Erklärvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
-                        { label: 'E-Learning', action: 'hardlink', target: '/sprecher-audio-leistungen/e-learning-sprecher/' }
+                        { label: 'Werbung', action: 'hardlink', target: navLinks.werbung || '/sprecher-audio-leistungen/werbesprecher/' },
+                        { label: 'Webvideo', action: 'hardlink', target: navLinks.webvideo || '/sprecher-audio-leistungen/voiceover-social-media/' },
+                        { label: 'Telefonansage', action: 'hardlink', target: navLinks.telefonansage || '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
+                        { label: 'Podcast', action: 'hardlink', target: navLinks.podcast || '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
+                        { label: 'Imagefilm', action: 'hardlink', target: navLinks.imagefilm || '/sprecher-audio-leistungen/imagefilm-sprecher/' },
+                        { label: 'Erklärvideo', action: 'hardlink', target: navLinks.erklaervideo || '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
+                        { label: 'E-Learning', action: 'hardlink', target: navLinks.elearning || '/sprecher-audio-leistungen/e-learning-sprecher/' }
                     ]
                 };
             case 'preise':
