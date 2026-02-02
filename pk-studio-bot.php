@@ -135,13 +135,26 @@ function studio_connect_render_widget(): void
     ?>
     <div class="studio-connect-widget" id="studio-connect-widget" aria-live="polite">
         <button class="studio-connect-launcher" id="studio-connect-launcher" type="button" aria-label="Pascal Krell StudioConnect öffnen">
-            <i class="fa-solid fa-comments" aria-hidden="true"></i>
+            <span class="studio-connect-launcher-icon studio-connect-launcher-icon--open" aria-hidden="true">
+                <i class="fa-solid fa-headset"></i>
+            </span>
+            <span class="studio-connect-launcher-icon studio-connect-launcher-icon--close" aria-hidden="true">
+                <i class="fa-solid fa-times"></i>
+            </span>
         </button>
         <div class="studio-connect-panel" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
             <div class="studio-connect-header">
                 <div class="studio-connect-header-text">
                     <div class="studio-connect-title">Support Portal</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Studio Hamburg • Online</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Dein direkter Draht ins Studio.</div>
+                </div>
+                <div class="studio-connect-header-actions">
+                    <button class="studio-connect-header-action" type="button" data-action="email" aria-label="E-Mail öffnen">
+                        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+                    </button>
+                    <button class="studio-connect-header-action" type="button" data-action="phone" aria-label="Anrufen">
+                        <i class="fa-solid fa-phone" aria-hidden="true"></i>
+                    </button>
                 </div>
                 <button class="studio-connect-close" type="button" aria-label="Chat schließen">
                     <i class="fa-solid fa-times" aria-hidden="true"></i>
@@ -156,17 +169,10 @@ function studio_connect_render_widget(): void
                     <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
                     <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
                     <div class="studio-connect-result" id="studio-connect-result"></div>
+                    <button class="studio-connect-calculator-btn" id="studio-connect-calculator-cta" type="button">
+                        Angebot dafür anfragen
+                    </button>
                 </div>
-            </div>
-
-            <div class="studio-connect-footer">
-                <button class="studio-connect-footer-btn" id="studio-connect-reset" type="button" aria-label="Zur Startseite">
-                    <i class="fa-solid fa-house" aria-hidden="true"></i>
-                </button>
-                <div class="studio-connect-footer-spacer" aria-hidden="true"></div>
-                <button class="studio-connect-footer-btn" id="studio-connect-mail" type="button" aria-label="E-Mail öffnen">
-                    <i class="fa-solid fa-envelope" aria-hidden="true"></i>
-                </button>
             </div>
         </div>
         <div class="studio-connect-toast" id="studio-connect-toast" role="status" aria-live="polite"></div>
@@ -191,6 +197,12 @@ function studio_connect_get_inline_styles(): string
     --sc-muted: #f2f2f5;
     --sc-soft: #fcfcfd;
     --sc-shadow: 0 25px 90px rgba(0,0,0,0.2);
+}
+
+div[class*="gemerkte"],
+.saved-demos {
+    right: 100px !important;
+    bottom: 30px !important;
 }
 
 .studio-connect-widget {
@@ -218,11 +230,37 @@ function studio_connect_get_inline_styles(): string
     justify-content: center;
     cursor: pointer;
     box-shadow: 0 16px 40px rgba(26, 147, 238, 0.35);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, background 0.2s ease;
 }
 
 .studio-connect-launcher.is-pulsing {
     animation: sc-pulse 1.6s ease-out;
+}
+
+.studio-connect-launcher-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease;
+}
+
+.studio-connect-launcher-icon--close {
+    opacity: 0;
+    position: absolute;
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher {
+    background: var(--sc-dark);
+    transform: rotate(90deg);
+    box-shadow: 0 12px 30px rgba(15, 20, 26, 0.5);
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher-icon--open {
+    opacity: 0;
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher-icon--close {
+    opacity: 1;
 }
 
 @keyframes sc-pulse {
@@ -264,11 +302,6 @@ function studio_connect_get_inline_styles(): string
     transform: translateY(0);
 }
 
-.studio-connect-widget.is-open .studio-connect-launcher {
-    opacity: 0;
-    pointer-events: none;
-}
-
 .studio-connect-header {
     height: 70px;
     background: var(--sc-dark);
@@ -277,7 +310,6 @@ function studio_connect_get_inline_styles(): string
     gap: 14px;
     padding: 0 24px;
     color: #ffffff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
 }
 
@@ -292,23 +324,41 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-subtitle {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    color: #8b9bb4;
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.studio-connect-subtitle::before {
-    content: '●';
-    color: #22c55e;
-    font-size: 10px;
+.studio-connect-header-actions {
+    display: inline-flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.studio-connect-header-action {
+    border: none;
+    background: transparent;
+    color: #8b9bb4;
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.studio-connect-header-action:hover {
+    color: #ffffff;
+}
+
+.studio-connect-header-action:disabled {
+    opacity: 0.4;
+    cursor: default;
 }
 
 .studio-connect-close {
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+    color: #ffffff;
     cursor: pointer;
     font-size: 16px;
 }
@@ -356,7 +406,7 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-bubble.bot {
-    background: #f0f2f5;
+    background: #f3f4f6;
     color: var(--sc-text-main);
     border-radius: 18px 18px 18px 4px;
     align-self: flex-start;
@@ -364,11 +414,11 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-bubble.user {
-    border: 1px solid var(--sc-primary);
-    color: var(--sc-primary);
+    border: none;
+    color: #ffffff;
     align-self: flex-end;
-    background: transparent;
-    border-radius: 10px 10px 0 10px;
+    background: var(--sc-primary);
+    border-radius: 16px 16px 4px 16px;
 }
 
 .studio-connect-options {
@@ -383,26 +433,28 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-option-btn {
-    border: 1px solid var(--sc-primary);
-    background: transparent;
-    color: var(--sc-primary);
-    border-radius: 6px;
-    padding: 10px 14px;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    background: var(--sc-primary);
+    color: #ffffff;
+    border-radius: 50px;
+    padding: 10px 16px;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .studio-connect-option-btn:hover {
-    background: var(--sc-primary);
-    color: #ffffff;
+    background: #136db5;
+    transform: scale(1.02);
 }
 
 .studio-connect-calculator {
     display: none;
     border: 1px solid var(--sc-border);
-    border-radius: 10px;
-    padding: 12px;
+    border-radius: 16px;
+    padding: 16px;
     gap: 10px;
     flex-direction: column;
     background: var(--sc-light);
@@ -419,7 +471,7 @@ function studio_connect_get_inline_styles(): string
 
 #studio-connect-words {
     border: 1px solid var(--sc-border);
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
 }
@@ -429,40 +481,20 @@ function studio_connect_get_inline_styles(): string
     color: #333333;
 }
 
-.studio-connect-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 20px;
-    border-top: 1px solid #eeeeee;
-    background: #ffffff;
-    height: 60px;
-    flex: 0 0 auto;
-}
-
-.studio-connect-footer-spacer {
-    flex: 1;
-}
-
-.studio-connect-footer-btn {
-    border: 1px solid var(--sc-border);
-    background: transparent;
-    color: #555555;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 42px;
-    height: 42px;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.studio-connect-footer-btn:hover {
+.studio-connect-calculator-btn {
+    border: none;
     background: var(--sc-primary);
     color: #ffffff;
+    border-radius: 50px;
+    padding: 10px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.studio-connect-calculator-btn:hover {
+    background: #136db5;
+    transform: scale(1.02);
 }
 
 .studio-connect-copy-row {
@@ -567,14 +599,14 @@ class StudioBot {
         this.messages = document.getElementById('studio-connect-messages');
         this.options = document.getElementById('studio-connect-options');
         this.closeButton = document.querySelector('.studio-connect-close');
-        this.resetButton = document.getElementById('studio-connect-reset');
-        this.mailButton = document.getElementById('studio-connect-mail');
         this.body = document.querySelector('.studio-connect-body');
         this.calculator = document.getElementById('studio-connect-calculator');
         this.wordsInput = document.getElementById('studio-connect-words');
         this.result = document.getElementById('studio-connect-result');
+        this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
+        this.headerActions = Array.from(document.querySelectorAll('.studio-connect-header-action'));
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
@@ -583,6 +615,7 @@ class StudioBot {
         this.currentStep = 'start';
 
         this.bindEvents();
+        this.updateHeaderActions();
         this.renderStep('start');
         this.startPulseCycle();
     }
@@ -591,13 +624,12 @@ class StudioBot {
         return {
             start: {
                 id: 'start',
-                text: 'Moin! Willkommen im Support Portal. Wie kann ich helfen?',
+                text: 'Moin! Ich bin dein Studio-Assistent. Womit starten wir?',
                 options: [
-                    { label: '🎧 Demos & Casting', nextId: 'demos' },
-                    { label: '💰 Preise & Gagen', nextId: 'preise' },
-                    { label: '🎙 Technik & Studio', nextId: 'technik' },
-                    { label: '⏱ Wort-Rechner', nextId: 'rechner' },
-                    { label: '⚡ Kontakt', nextId: 'kontakt' }
+                    { label: 'Casting & Demos', nextId: 'demos' },
+                    { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
+                    { label: 'Technik Check', nextId: 'technik' },
+                    { label: 'Wort-Rechner', nextId: 'rechner' }
                 ]
             },
             demos: {
@@ -607,6 +639,7 @@ class StudioBot {
                     { label: 'Werbung', action: 'anchor', target: '#werbung' },
                     { label: 'Doku', action: 'anchor', target: '#doku' },
                     { label: 'Image', action: 'anchor', target: '#image' },
+                    { label: 'Kontakt', nextId: 'kontakt' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
@@ -615,6 +648,7 @@ class StudioBot {
                 text: 'Infos nach VDS-Standard für Sprecherhonorare.',
                 options: [
                     { label: 'VDS Info', action: 'vdslink' },
+                    { label: 'Kontakt', nextId: 'kontakt' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
@@ -622,6 +656,7 @@ class StudioBot {
                 id: 'technik',
                 text: 'Studio-Setup: Neumann U87.',
                 options: [
+                    { label: 'Kontakt', nextId: 'kontakt' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
@@ -630,6 +665,7 @@ class StudioBot {
                 text: 'Wort-Rechner aktiviert. Gib die Wortanzahl ein.',
                 action: 'calculator',
                 options: [
+                    { label: 'Kontakt', nextId: 'kontakt' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
@@ -637,10 +673,9 @@ class StudioBot {
                 id: 'kontakt',
                 text: 'Hier sind die Kontaktmöglichkeiten.',
                 options: [
-                    { label: 'Mail', action: 'email' },
                     { label: 'Anruf', action: 'phone' },
                     { label: 'WhatsApp', action: 'whatsapp' },
-                    { label: 'Zurück', nextId: 'start' }
+                    { label: 'Mail', action: 'email' }
                 ]
             }
         };
@@ -649,6 +684,10 @@ class StudioBot {
     bindEvents() {
         this.launcher.addEventListener('click', () => {
             this.registerInteraction();
+            if (this.isOpen) {
+                this.closePanel();
+                return;
+            }
             this.openPanel();
         });
 
@@ -659,20 +698,21 @@ class StudioBot {
             });
         }
 
-        this.resetButton.addEventListener('click', () => {
-            this.registerInteraction();
-            this.messages.innerHTML = '';
-            this.renderStep('start');
-        });
-
-        this.mailButton.addEventListener('click', () => {
-            this.registerInteraction();
-            if (this.settings.email) {
-                window.location.href = `mailto:${this.settings.email}`;
-            }
-        });
-
         this.wordsInput.addEventListener('input', () => this.updateCalculator());
+        this.calculatorCta.addEventListener('click', () => {
+            this.registerInteraction();
+            this.handleContactAction('email');
+        });
+
+        this.headerActions.forEach((button) => {
+            button.addEventListener('click', () => {
+                this.registerInteraction();
+                const action = button.dataset.action;
+                if (action) {
+                    this.handleContactAction(action);
+                }
+            });
+        });
 
         this.messages.addEventListener('click', (event) => {
             const target = event.target.closest('[data-copy]');
@@ -700,13 +740,13 @@ class StudioBot {
 
         this.currentStep = stepId;
         this.updateHeaderSubtext(stepId);
+        this.ensureOptionsContainer();
         this.options.classList.add('is-disabled');
         await this.createBubble(step.text, 'bot');
         if (stepId === 'kontakt') {
             this.createContactBubble();
         }
-        this.options.innerHTML = '';
-        this.options.classList.remove('is-disabled');
+        this.replaceOptions();
 
         this.calculator.classList.remove('is-visible');
         this.calculator.setAttribute('aria-hidden', 'true');
@@ -718,14 +758,7 @@ class StudioBot {
             this.calculator.setAttribute('aria-hidden', 'false');
         }
 
-        step.options.forEach((option) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'studio-connect-option-btn';
-            button.textContent = option.label;
-            button.addEventListener('click', () => this.handleOption(option));
-            this.options.appendChild(button);
-        });
+        step.options.forEach((option) => this.appendOption(option));
     }
 
     async handleOption(option) {
@@ -734,44 +767,25 @@ class StudioBot {
         }
         this.registerInteraction();
         this.soundEngine.play('click');
-        this.createBubble(option.label, 'user');
+        this.removeOptionsContainer();
+        const label = option.userLabel || option.label;
+        this.createBubble(label, 'user');
 
         if (option.action === 'anchor' && option.target) {
             this.triggerAnchor(option.target);
         }
 
-        if (option.action === 'email' && this.settings.email) {
-            window.location.href = `mailto:${this.settings.email}`;
-            return;
-        }
-
-        if (option.action === 'phone' && this.settings.phone) {
-            window.location.href = `tel:${this.settings.phone}`;
-            return;
-        }
-
-        if (option.action === 'whatsapp') {
-            const phone = this.settings.whatsapp || '';
-            const digits = phone.replace(/\D/g, '');
-            if (digits) {
-                window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
-            } else {
-                this.createBubble('Bitte eine WhatsApp-Nummer im Backend hinterlegen.', 'bot');
-            }
-            return;
-        }
-
-        if (option.action === 'vdslink') {
-            if (this.settings.vdsLink) {
-                window.open(this.settings.vdsLink, '_blank', 'noopener');
-            } else {
-                this.createBubble('Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
-            }
-            return;
+        if (option.action) {
+            this.handleContactAction(option.action);
         }
 
         if (option.nextId) {
             this.renderStep(option.nextId);
+            return;
+        }
+
+        if (option.action) {
+            this.renderStep(this.currentStep);
         }
     }
 
@@ -808,7 +822,7 @@ class StudioBot {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         const paddedSeconds = String(seconds).padStart(2, '0');
-        this.result.textContent = `⏱ Bei moderatem Tempo entspricht das ca. ${minutes} Min ${paddedSeconds} Sek Sprechzeit.`;
+        this.result.textContent = `⏱ Ca. ${minutes}:${paddedSeconds} Min bei moderatem Sprechtempo.`;
     }
 
     typeWriter(bubble, text) {
@@ -888,16 +902,30 @@ class StudioBot {
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Studio Hamburg • Online',
-            demos: 'Demos & Casting',
-            preise: 'Preise & Gagen',
-            technik: 'Technik & Studio',
+            start: 'Dein direkter Draht ins Studio.',
+            demos: 'Casting & Demos',
+            preise: 'Preise & Buyouts',
+            technik: 'Technik Check',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner'
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
         }
+    }
+
+    updateHeaderActions() {
+        this.headerActions.forEach((button) => {
+            const action = button.dataset.action;
+            let hasValue = true;
+            if (action === 'email') {
+                hasValue = Boolean(this.settings.email);
+            }
+            if (action === 'phone') {
+                hasValue = Boolean(this.settings.phone);
+            }
+            button.disabled = !hasValue;
+        });
     }
 
     openPanel() {
@@ -972,6 +1000,84 @@ class StudioBot {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    ensureOptionsContainer() {
+        if (this.options) {
+            return;
+        }
+        this.options = document.createElement('div');
+        this.options.className = 'studio-connect-options';
+        this.options.id = 'studio-connect-options';
+        this.body.insertBefore(this.options, this.calculator);
+    }
+
+    removeOptionsContainer() {
+        if (!this.options || !this.options.parentNode) {
+            return;
+        }
+        this.options.remove();
+        this.options = null;
+    }
+
+    replaceOptions() {
+        this.ensureOptionsContainer();
+        this.options.innerHTML = '';
+        this.options.classList.remove('is-disabled');
+    }
+
+    appendOption(option) {
+        if (!this.options) {
+            return;
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'studio-connect-option-btn';
+        button.textContent = option.label;
+        button.addEventListener('click', () => this.handleOption(option));
+        this.options.appendChild(button);
+    }
+
+    handleContactAction(action) {
+        if (action === 'email') {
+            if (this.settings.email) {
+                window.location.href = `mailto:${this.settings.email}`;
+                return true;
+            }
+            this.createBubble('Bitte eine E-Mail-Adresse im Backend hinterlegen.', 'bot');
+            return true;
+        }
+
+        if (action === 'phone') {
+            if (this.settings.phone) {
+                window.location.href = `tel:${this.settings.phone}`;
+                return true;
+            }
+            this.createBubble('Bitte eine Telefonnummer im Backend hinterlegen.', 'bot');
+            return true;
+        }
+
+        if (action === 'whatsapp') {
+            const phone = this.settings.whatsapp || '';
+            const digits = phone.replace(/\D/g, '');
+            if (digits) {
+                window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
+            } else {
+                this.createBubble('Bitte eine WhatsApp-Nummer im Backend hinterlegen.', 'bot');
+            }
+            return true;
+        }
+
+        if (action === 'vdslink') {
+            if (this.settings.vdsLink) {
+                window.open(this.settings.vdsLink, '_blank', 'noopener');
+            } else {
+                this.createBubble('Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
+            }
+            return true;
+        }
+
+        return false;
     }
 }
 
