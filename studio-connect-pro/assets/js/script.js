@@ -1,3 +1,245 @@
+const SC_STATE_KEY = 'sc_state_v2';
+const SC_LEGACY_KEY = 'sc_chat_state';
+const SC_LEGACY_PREFIX = 'sc_chat_state_';
+const SC_RESET_PARAM = 'reset-chat';
+
+const getDefaultState = () => ({
+    isOpen: false,
+    currentStepId: 'start',
+    history: [],
+    context: {}
+});
+
+const normalizeState = (state) => {
+    if (!state || typeof state !== 'object') {
+        return getDefaultState();
+    }
+    return {
+        isOpen: Boolean(state.isOpen),
+        currentStepId: typeof state.currentStepId === 'string' ? state.currentStepId : 'start',
+        history: Array.isArray(state.history) ? state.history : [],
+        context: state.context && typeof state.context === 'object' ? state.context : {}
+    };
+};
+
+const loadState = () => {
+    try {
+        const raw = sessionStorage.getItem(SC_STATE_KEY);
+        if (!raw) {
+            return null;
+        }
+        return normalizeState(JSON.parse(raw));
+    } catch (error) {
+        return null;
+    }
+};
+
+const saveState = (state) => {
+    try {
+        sessionStorage.setItem(SC_STATE_KEY, JSON.stringify(state));
+    } catch (error) {
+        // Ignore storage failures.
+    }
+};
+
+const clearState = () => {
+    try {
+        sessionStorage.removeItem(SC_STATE_KEY);
+    } catch (error) {
+        // Ignore.
+    }
+};
+
+const clearLegacyState = () => {
+    try {
+        sessionStorage.removeItem(SC_LEGACY_KEY);
+        sessionStorage.removeItem('sc_chat_open');
+        sessionStorage.removeItem('sc_current_step');
+        sessionStorage.removeItem('sc_word_count');
+        Object.keys(sessionStorage).forEach((key) => {
+            if (key.startsWith(SC_LEGACY_PREFIX)) {
+                sessionStorage.removeItem(key);
+            }
+        });
+    } catch (error) {
+        // Ignore.
+    }
+};
+
+const migrateLegacyState = () => {
+    if (sessionStorage.getItem(SC_STATE_KEY)) {
+        return null;
+    }
+    const raw = sessionStorage.getItem(SC_LEGACY_KEY);
+    if (!raw) {
+        return null;
+    }
+    let parsed = null;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (error) {
+        sessionStorage.removeItem(SC_LEGACY_KEY);
+        return null;
+    }
+    const nextState = getDefaultState();
+    if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.isOpen === 'boolean') {
+            nextState.isOpen = parsed.isOpen;
+        }
+        if (typeof parsed.currentStepId === 'string') {
+            nextState.currentStepId = parsed.currentStepId;
+        } else if (typeof parsed.currentStep === 'string') {
+            nextState.currentStepId = parsed.currentStep;
+        }
+        if (typeof parsed.wordCount === 'number') {
+            nextState.context.wordCount = parsed.wordCount;
+        }
+        if (typeof parsed.lastBotText === 'string') {
+            nextState.history.push({
+                role: 'bot',
+                text: parsed.lastBotText,
+                ts: Date.now()
+            });
+        }
+    }
+    const legacyWordCount = Number.parseInt(sessionStorage.getItem('sc_word_count'), 10);
+    if (!Number.isNaN(legacyWordCount)) {
+        nextState.context.wordCount = legacyWordCount;
+    }
+    saveState(nextState);
+    sessionStorage.removeItem(SC_LEGACY_KEY);
+    return nextState;
+};
+
+const formatDuration = (wordCount) => {
+    const totalSeconds = Math.round((wordCount / 130) * 60);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const renderContactCard = (state, sc_vars, helpers) => {
+    const wrapper = document.createElement('div');
+
+    const actions = document.createElement('div');
+    actions.className = 'studio-connect-copy-row';
+
+    const formBtn = document.createElement('button');
+    formBtn.type = 'button';
+    formBtn.className = 'studio-connect-copy';
+    formBtn.textContent = '📝 Formular';
+    formBtn.addEventListener('click', () => {
+        helpers.registerInteraction();
+        window.location.href = '/kontakt/';
+    });
+    actions.appendChild(formBtn);
+
+    if (sc_vars.email) {
+        const emailBtn = document.createElement('button');
+        emailBtn.type = 'button';
+        emailBtn.className = 'studio-connect-copy';
+        emailBtn.textContent = 'E-Mail kopieren';
+        emailBtn.addEventListener('click', () => {
+            helpers.registerInteraction();
+            helpers.copyToClipboard(sc_vars.email, 'Kopiert');
+        });
+        actions.appendChild(emailBtn);
+    }
+
+    if (sc_vars.phone) {
+        const phoneBtn = document.createElement('button');
+        phoneBtn.type = 'button';
+        phoneBtn.className = 'studio-connect-copy';
+        phoneBtn.textContent = 'Telefon kopieren';
+        phoneBtn.addEventListener('click', () => {
+            helpers.registerInteraction();
+            helpers.copyToClipboard(sc_vars.phone, 'Kopiert');
+        });
+        actions.appendChild(phoneBtn);
+    }
+
+    if (sc_vars.whatsapp) {
+        const whatsappBtn = document.createElement('button');
+        whatsappBtn.type = 'button';
+        whatsappBtn.className = 'studio-connect-copy';
+        whatsappBtn.textContent = 'WhatsApp öffnen';
+        whatsappBtn.addEventListener('click', () => {
+            helpers.registerInteraction();
+            const digits = sc_vars.whatsapp.replace(/\D/g, '');
+            if (digits) {
+                const popup = window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
+                if (!popup) {
+                    helpers.copyToClipboard(sc_vars.whatsapp, 'Nummer kopiert');
+                }
+            } else {
+                helpers.copyToClipboard(sc_vars.whatsapp, 'Nummer kopiert');
+            }
+        });
+        actions.appendChild(whatsappBtn);
+    }
+
+    if (!sc_vars.email && !sc_vars.phone && !sc_vars.whatsapp) {
+        const fallback = document.createElement('div');
+        fallback.textContent = 'Keine Kontaktinfos hinterlegt.';
+        wrapper.appendChild(fallback);
+    }
+
+    wrapper.appendChild(actions);
+    return wrapper;
+};
+
+const renderWordCalculator = (state, onStatePatch, helpers) => {
+    const wrapper = document.createElement('div');
+    wrapper.id = 'studio-connect-calculator';
+    wrapper.className = 'studio-connect-calculator is-visible';
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.max = '10000';
+    input.id = 'studio-connect-words';
+    input.className = 'studio-connect-input';
+
+    const output = document.createElement('div');
+    output.id = 'studio-connect-result';
+    output.className = 'studio-connect-result is-success';
+
+    const cta = document.createElement('button');
+    cta.type = 'button';
+    cta.id = 'studio-connect-calculator-cta';
+    cta.className = 'studio-connect-option-btn';
+    cta.textContent = 'Angebot dafür anfragen';
+
+    const updateOutput = (value) => {
+        const clamped = Math.min(10000, Math.max(0, value));
+        output.textContent = `⏱ Ca. ${formatDuration(clamped)} Min bei moderatem Sprechtempo.`;
+        return clamped;
+    };
+
+    const currentValue = typeof state.context.wordCount === 'number' ? state.context.wordCount : 0;
+    input.value = currentValue;
+    updateOutput(currentValue);
+
+    input.addEventListener('input', () => {
+        helpers.registerInteraction();
+        const rawValue = Number.parseInt(input.value, 10);
+        const clamped = updateOutput(Number.isNaN(rawValue) ? 0 : rawValue);
+        input.value = clamped;
+        onStatePatch({ context: { ...state.context, wordCount: clamped } });
+    });
+
+    cta.addEventListener('click', () => {
+        helpers.registerInteraction();
+        window.location.href = '/kontakt/';
+    });
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(output);
+    wrapper.appendChild(cta);
+
+    return wrapper;
+};
+
 class StudioBot {
     constructor(settings) {
         const defaults = {
@@ -19,29 +261,36 @@ class StudioBot {
         this.closeButton = document.getElementById('studio-connect-close');
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
         this.avatarUrl = this.settings.avatar_url || defaults.avatar_url;
-        this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
+        this.lastRenderedHistoryLength = 0;
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
-        this.currentStep = 'start';
-        this.restoredFromSession = false;
-        this.storageKey = 'sc_chat_state';
-        this.skipTyping = false;
-        this.resetRequested = new URLSearchParams(window.location.search).has('reset-chat');
+        this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
 
         if (this.resetRequested) {
-            this.currentStep = 'start';
-            this.restoredFromSession = false;
-            this.clearState();
+            clearState();
+            clearLegacyState();
+            this.removeResetParam();
         } else {
-            this.restoreState();
+            const migratedState = migrateLegacyState();
+            if (migratedState) {
+                this.state = migratedState;
+            }
         }
+
+        this.state = this.state || loadState() || getDefaultState();
+        this.state = normalizeState(this.state);
+        this.ensureValidStep();
+        if (this.state.isOpen && this.state.history.length === 0) {
+            this.ensureStartMessage();
+            saveState(this.state);
+        }
+
         this.refreshDomReferences();
         this.bindEvents();
-        if (!this.restoredFromSession) {
-            this.renderStep('start');
-        }
+        this.applyOpenState(this.state.isOpen, true);
+        this.renderApp();
         this.startPulseCycle();
     }
 
@@ -161,17 +410,6 @@ class StudioBot {
             });
         }
 
-        if (this.wordsInput) {
-            this.wordsInput.addEventListener('input', () => this.updateCalculator());
-        }
-
-        if (this.calculatorCta) {
-            this.calculatorCta.addEventListener('click', () => {
-                this.registerInteraction();
-                this.handleContactAction('form');
-            });
-        }
-
         if (this.closeButton) {
             this.closeButton.addEventListener('click', () => {
                 this.registerInteraction();
@@ -187,8 +425,99 @@ class StudioBot {
             });
         }
 
-        if (this.options) {
-            this.options.addEventListener('click', (event) => {
+        if (this.messages) {
+            this.messages.addEventListener('click', (event) => {
+                const target = event.target.closest('[data-copy]');
+                if (!target) {
+                    return;
+                }
+                this.registerInteraction();
+                const value = target.dataset.copy || '';
+                if (!value) {
+                    return;
+                }
+                this.copyToClipboard(value, 'Kopiert');
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && this.isOpen) {
+                this.closePanel();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => saveState(this.state));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                saveState(this.state);
+            }
+        });
+    }
+
+    renderApp() {
+        if (!this.messages || !this.dock) {
+            return;
+        }
+        this.ensureValidStep();
+        this.updateHeaderSubtext(this.state.currentStepId);
+        this.messages.innerHTML = '';
+
+        if (this.state.history.length < this.lastRenderedHistoryLength) {
+            this.lastRenderedHistoryLength = this.state.history.length;
+        }
+
+        this.state.history.forEach((entry) => {
+            const { row, bubble } = this.createMessageRow(entry.role);
+            if (entry.role === 'bot') {
+                bubble.innerHTML = this.createCopyMarkup(entry.text);
+                bubble.dataset.typed = 'true';
+            } else {
+                bubble.textContent = entry.text;
+            }
+            this.messages.appendChild(row);
+        });
+
+        if (this.state.history.length > this.lastRenderedHistoryLength) {
+            const lastEntry = this.state.history[this.state.history.length - 1];
+            if (lastEntry && lastEntry.role === 'bot') {
+                this.soundEngine.play('msg_in');
+            }
+            this.lastRenderedHistoryLength = this.state.history.length;
+        }
+
+        this.dock.innerHTML = '';
+        const step = this.logicTree[this.state.currentStepId];
+
+        if (step && step.id === 'kontakt') {
+            const card = renderContactCard(this.state, this.settings, {
+                copyToClipboard: this.copyToClipboard.bind(this),
+                registerInteraction: this.registerInteraction.bind(this)
+            });
+            this.dock.appendChild(card);
+        } else if (step && step.id === 'rechner') {
+            const calculator = renderWordCalculator(
+                this.state,
+                (patch) => this.patchState(patch),
+                { registerInteraction: this.registerInteraction.bind(this) }
+            );
+            this.dock.appendChild(calculator);
+
+            const backOption = (step.options || []).find((option) => option.nextId === 'start');
+            if (backOption) {
+                const backBtn = document.createElement('button');
+                backBtn.type = 'button';
+                backBtn.className = 'studio-connect-option-btn';
+                backBtn.textContent = backOption.label;
+                backBtn.dataset.label = backOption.label;
+                backBtn.dataset.nextId = backOption.nextId;
+                backBtn.addEventListener('click', () => this.handleOption(backOption));
+                this.dock.appendChild(backBtn);
+            }
+        } else if (step) {
+            const optionsContainer = document.createElement('div');
+            optionsContainer.id = 'studio-connect-options';
+            optionsContainer.className = 'studio-connect-options';
+            optionsContainer.addEventListener('click', (event) => {
                 const button = event.target.closest('.studio-connect-option-btn');
                 if (!button) {
                     return;
@@ -202,93 +531,35 @@ class StudioBot {
                 };
                 this.handleOption(option);
             });
+            this.dock.appendChild(optionsContainer);
+            this.options = optionsContainer;
+            step.options.forEach((option) => this.appendOption(option));
         }
 
-        if (this.messages) {
-            this.messages.addEventListener('click', (event) => {
-                const target = event.target.closest('[data-copy]');
-                const actionTarget = event.target.closest('[data-action]');
-                if (actionTarget) {
-                    this.registerInteraction();
-                    const action = actionTarget.dataset.action;
-                    if (action) {
-                        this.handleContactAction(action);
-                    }
-                    return;
-                }
-                if (!target) {
-                    return;
-                }
-                this.registerInteraction();
-                const value = target.dataset.copy || '';
-                if (!value) {
-                    return;
-                }
-                this.handleUtilityAction('copy', value);
-            });
-        }
-
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && this.isOpen) {
-                this.closePanel();
-            }
-        });
-
-        window.addEventListener('beforeunload', () => this.persistState());
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') {
-                this.persistState();
-            }
-        });
+        this.scrollToBottom();
     }
 
-    async renderStep(stepId) {
-        const step = this.logicTree[stepId];
-        if (!step) {
-            return;
-        }
-
-        this.currentStep = stepId;
-        this.updateHeaderSubtext(stepId);
-        this.ensureOptionsContainer();
-        this.options.classList.add('is-disabled');
-        await this.createBubble(step.text, 'bot');
-        if (stepId === 'kontakt') {
-            this.createContactBubble();
-        }
-        this.replaceOptions();
-
-        this.calculator.classList.remove('is-visible');
-        this.calculator.setAttribute('aria-hidden', 'true');
-        this.result.textContent = '';
-        this.result.classList.remove('is-success');
-        this.wordsInput.classList.remove('is-invalid');
-        this.wordsInput.value = '';
-
-        if (step.action === 'calculator') {
-            this.calculator.classList.add('is-visible');
-            this.calculator.setAttribute('aria-hidden', 'false');
-        }
-
-        step.options.forEach((option) => this.appendOption(option));
-        this.persistState();
+    patchState(patch) {
+        this.state = {
+            ...this.state,
+            ...patch
+        };
+        saveState(this.state);
+        this.renderApp();
     }
 
-    async handleOption(option) {
-        if (this.isTyping) {
-            return;
-        }
+    handleOption(option) {
         this.registerInteraction();
         this.soundEngine.play('click');
-        this.replaceOptions();
         const label = option.userLabel || option.label;
-        this.createBubble(label, 'user');
+        this.pushMessage('user', label);
 
         if (option.action === 'anchor' && option.target) {
             this.triggerAnchor(option.target);
         }
 
         if (option.action === 'hardlink' && option.target) {
+            saveState(this.state);
             window.location.href = option.target;
             return;
         }
@@ -298,33 +569,36 @@ class StudioBot {
         }
 
         if (option.nextId) {
-            this.renderStep(option.nextId);
+            this.transitionToStep(option.nextId);
             return;
         }
 
         if (option.action) {
-            this.renderStep(this.currentStep);
+            this.transitionToStep(this.state.currentStepId, true);
         }
     }
 
-    createBubble(text, type) {
-        const { row, bubble } = this.createMessageRow(type);
-        this.messages.appendChild(row);
-        this.scrollToBottom();
-        if (type === 'bot') {
-            if (this.skipTyping) {
-                bubble.innerHTML = this.createCopyMarkup(text);
-                bubble.dataset.typed = 'true';
-                this.skipTyping = false;
-                this.persistState();
-                return Promise.resolve();
-            }
-            this.soundEngine.play('msg_in');
-            return this.typeWriter(bubble, text);
+    transitionToStep(stepId, repeatCurrent = false) {
+        const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
+        if (!nextStep) {
+            return;
         }
-        bubble.textContent = text;
-        this.persistState();
-        return Promise.resolve();
+        this.state.currentStepId = nextStep.id;
+        this.pushMessage('bot', nextStep.text);
+        this.renderAndSave();
+    }
+
+    pushMessage(role, text) {
+        this.state.history.push({
+            role,
+            text,
+            ts: Date.now()
+        });
+    }
+
+    renderAndSave() {
+        saveState(this.state);
+        this.renderApp();
     }
 
     createMessageRow(type) {
@@ -355,117 +629,6 @@ class StudioBot {
         window.location.hash = target;
     }
 
-    updateCalculator() {
-        const maxWords = 10000;
-        const words = Number.parseFloat(this.wordsInput.value);
-        this.wordsInput.classList.remove('is-invalid');
-        this.result.classList.remove('is-success');
-        if (Number.isNaN(words) || words <= 0) {
-            this.result.textContent = 'Bitte gib eine sinnvolle Wortanzahl ein.';
-            this.wordsInput.classList.add('is-invalid');
-            return;
-        }
-        if (words > maxWords) {
-            this.wordsInput.value = maxWords;
-            this.result.textContent = 'Maximal 10.000 Wörter erlaubt.';
-            this.wordsInput.classList.add('is-invalid');
-            return;
-        }
-
-        const totalSeconds = Math.round((words / 130) * 60);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const paddedSeconds = String(seconds).padStart(2, '0');
-        this.result.textContent = `⏱ Ca. ${minutes}:${paddedSeconds} Min bei moderatem Sprechtempo.`;
-        this.result.classList.add('is-success');
-    }
-
-    typeWriter(bubble, text) {
-        if (bubble.dataset.typed === 'true') {
-            bubble.innerHTML = this.createCopyMarkup(text);
-            this.persistState();
-            return Promise.resolve();
-        }
-        this.isTyping = true;
-        bubble.textContent = '';
-        return new Promise((resolve) => {
-            let index = 0;
-            const typingRow = this.createMessageRow('bot');
-            typingRow.bubble.classList.add('studio-connect-typing');
-            typingRow.bubble.textContent = '...';
-            this.messages.appendChild(typingRow.row);
-            this.scrollToBottom();
-            const timer = setInterval(() => {
-                bubble.textContent += text.charAt(index);
-                index += 1;
-                this.scrollToBottom();
-                if (index >= text.length) {
-                    clearInterval(timer);
-                    typingRow.row.remove();
-                    this.isTyping = false;
-                    bubble.classList.remove('studio-connect-typing');
-                    bubble.innerHTML = this.createCopyMarkup(text);
-                    bubble.dataset.typed = 'true';
-                    this.persistState();
-                    resolve();
-                }
-            }, 15);
-        });
-    }
-
-    createContactBubble() {
-        const { row: messageRow, bubble } = this.createMessageRow('bot');
-        const label = document.createElement('div');
-        label.textContent = 'Wie möchtest Du mich kontaktieren?';
-        bubble.appendChild(label);
-
-        const copyRow = document.createElement('div');
-        copyRow.className = 'studio-connect-copy-row';
-
-        const formBtn = document.createElement('button');
-        formBtn.type = 'button';
-        formBtn.className = 'studio-connect-copy';
-        formBtn.dataset.action = 'form';
-        formBtn.textContent = '📝 Formular';
-        copyRow.appendChild(formBtn);
-
-        const emailBtn = document.createElement('button');
-        emailBtn.type = 'button';
-        emailBtn.className = 'studio-connect-copy';
-        emailBtn.textContent = 'E-Mail kopieren';
-        if (this.settings.email) {
-            emailBtn.dataset.copy = this.settings.email;
-        } else {
-            emailBtn.disabled = true;
-        }
-        copyRow.appendChild(emailBtn);
-
-        const phoneBtn = document.createElement('button');
-        phoneBtn.type = 'button';
-        phoneBtn.className = 'studio-connect-copy';
-        phoneBtn.textContent = 'Telefon kopieren';
-        if (this.settings.phone) {
-            phoneBtn.dataset.copy = this.settings.phone;
-        } else {
-            phoneBtn.disabled = true;
-        }
-        copyRow.appendChild(phoneBtn);
-
-        bubble.appendChild(copyRow);
-
-        if (!this.settings.email && !this.settings.phone) {
-            const fallback = document.createElement('div');
-            fallback.textContent = 'Bitte E-Mail und Telefon im Backend hinterlegen.';
-            bubble.appendChild(fallback);
-        }
-
-        bubble.dataset.typed = 'true';
-        this.messages.appendChild(messageRow);
-        this.scrollToBottom();
-        this.soundEngine.play('msg_in');
-        this.persistState();
-    }
-
     updateHeaderSubtext(stepId) {
         const map = {
             start: 'Hilfe-System und Tipps',
@@ -482,8 +645,13 @@ class StudioBot {
     }
 
     openPanel() {
+        if (this.state.history.length === 0) {
+            this.ensureStartMessage();
+        }
+        this.state.isOpen = true;
         this.applyOpenState(true);
-        this.persistState();
+        saveState(this.state);
+        this.renderApp();
         window.setTimeout(() => {
             const firstButton = this.panel ? this.panel.querySelector('button') : null;
             if (firstButton) {
@@ -493,8 +661,9 @@ class StudioBot {
     }
 
     closePanel() {
+        this.state.isOpen = false;
         this.applyOpenState(false, true);
-        this.persistState();
+        saveState(this.state);
     }
 
     showToast(message) {
@@ -559,21 +728,6 @@ class StudioBot {
             .replace(/'/g, '&#039;');
     }
 
-    replaceOptions() {
-        if (!this.options) {
-            return;
-        }
-        this.options.innerHTML = '';
-        this.options.classList.remove('is-disabled');
-        this.persistState();
-    }
-
-    ensureOptionsContainer() {
-        if (!this.options) {
-            this.options = document.getElementById('studio-connect-options');
-        }
-    }
-
     appendOption(option) {
         if (!this.options) {
             return;
@@ -604,7 +758,8 @@ class StudioBot {
                 window.location.href = `mailto:${this.settings.email}`;
                 return true;
             }
-            this.createBubble('Bitte eine E-Mail-Adresse im Backend hinterlegen.', 'bot');
+            this.pushMessage('bot', 'Bitte eine E-Mail-Adresse im Backend hinterlegen.');
+            this.renderAndSave();
             return true;
         }
 
@@ -613,7 +768,8 @@ class StudioBot {
                 window.location.href = `tel:${this.settings.phone}`;
                 return true;
             }
-            this.createBubble('Bitte eine Telefonnummer im Backend hinterlegen.', 'bot');
+            this.pushMessage('bot', 'Bitte eine Telefonnummer im Backend hinterlegen.');
+            this.renderAndSave();
             return true;
         }
 
@@ -623,7 +779,8 @@ class StudioBot {
             if (digits) {
                 window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
             } else {
-                this.createBubble('Bitte eine WhatsApp-Nummer im Backend hinterlegen.', 'bot');
+                this.pushMessage('bot', 'Bitte eine WhatsApp-Nummer im Backend hinterlegen.');
+                this.renderAndSave();
             }
             return true;
         }
@@ -632,7 +789,8 @@ class StudioBot {
             if (this.settings.vdsLink) {
                 window.open(this.settings.vdsLink, '_blank', 'noopener');
             } else {
-                this.createBubble('Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
+                this.pushMessage('bot', 'Kein VDS-Link hinterlegt. Bitte im Backend ergänzen.');
+                this.renderAndSave();
             }
             return true;
         }
@@ -641,7 +799,8 @@ class StudioBot {
             if (this.settings.gagenrechnerLink) {
                 window.open(this.settings.gagenrechnerLink, '_blank', 'noopener');
             } else {
-                this.createBubble('Kein Gagenrechner-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
+                this.pushMessage('bot', 'Kein Gagenrechner-Link hinterlegt. Bitte im Backend ergänzen.');
+                this.renderAndSave();
             }
             return true;
         }
@@ -669,34 +828,27 @@ class StudioBot {
     }
 
     resetConversation() {
-        if (this.messages) {
-            this.messages.innerHTML = '';
-        }
-        this.replaceOptions();
-        this.calculator.classList.remove('is-visible');
-        this.calculator.setAttribute('aria-hidden', 'true');
-        this.result.textContent = '';
-        this.result.classList.remove('is-success');
-        this.wordsInput.classList.remove('is-invalid');
-        this.wordsInput.value = '';
-        this.clearState();
-        this.renderStep('start');
-        this.persistState();
+        clearState();
+        clearLegacyState();
+        this.state = getDefaultState();
+        this.state.isOpen = true;
+        this.ensureStartMessage();
+        this.applyOpenState(true, true);
+        this.renderAndSave();
     }
 
     refreshDomReferences() {
         this.messages = document.getElementById('studio-connect-messages');
-        this.options = document.getElementById('studio-connect-options');
         this.chatArea = document.getElementById('studio-connect-chat-area');
-        this.calculator = document.getElementById('studio-connect-calculator');
-        this.wordsInput = document.getElementById('studio-connect-words');
-        this.result = document.getElementById('studio-connect-result');
-        this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
+        this.options = document.getElementById('studio-connect-options');
         this.body = document.getElementById('sc-body');
         this.dock = document.getElementById('sc-dock');
     }
 
     applyOpenState(isOpen, silent = false) {
+        if (!this.widget || !this.panel) {
+            return;
+        }
         this.widget.classList.toggle('is-open', isOpen);
         this.panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
         this.isOpen = isOpen;
@@ -706,75 +858,56 @@ class StudioBot {
         }
     }
 
-    persistState() {
-        if (!this.body || !this.dock || this.isTyping) {
+    copyToClipboard(value, message) {
+        if (!value) {
             return;
         }
-        const state = {
-            bodyHtml: this.body.innerHTML,
-            dockHtml: this.dock.innerHTML,
-            isOpen: this.isOpen,
-            currentStep: this.currentStep
-        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(() => {
+                this.showToast(message);
+            }).catch(() => {
+                this.execCopyFallback(value, message);
+            });
+            return;
+        }
+        this.execCopyFallback(value, message);
+    }
+
+    execCopyFallback(value, message) {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
         try {
-            sessionStorage.setItem(this.storageKey, JSON.stringify(state));
+            document.execCommand('copy');
         } catch (error) {
-            // Fallback: Kein Storage verfügbar.
+            // Ignore.
+        }
+        document.body.removeChild(textarea);
+        this.showToast(message);
+    }
+
+    ensureStartMessage() {
+        this.state.currentStepId = 'start';
+        const startStep = this.logicTree.start;
+        if (startStep) {
+            this.pushMessage('bot', startStep.text);
         }
     }
 
-    restoreState() {
-        if (!this.body || !this.dock) {
-            return;
-        }
-        const rawState = sessionStorage.getItem(this.storageKey);
-        if (!rawState) {
-            return;
-        }
-        try {
-            const state = JSON.parse(rawState);
-            if (state.bodyHtml) {
-                this.body.innerHTML = state.bodyHtml;
-            }
-            if (state.dockHtml) {
-                const dock = this.body.querySelector('#sc-dock');
-                if (dock) {
-                    dock.innerHTML = state.dockHtml;
-                }
-            }
-            this.currentStep = state.currentStep || 'start';
-            this.applyOpenState(Boolean(state.isOpen), true);
-            this.updateHeaderSubtext(this.currentStep);
-            this.restoredFromSession = true;
-            this.skipTyping = true;
-        } catch (error) {
-            this.clearState();
+    ensureValidStep() {
+        if (!this.logicTree[this.state.currentStepId]) {
+            this.state.currentStepId = 'start';
         }
     }
 
-    clearState() {
-        try {
-            sessionStorage.removeItem(this.storageKey);
-        } catch (error) {
-            // Ignorieren.
-        }
-    }
-
-    handleUtilityAction(action, value) {
-        switch (action) {
-            case 'copy':
-                if (!value) {
-                    return false;
-                }
-                navigator.clipboard.writeText(value).then(() => {
-                    this.showToast('Kopiert');
-                }).catch(() => {
-                    this.showToast('Kopiert');
-                });
-                return true;
-            default:
-                return false;
-        }
+    removeResetParam() {
+        const url = new URL(window.location.href);
+        url.searchParams.delete(SC_RESET_PARAM);
+        window.history.replaceState({}, document.title, url.toString());
     }
 }
 
