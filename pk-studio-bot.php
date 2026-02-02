@@ -2,7 +2,7 @@
 /**
  * Plugin Name: StudioConnect Pro
  * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
- * Version: 3.0.0
+ * Version: 4.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -107,6 +107,7 @@ function studio_connect_enqueue_assets(): void
         'vdsLink' => 'https://www.sprecherverband.de/wp-content/uploads/2025/02/VDS_Gagenkompass_2025.pdf',
         'gagenrechnerLink' => 'https://dev.pascal-krell.de/gagenrechner/',
         'siteUrl' => home_url('/'),
+        'avatarUrl' => 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar.webp',
     ];
 
     wp_register_style(
@@ -421,6 +422,27 @@ div[class*="gemerkte"],
     gap: 12px;
 }
 
+.studio-connect-message {
+    display: flex;
+}
+
+.studio-connect-message.bot {
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.studio-connect-message.user {
+    justify-content: flex-end;
+}
+
+.studio-connect-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+}
+
 .studio-connect-bubble {
     max-width: 85%;
     padding: 14px 18px;
@@ -686,6 +708,7 @@ class StudioBot {
         this.homeButton = document.getElementById('studio-connect-home');
         this.closeButton = document.getElementById('studio-connect-close');
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
+        this.avatarUrl = this.settings.avatarUrl || 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Helfer_Avatar.webp';
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
@@ -704,7 +727,7 @@ class StudioBot {
                 id: 'start',
                 text: 'Moin! Ich bin dein Studio-Assistent. Womit starten wir?',
                 options: [
-                    { label: 'Casting & Demos', nextId: 'demos' },
+                    { label: '🎧 Casting & Demos', nextId: 'demos' },
                     { label: 'Preise & Buyouts', userLabel: 'Preise & Gagen', nextId: 'preise' },
                     { label: 'Technik Check', nextId: 'technik' },
                     { label: 'Wort-Rechner', nextId: 'rechner' }
@@ -714,11 +737,13 @@ class StudioBot {
                 id: 'demos',
                 text: 'Welche Kategorie interessiert dich?',
                 options: [
-                    { label: 'Werbung', action: 'anchor', target: '#werbung' },
-                    { label: 'Doku', action: 'anchor', target: '#doku' },
-                    { label: 'Image', action: 'anchor', target: '#image' },
-                    { label: 'Kontakt', nextId: 'kontakt' },
-                    { label: 'Zurück', nextId: 'start' }
+                    { label: 'Werbung', action: 'hardlink', target: '/sprecher-audio-leistungen/werbesprecher/' },
+                    { label: 'Webvideo & Social', action: 'hardlink', target: '/sprecher-audio-leistungen/voiceover-social-media/' },
+                    { label: 'Telefonansage', action: 'hardlink', target: '/sprecher-audio-leistungen/telefonansagen-warteschleife-mailbox/' },
+                    { label: 'Podcast Service', action: 'hardlink', target: '/sprecher-audio-leistungen/podcast-service-editing-intro-outro-produktion/' },
+                    { label: 'Imagefilm', action: 'hardlink', target: '/sprecher-audio-leistungen/imagefilm-sprecher/' },
+                    { label: 'Erklärvideo', action: 'hardlink', target: '/sprecher-audio-leistungen/erklaervideo-sprecher/' },
+                    { label: 'E-Learning', action: 'hardlink', target: '/sprecher-audio-leistungen/e-learning-sprecher/' }
                 ]
             },
             preise: {
@@ -776,7 +801,7 @@ class StudioBot {
         this.wordsInput.addEventListener('input', () => this.updateCalculator());
         this.calculatorCta.addEventListener('click', () => {
             this.registerInteraction();
-            this.handleContactAction('email');
+            this.handleContactAction('form');
         });
 
         if (this.homeButton) {
@@ -854,6 +879,11 @@ class StudioBot {
             this.triggerAnchor(option.target);
         }
 
+        if (option.action === 'hardlink' && option.target) {
+            window.location.href = option.target;
+            return;
+        }
+
         if (option.action) {
             this.handleContactAction(option.action);
         }
@@ -869,9 +899,8 @@ class StudioBot {
     }
 
     createBubble(text, type) {
-        const bubble = document.createElement('div');
-        bubble.className = `studio-connect-bubble ${type}`;
-        this.messages.appendChild(bubble);
+        const { row, bubble } = this.createMessageRow(type);
+        this.messages.appendChild(row);
         this.scrollToBottom();
         if (type === 'bot') {
             this.soundEngine.play('msg_in');
@@ -879,6 +908,25 @@ class StudioBot {
         }
         bubble.textContent = text;
         return Promise.resolve();
+    }
+
+    createMessageRow(type) {
+        const row = document.createElement('div');
+        row.className = `studio-connect-message ${type}`;
+        if (type === 'bot') {
+            const avatar = document.createElement('img');
+            avatar.className = 'studio-connect-avatar';
+            avatar.src = this.avatarUrl;
+            avatar.alt = 'Studio Helfer Avatar';
+            avatar.loading = 'eager';
+            avatar.decoding = 'async';
+            avatar.fetchPriority = 'high';
+            row.appendChild(avatar);
+        }
+        const bubble = document.createElement('div');
+        bubble.className = `studio-connect-bubble ${type}`;
+        row.appendChild(bubble);
+        return { row, bubble };
     }
 
     triggerAnchor(target) {
@@ -905,14 +953,18 @@ class StudioBot {
     }
 
     typeWriter(bubble, text) {
+        if (bubble.dataset.typed === 'true') {
+            bubble.innerHTML = this.createCopyMarkup(text);
+            return Promise.resolve();
+        }
         this.isTyping = true;
         bubble.textContent = '';
         return new Promise((resolve) => {
             let index = 0;
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'studio-connect-bubble bot studio-connect-typing';
-            typingIndicator.textContent = '...';
-            this.messages.appendChild(typingIndicator);
+            const typingRow = this.createMessageRow('bot');
+            typingRow.bubble.classList.add('studio-connect-typing');
+            typingRow.bubble.textContent = '...';
+            this.messages.appendChild(typingRow.row);
             this.scrollToBottom();
             const timer = setInterval(() => {
                 bubble.textContent += text.charAt(index);
@@ -920,9 +972,11 @@ class StudioBot {
                 this.scrollToBottom();
                 if (index >= text.length) {
                     clearInterval(timer);
-                    typingIndicator.remove();
+                    typingRow.row.remove();
                     this.isTyping = false;
+                    bubble.classList.remove('studio-connect-typing');
                     bubble.innerHTML = this.createCopyMarkup(text);
+                    bubble.dataset.typed = 'true';
                     resolve();
                 }
             }, 15);
@@ -930,14 +984,13 @@ class StudioBot {
     }
 
     createContactBubble() {
-        const bubble = document.createElement('div');
-        bubble.className = 'studio-connect-bubble bot';
+        const { row: messageRow, bubble } = this.createMessageRow('bot');
         const label = document.createElement('div');
         label.textContent = 'Zum Kopieren klicken:';
         bubble.appendChild(label);
 
-        const row = document.createElement('div');
-        row.className = 'studio-connect-copy-row';
+        const copyRow = document.createElement('div');
+        copyRow.className = 'studio-connect-copy-row';
 
         const formBtn = document.createElement('button');
         formBtn.type = 'button';
@@ -946,7 +999,7 @@ class StudioBot {
         formBtn.addEventListener('click', () => {
             this.handleContactAction('form');
         });
-        row.appendChild(formBtn);
+        copyRow.appendChild(formBtn);
 
         if (this.settings.email) {
             const emailBtn = document.createElement('button');
@@ -954,7 +1007,7 @@ class StudioBot {
             emailBtn.className = 'studio-connect-copy';
             emailBtn.dataset.copy = this.settings.email;
             emailBtn.innerHTML = '<i class="fa-solid fa-envelope"></i> ' + this.settings.email;
-            row.appendChild(emailBtn);
+            copyRow.appendChild(emailBtn);
         }
 
         if (this.settings.phone) {
@@ -963,7 +1016,7 @@ class StudioBot {
             phoneBtn.className = 'studio-connect-copy';
             phoneBtn.dataset.copy = this.settings.phone;
             phoneBtn.innerHTML = '<i class="fa-solid fa-phone"></i> ' + this.settings.phone;
-            row.appendChild(phoneBtn);
+            copyRow.appendChild(phoneBtn);
         }
 
         if (this.settings.whatsapp) {
@@ -972,10 +1025,10 @@ class StudioBot {
             whatsappBtn.className = 'studio-connect-copy';
             whatsappBtn.dataset.copy = this.settings.whatsapp;
             whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> ' + this.settings.whatsapp;
-            row.appendChild(whatsappBtn);
+            copyRow.appendChild(whatsappBtn);
         }
 
-        bubble.appendChild(row);
+        bubble.appendChild(copyRow);
 
         if (!this.settings.email && !this.settings.phone && !this.settings.whatsapp) {
             const fallback = document.createElement('div');
@@ -983,7 +1036,8 @@ class StudioBot {
             bubble.appendChild(fallback);
         }
 
-        this.messages.appendChild(bubble);
+        bubble.dataset.typed = 'true';
+        this.messages.appendChild(messageRow);
         this.scrollToBottom();
         this.soundEngine.play('msg_in');
     }
