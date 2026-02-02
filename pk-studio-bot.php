@@ -105,6 +105,7 @@ function studio_connect_enqueue_assets(): void
         'phone' => get_option('studio_connect_contact_phone', ''),
         'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
         'vdsLink' => 'https://www.vds-ev.de',
+        'gagenrechnerLink' => 'https://dev.pascal-krell.de/gagenrechner/',
         'siteUrl' => home_url('/'),
     ];
 
@@ -148,6 +149,23 @@ function studio_connect_render_widget(): void
                     <div class="studio-connect-title">Support Portal</div>
                     <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfen für die wichtigen Themen</div>
                 </div>
+                <div class="studio-connect-header-actions">
+                    <a class="studio-connect-social" href="https://www.tiktok.com" target="_blank" rel="noopener" aria-label="TikTok">
+                        <i class="fa-brands fa-tiktok" aria-hidden="true"></i>
+                    </a>
+                    <a class="studio-connect-social" href="https://www.instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+                        <i class="fa-brands fa-instagram" aria-hidden="true"></i>
+                    </a>
+                    <a class="studio-connect-social" href="https://www.youtube.com" target="_blank" rel="noopener" aria-label="YouTube">
+                        <i class="fa-brands fa-youtube" aria-hidden="true"></i>
+                    </a>
+                    <a class="studio-connect-social" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn">
+                        <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
+                    </a>
+                    <button class="studio-connect-close" id="studio-connect-close" type="button" aria-label="Chat schließen">
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="studio-connect-body">
@@ -157,9 +175,10 @@ function studio_connect_render_widget(): void
                 <div class="studio-connect-option-dock" id="studio-connect-option-dock">
                     <div class="studio-connect-options" id="studio-connect-options"></div>
                     <div class="studio-connect-calculator" id="studio-connect-calculator" aria-hidden="true">
-                        <div class="studio-connect-result" id="studio-connect-result"></div>
-                        <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
-                        <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
+                    <div class="studio-connect-result" id="studio-connect-result"></div>
+                    <div class="studio-connect-hint">Erhalte Infos zur Sprechzeit deines Skripts (Basis: 130 Wörter/Min).</div>
+                    <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
+                    <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
                         <button class="studio-connect-calculator-btn" id="studio-connect-calculator-cta" type="button">
                             Angebot dafür anfragen
                         </button>
@@ -240,8 +259,16 @@ div[class*="gemerkte"],
     justify-content: center;
 }
 
+.studio-connect-launcher-icon i {
+    transition: transform 0.2s ease;
+}
+
 .studio-connect-widget.is-open .studio-connect-launcher {
-    background: var(--sc-primary);
+    background: var(--sc-dark);
+}
+
+.studio-connect-widget.is-open .studio-connect-launcher-icon i {
+    transform: rotate(90deg);
 }
 
 @keyframes sc-pulse {
@@ -309,6 +336,34 @@ div[class*="gemerkte"],
     flex: 1;
 }
 
+.studio-connect-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.studio-connect-social {
+    color: #8b9bb4;
+    font-size: 14px;
+    transition: color 0.2s ease;
+}
+
+.studio-connect-social:hover {
+    color: #ffffff;
+}
+
+.studio-connect-close {
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+}
+
 .studio-connect-title {
     font-weight: 700;
     font-size: 18px;
@@ -329,6 +384,7 @@ div[class*="gemerkte"],
     display: flex;
     flex-direction: column;
     background: #ffffff;
+    min-height: 0;
 }
 
 .studio-connect-chat-area {
@@ -337,6 +393,7 @@ div[class*="gemerkte"],
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .studio-connect-chat-area::-webkit-scrollbar {
@@ -382,7 +439,7 @@ div[class*="gemerkte"],
     border: none;
     color: #2f2f2f;
     align-self: flex-end;
-    background: #f3f4f6;
+    background: linear-gradient(135deg, #f3f4f6, #e7e9ee);
     border-radius: 16px 16px 4px 16px;
 }
 
@@ -437,6 +494,12 @@ div[class*="gemerkte"],
     display: flex;
 }
 
+.studio-connect-hint {
+    font-size: 11px;
+    color: #8b9bb4;
+    font-style: italic;
+}
+
 .studio-connect-label {
     font-size: 12px;
     color: #7b7e87;
@@ -448,6 +511,7 @@ div[class*="gemerkte"],
     border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
+    color: #1c1e21;
 }
 
 .studio-connect-result {
@@ -560,6 +624,7 @@ div[class*="gemerkte"],
     transform: translateY(6px);
     transition: opacity 0.2s ease, transform 0.2s ease;
     pointer-events: none;
+    z-index: 2147483647;
 }
 
 .studio-connect-toast.is-visible {
@@ -606,6 +671,8 @@ class StudioBot {
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
         this.homeButton = document.getElementById('studio-connect-home');
+        this.closeButton = document.getElementById('studio-connect-close');
+        this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
@@ -643,11 +710,11 @@ class StudioBot {
             },
             preise: {
                 id: 'preise',
-                text: 'Infos nach VDS-Standard für Sprecherhonorare.',
+                text: 'Ich arbeite transparent nach Industriestandard (VDS). Für genaue Kalkulationen nutze bitte mein Online-Tool.',
                 options: [
-                    { label: 'VDS Info', action: 'vdslink' },
-                    { label: 'Kontakt', nextId: 'kontakt' },
-                    { label: 'Zurück', nextId: 'start' }
+                    { label: '📄 VDS Liste öffnen', action: 'vdslink' },
+                    { label: '🧮 Zum Gagenrechner', action: 'gagenrechner' },
+                    { label: '💬 Direkt anfragen', nextId: 'kontakt' }
                 ]
             },
             technik: {
@@ -699,6 +766,13 @@ class StudioBot {
             this.homeButton.addEventListener('click', () => {
                 this.registerInteraction();
                 this.resetConversation();
+            });
+        }
+
+        if (this.closeButton) {
+            this.closeButton.addEventListener('click', () => {
+                this.registerInteraction();
+                this.closePanel();
             });
         }
 
@@ -892,7 +966,7 @@ class StudioBot {
         const map = {
             start: 'Hilfen für die wichtigen Themen',
             demos: 'Casting & Demos',
-            preise: 'Preise & Buyouts',
+            preise: 'Preise & Gagen',
             technik: 'Technik Check',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner'
@@ -906,6 +980,7 @@ class StudioBot {
         this.widget.classList.add('is-open');
         this.panel.setAttribute('aria-hidden', 'false');
         this.isOpen = true;
+        this.updateLauncherState();
         this.soundEngine.play('open');
     }
 
@@ -913,6 +988,7 @@ class StudioBot {
         this.widget.classList.remove('is-open');
         this.panel.setAttribute('aria-hidden', 'true');
         this.isOpen = false;
+        this.updateLauncherState();
     }
 
     showToast(message) {
@@ -1041,7 +1117,29 @@ class StudioBot {
             return true;
         }
 
+        if (action === 'gagenrechner') {
+            if (this.settings.gagenrechnerLink) {
+                window.open(this.settings.gagenrechnerLink, '_blank', 'noopener');
+            } else {
+                this.createBubble('Kein Gagenrechner-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
+            }
+            return true;
+        }
+
         return false;
+    }
+
+    updateLauncherState() {
+        if (!this.launcherIcon) {
+            return;
+        }
+        if (this.isOpen) {
+            this.launcherIcon.classList.remove('fa-question');
+            this.launcherIcon.classList.add('fa-times');
+        } else {
+            this.launcherIcon.classList.remove('fa-times');
+            this.launcherIcon.classList.add('fa-question');
+        }
     }
 
     resetConversation() {
