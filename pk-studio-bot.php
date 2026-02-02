@@ -135,42 +135,40 @@ function studio_connect_render_widget(): void
     ?>
     <div class="studio-connect-widget" id="studio-connect-widget" aria-live="polite">
         <button class="studio-connect-launcher" id="studio-connect-launcher" type="button" aria-label="Pascal Krell StudioConnect öffnen">
-            <span class="studio-connect-launcher-icon studio-connect-launcher-icon--open" aria-hidden="true">
-                <i class="fa-solid fa-headset"></i>
-            </span>
-            <span class="studio-connect-launcher-icon studio-connect-launcher-icon--close" aria-hidden="true">
-                <i class="fa-solid fa-times"></i>
+            <span class="studio-connect-launcher-icon" aria-hidden="true">
+                <i class="fa-solid fa-question"></i>
             </span>
         </button>
         <div class="studio-connect-panel" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
             <div class="studio-connect-header">
+                <div class="studio-connect-header-icon" aria-hidden="true">
+                    <i class="fa-solid fa-life-ring"></i>
+                </div>
                 <div class="studio-connect-header-text">
                     <div class="studio-connect-title">Support Portal</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Dein direkter Draht ins Studio.</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfen für die wichtigen Themen</div>
                 </div>
-                <div class="studio-connect-header-actions">
-                    <button class="studio-connect-header-action" type="button" data-action="email" aria-label="E-Mail öffnen">
-                        <i class="fa-solid fa-envelope" aria-hidden="true"></i>
-                    </button>
-                    <button class="studio-connect-header-action" type="button" data-action="phone" aria-label="Anrufen">
-                        <i class="fa-solid fa-phone" aria-hidden="true"></i>
-                    </button>
-                </div>
-                <button class="studio-connect-close" type="button" aria-label="Chat schließen">
-                    <i class="fa-solid fa-times" aria-hidden="true"></i>
-                </button>
             </div>
 
             <div class="studio-connect-body">
-                <div class="studio-connect-messages" id="studio-connect-messages"></div>
-                <div class="studio-connect-options" id="studio-connect-options"></div>
-
-                <div class="studio-connect-calculator" id="studio-connect-calculator" aria-hidden="true">
-                    <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
-                    <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
-                    <div class="studio-connect-result" id="studio-connect-result"></div>
-                    <button class="studio-connect-calculator-btn" id="studio-connect-calculator-cta" type="button">
-                        Angebot dafür anfragen
+                <div class="studio-connect-chat-area" id="studio-connect-chat-area">
+                    <div class="studio-connect-messages" id="studio-connect-messages"></div>
+                </div>
+                <div class="studio-connect-option-dock" id="studio-connect-option-dock">
+                    <div class="studio-connect-options" id="studio-connect-options"></div>
+                    <div class="studio-connect-calculator" id="studio-connect-calculator" aria-hidden="true">
+                        <div class="studio-connect-result" id="studio-connect-result"></div>
+                        <label for="studio-connect-words" class="studio-connect-label">Wortanzahl</label>
+                        <input id="studio-connect-words" type="number" min="0" inputmode="numeric" placeholder="z.B. 520" />
+                        <button class="studio-connect-calculator-btn" id="studio-connect-calculator-cta" type="button">
+                            Angebot dafür anfragen
+                        </button>
+                    </div>
+                </div>
+                <div class="studio-connect-footer">
+                    <button class="studio-connect-home" id="studio-connect-home" type="button">
+                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                        Home / Neustart
                     </button>
                 </div>
             </div>
@@ -229,8 +227,7 @@ div[class*="gemerkte"],
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 16px 40px rgba(26, 147, 238, 0.35);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+    transition: opacity 0.2s ease, background 0.2s ease;
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -241,26 +238,10 @@ div[class*="gemerkte"],
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: opacity 0.2s ease;
-}
-
-.studio-connect-launcher-icon--close {
-    opacity: 0;
-    position: absolute;
 }
 
 .studio-connect-widget.is-open .studio-connect-launcher {
-    background: var(--sc-dark);
-    transform: rotate(90deg);
-    box-shadow: 0 12px 30px rgba(15, 20, 26, 0.5);
-}
-
-.studio-connect-widget.is-open .studio-connect-launcher-icon--open {
-    opacity: 0;
-}
-
-.studio-connect-widget.is-open .studio-connect-launcher-icon--close {
-    opacity: 1;
+    background: var(--sc-primary);
 }
 
 @keyframes sc-pulse {
@@ -307,10 +288,21 @@ div[class*="gemerkte"],
     background: var(--sc-dark);
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 0 24px;
     color: #ffffff;
     flex: 0 0 auto;
+}
+
+.studio-connect-header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
 }
 
 .studio-connect-header-text {
@@ -331,62 +323,36 @@ div[class*="gemerkte"],
     gap: 6px;
 }
 
-.studio-connect-header-actions {
-    display: inline-flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.studio-connect-header-action {
-    border: none;
-    background: transparent;
-    color: #8b9bb4;
-    cursor: pointer;
-    font-size: 14px;
-    transition: color 0.2s ease;
-}
-
-.studio-connect-header-action:hover {
-    color: #ffffff;
-}
-
-.studio-connect-header-action:disabled {
-    opacity: 0.4;
-    cursor: default;
-}
-
-.studio-connect-close {
-    border: none;
-    background: transparent;
-    color: #ffffff;
-    cursor: pointer;
-    font-size: 16px;
-}
-
 .studio-connect-body {
     flex: 1 1 auto;
-    padding: 20px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
     background: #ffffff;
-    overflow-y: auto;
 }
 
-.studio-connect-body::-webkit-scrollbar {
+.studio-connect-chat-area {
+    flex: 1 1 auto;
+    padding: 20px 20px 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.studio-connect-chat-area::-webkit-scrollbar {
     width: 6px;
 }
 
-.studio-connect-body::-webkit-scrollbar-track {
+.studio-connect-chat-area::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.studio-connect-body::-webkit-scrollbar-thumb {
+.studio-connect-chat-area::-webkit-scrollbar-thumb {
     background: #d2d2d7;
     border-radius: 8px;
 }
 
-.studio-connect-body {
+.studio-connect-chat-area {
     scrollbar-color: #d2d2d7 transparent;
     scrollbar-width: thin;
 }
@@ -406,19 +372,28 @@ div[class*="gemerkte"],
 }
 
 .studio-connect-bubble.bot {
-    background: #f3f4f6;
-    color: var(--sc-text-main);
+    background: #e3f2fd;
+    color: #2f2f2f;
     border-radius: 18px 18px 18px 4px;
     align-self: flex-start;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .studio-connect-bubble.user {
     border: none;
-    color: #ffffff;
+    color: #2f2f2f;
     align-self: flex-end;
-    background: var(--sc-primary);
+    background: #f3f4f6;
     border-radius: 16px 16px 4px 16px;
+}
+
+.studio-connect-option-dock {
+    flex: 0 0 auto;
+    padding: 12px 20px 14px;
+    border-top: 1px solid var(--sc-border);
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .studio-connect-options {
@@ -442,22 +417,20 @@ div[class*="gemerkte"],
     padding: 10px 16px;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s ease;
+    transition: background 0.2s ease;
 }
 
 .studio-connect-option-btn:hover {
     background: #136db5;
-    transform: scale(1.02);
 }
 
 .studio-connect-calculator {
     display: none;
-    border: 1px solid var(--sc-border);
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 14px;
+    padding: 12px;
     gap: 10px;
     flex-direction: column;
-    background: var(--sc-light);
+    background: #f7f8fb;
 }
 
 .studio-connect-calculator.is-visible {
@@ -470,7 +443,8 @@ div[class*="gemerkte"],
 }
 
 #studio-connect-words {
-    border: 1px solid var(--sc-border);
+    border: 1px solid transparent;
+    background: #f3f4f6;
     border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
@@ -478,7 +452,8 @@ div[class*="gemerkte"],
 
 .studio-connect-result {
     font-size: 13px;
-    color: #333333;
+    color: #2f2f2f;
+    min-height: 18px;
 }
 
 .studio-connect-calculator-btn {
@@ -489,12 +464,11 @@ div[class*="gemerkte"],
     padding: 10px 16px;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s ease;
+    transition: background 0.2s ease;
 }
 
 .studio-connect-calculator-btn:hover {
     background: #136db5;
-    transform: scale(1.02);
 }
 
 .studio-connect-copy-row {
@@ -545,6 +519,32 @@ div[class*="gemerkte"],
     50% {
         opacity: 1;
     }
+}
+
+.studio-connect-footer {
+    flex: 0 0 auto;
+    padding: 10px 20px 16px;
+    border-top: 1px solid var(--sc-border);
+    background: #ffffff;
+}
+
+.studio-connect-home {
+    border: 1px solid var(--sc-border);
+    background: #ffffff;
+    color: #2f2f2f;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.studio-connect-home:hover {
+    background: #f3f4f6;
+    border-color: #d8dbe5;
 }
 
 .studio-connect-toast {
@@ -598,15 +598,14 @@ class StudioBot {
         this.launcher = document.getElementById('studio-connect-launcher');
         this.messages = document.getElementById('studio-connect-messages');
         this.options = document.getElementById('studio-connect-options');
-        this.closeButton = document.querySelector('.studio-connect-close');
-        this.body = document.querySelector('.studio-connect-body');
+        this.chatArea = document.getElementById('studio-connect-chat-area');
         this.calculator = document.getElementById('studio-connect-calculator');
         this.wordsInput = document.getElementById('studio-connect-words');
         this.result = document.getElementById('studio-connect-result');
         this.calculatorCta = document.getElementById('studio-connect-calculator-cta');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
-        this.headerActions = Array.from(document.querySelectorAll('.studio-connect-header-action'));
+        this.homeButton = document.getElementById('studio-connect-home');
         this.isTyping = false;
         this.isOpen = false;
         this.hasInteraction = false;
@@ -615,7 +614,6 @@ class StudioBot {
         this.currentStep = 'start';
 
         this.bindEvents();
-        this.updateHeaderActions();
         this.renderStep('start');
         this.startPulseCycle();
     }
@@ -691,28 +689,18 @@ class StudioBot {
             this.openPanel();
         });
 
-        if (this.closeButton) {
-            this.closeButton.addEventListener('click', () => {
-                this.registerInteraction();
-                this.closePanel();
-            });
-        }
-
         this.wordsInput.addEventListener('input', () => this.updateCalculator());
         this.calculatorCta.addEventListener('click', () => {
             this.registerInteraction();
             this.handleContactAction('email');
         });
 
-        this.headerActions.forEach((button) => {
-            button.addEventListener('click', () => {
+        if (this.homeButton) {
+            this.homeButton.addEventListener('click', () => {
                 this.registerInteraction();
-                const action = button.dataset.action;
-                if (action) {
-                    this.handleContactAction(action);
-                }
+                this.resetConversation();
             });
-        });
+        }
 
         this.messages.addEventListener('click', (event) => {
             const target = event.target.closest('[data-copy]');
@@ -767,7 +755,7 @@ class StudioBot {
         }
         this.registerInteraction();
         this.soundEngine.play('click');
-        this.removeOptionsContainer();
+        this.replaceOptions();
         const label = option.userLabel || option.label;
         this.createBubble(label, 'user');
 
@@ -902,7 +890,7 @@ class StudioBot {
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Dein direkter Draht ins Studio.',
+            start: 'Hilfen für die wichtigen Themen',
             demos: 'Casting & Demos',
             preise: 'Preise & Buyouts',
             technik: 'Technik Check',
@@ -912,20 +900,6 @@ class StudioBot {
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
         }
-    }
-
-    updateHeaderActions() {
-        this.headerActions.forEach((button) => {
-            const action = button.dataset.action;
-            let hasValue = true;
-            if (action === 'email') {
-                hasValue = Boolean(this.settings.email);
-            }
-            if (action === 'phone') {
-                hasValue = Boolean(this.settings.phone);
-            }
-            button.disabled = !hasValue;
-        });
     }
 
     openPanel() {
@@ -972,11 +946,11 @@ class StudioBot {
     }
 
     scrollToBottom() {
-        if (!this.body) {
+        if (!this.chatArea) {
             return;
         }
         requestAnimationFrame(() => {
-            this.body.scrollTop = this.body.scrollHeight;
+            this.chatArea.scrollTop = this.chatArea.scrollHeight;
         });
     }
 
@@ -1002,28 +976,18 @@ class StudioBot {
             .replace(/'/g, '&#039;');
     }
 
-    ensureOptionsContainer() {
-        if (this.options) {
-            return;
-        }
-        this.options = document.createElement('div');
-        this.options.className = 'studio-connect-options';
-        this.options.id = 'studio-connect-options';
-        this.body.insertBefore(this.options, this.calculator);
-    }
-
-    removeOptionsContainer() {
-        if (!this.options || !this.options.parentNode) {
-            return;
-        }
-        this.options.remove();
-        this.options = null;
-    }
-
     replaceOptions() {
-        this.ensureOptionsContainer();
+        if (!this.options) {
+            return;
+        }
         this.options.innerHTML = '';
         this.options.classList.remove('is-disabled');
+    }
+
+    ensureOptionsContainer() {
+        if (!this.options) {
+            this.options = document.getElementById('studio-connect-options');
+        }
     }
 
     appendOption(option) {
@@ -1078,6 +1042,18 @@ class StudioBot {
         }
 
         return false;
+    }
+
+    resetConversation() {
+        if (this.messages) {
+            this.messages.innerHTML = '';
+        }
+        this.replaceOptions();
+        this.calculator.classList.remove('is-visible');
+        this.calculator.setAttribute('aria-hidden', 'true');
+        this.result.textContent = '';
+        this.wordsInput.value = '';
+        this.renderStep('start');
     }
 }
 
