@@ -2,7 +2,7 @@
 /**
  * Plugin Name: StudioConnect Pro
  * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
- * Version: 4.0.0
+ * Version: 3.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -104,7 +104,7 @@ function studio_connect_enqueue_assets(): void
         'email' => get_option('studio_connect_contact_email', ''),
         'phone' => get_option('studio_connect_contact_phone', ''),
         'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
-        'vdsLink' => 'https://www.vds-ev.de',
+        'vdsLink' => 'https://www.sprecherverband.de/wp-content/uploads/2025/02/VDS_Gagenkompass_2025.pdf',
         'gagenrechnerLink' => 'https://dev.pascal-krell.de/gagenrechner/',
         'siteUrl' => home_url('/'),
     ];
@@ -150,18 +150,6 @@ function studio_connect_render_widget(): void
                     <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfen für die wichtigen Themen</div>
                 </div>
                 <div class="studio-connect-header-actions">
-                    <a class="studio-connect-social" href="https://www.tiktok.com" target="_blank" rel="noopener" aria-label="TikTok">
-                        <i class="fa-brands fa-tiktok" aria-hidden="true"></i>
-                    </a>
-                    <a class="studio-connect-social" href="https://www.instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
-                        <i class="fa-brands fa-instagram" aria-hidden="true"></i>
-                    </a>
-                    <a class="studio-connect-social" href="https://www.youtube.com" target="_blank" rel="noopener" aria-label="YouTube">
-                        <i class="fa-brands fa-youtube" aria-hidden="true"></i>
-                    </a>
-                    <a class="studio-connect-social" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn">
-                        <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
-                    </a>
                     <button class="studio-connect-close" id="studio-connect-close" type="button" aria-label="Chat schließen">
                         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     </button>
@@ -185,10 +173,23 @@ function studio_connect_render_widget(): void
                     </div>
                 </div>
                 <div class="studio-connect-footer">
-                    <button class="studio-connect-home" id="studio-connect-home" type="button">
+                    <button class="studio-connect-home" id="studio-connect-home" type="button" aria-label="Home / Neustart">
                         <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                        Home / Neustart
                     </button>
+                    <div class="studio-connect-footer-socials">
+                        <a class="studio-connect-social" href="https://www.tiktok.com/@sprecher_pascal" target="_blank" rel="noopener" aria-label="TikTok">
+                            <i class="fa-brands fa-tiktok" aria-hidden="true"></i>
+                        </a>
+                        <a class="studio-connect-social" href="https://www.instagram.com/sprecher_pascal/" target="_blank" rel="noopener" aria-label="Instagram">
+                            <i class="fa-brands fa-instagram" aria-hidden="true"></i>
+                        </a>
+                        <a class="studio-connect-social" href="https://www.youtube.com/@sprecher_pascal-krell" target="_blank" rel="noopener" aria-label="YouTube">
+                            <i class="fa-brands fa-youtube" aria-hidden="true"></i>
+                        </a>
+                        <a class="studio-connect-social" href="https://www.linkedin.com/in/pascal-krell-220454138/" target="_blank" rel="noopener" aria-label="LinkedIn">
+                            <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -287,9 +288,9 @@ div[class*="gemerkte"],
     position: fixed;
     bottom: 100px;
     right: 30px;
-    width: 380px;
-    height: 650px;
-    max-height: 80vh;
+    width: 420px;
+    height: 720px;
+    max-height: 85vh;
     z-index: 999998;
     background: var(--sc-light);
     border-radius: 18px;
@@ -311,12 +312,12 @@ div[class*="gemerkte"],
 }
 
 .studio-connect-header {
-    height: 70px;
+    height: 80px;
     background: var(--sc-dark);
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 24px;
+    padding: 0 28px;
     color: #ffffff;
     flex: 0 0 auto;
 }
@@ -339,11 +340,11 @@ div[class*="gemerkte"],
 .studio-connect-header-actions {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .studio-connect-social {
-    color: #8b9bb4;
+    color: #c7cdd8;
     font-size: 14px;
     transition: color 0.2s ease;
 }
@@ -426,6 +427,7 @@ div[class*="gemerkte"],
     border-radius: 18px;
     font-size: 14px;
     line-height: 1.6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
 .studio-connect-bubble.bot {
@@ -587,17 +589,22 @@ div[class*="gemerkte"],
 
 .studio-connect-footer {
     flex: 0 0 auto;
-    padding: 10px 20px 16px;
-    border-top: 1px solid var(--sc-border);
-    background: #ffffff;
+    padding: 0 20px;
+    border-top: 1px solid #222;
+    background: var(--sc-dark);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 54px;
 }
 
 .studio-connect-home {
-    border: 1px solid var(--sc-border);
-    background: #ffffff;
-    color: #2f2f2f;
+    border: 1px solid #222;
+    background: transparent;
+    color: #ffffff;
     border-radius: 999px;
-    padding: 8px 14px;
+    padding: 8px 12px;
     font-size: 12px;
     cursor: pointer;
     display: inline-flex;
@@ -607,8 +614,14 @@ div[class*="gemerkte"],
 }
 
 .studio-connect-home:hover {
-    background: #f3f4f6;
-    border-color: #d8dbe5;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #2d3138;
+}
+
+.studio-connect-footer-socials {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .studio-connect-toast {
@@ -712,15 +725,18 @@ class StudioBot {
                 id: 'preise',
                 text: 'Ich arbeite transparent nach Industriestandard (VDS). Für genaue Kalkulationen nutze bitte mein Online-Tool.',
                 options: [
-                    { label: '📄 VDS Liste öffnen', action: 'vdslink' },
+                    { label: '📄 VDS Gagenliste', action: 'vdslink' },
                     { label: '🧮 Zum Gagenrechner', action: 'gagenrechner' },
                     { label: '💬 Direkt anfragen', nextId: 'kontakt' }
                 ]
             },
             technik: {
                 id: 'technik',
-                text: 'Studio-Setup: Neumann U87.',
+                text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & High-End Akustikkabine. DAW: Logic Pro X auf Mac Studio.',
                 options: [
+                    { label: 'SessionLinkPRO', action: 'form' },
+                    { label: 'SourceConnect Now', action: 'form' },
+                    { label: 'Test-File anfordern', action: 'form' },
                     { label: 'Kontakt', nextId: 'kontakt' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
@@ -740,7 +756,8 @@ class StudioBot {
                 options: [
                     { label: 'Anruf', action: 'phone' },
                     { label: 'WhatsApp', action: 'whatsapp' },
-                    { label: 'Mail', action: 'email' }
+                    { label: 'Mail', action: 'email' },
+                    { label: '📝 Formular', action: 'form' }
                 ]
             }
         };
@@ -922,6 +939,15 @@ class StudioBot {
         const row = document.createElement('div');
         row.className = 'studio-connect-copy-row';
 
+        const formBtn = document.createElement('button');
+        formBtn.type = 'button';
+        formBtn.className = 'studio-connect-copy';
+        formBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> 📝 Formular';
+        formBtn.addEventListener('click', () => {
+            this.handleContactAction('form');
+        });
+        row.appendChild(formBtn);
+
         if (this.settings.email) {
             const emailBtn = document.createElement('button');
             emailBtn.type = 'button';
@@ -949,12 +975,12 @@ class StudioBot {
             row.appendChild(whatsappBtn);
         }
 
-        if (!row.children.length) {
+        bubble.appendChild(row);
+
+        if (!this.settings.email && !this.settings.phone && !this.settings.whatsapp) {
             const fallback = document.createElement('div');
             fallback.textContent = 'Bitte E-Mail, Telefon und WhatsApp im Backend hinterlegen.';
             bubble.appendChild(fallback);
-        } else {
-            bubble.appendChild(row);
         }
 
         this.messages.appendChild(bubble);
@@ -1123,6 +1149,12 @@ class StudioBot {
             } else {
                 this.createBubble('Kein Gagenrechner-Link hinterlegt. Bitte im Backend ergänzen.', 'bot');
             }
+            return true;
+        }
+
+        if (action === 'form') {
+            const baseUrl = (this.settings.siteUrl || '/').replace(/\/$/, '');
+            window.location.href = `${baseUrl}/kontakt/`;
             return true;
         }
 
