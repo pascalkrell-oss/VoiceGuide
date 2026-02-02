@@ -27,6 +27,12 @@ function studio_connect_register_settings(): void
         'sanitize_callback' => 'sanitize_text_field',
         'default' => '',
     ]);
+
+    register_setting('studio_connect_settings', 'studio_connect_contact_whatsapp', [
+        'type' => 'string',
+        'sanitize_callback' => 'sanitize_text_field',
+        'default' => '',
+    ]);
 }
 add_action('admin_init', 'studio_connect_register_settings');
 
@@ -74,6 +80,14 @@ function studio_connect_render_settings_page(): void
                                class="regular-text" value="<?php echo esc_attr(get_option('studio_connect_contact_phone', '')); ?>" />
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="studio_connect_contact_whatsapp">WhatsApp Nummer</label></th>
+                    <td>
+                        <input type="text" id="studio_connect_contact_whatsapp" name="studio_connect_contact_whatsapp"
+                               class="regular-text" value="<?php echo esc_attr(get_option('studio_connect_contact_whatsapp', '')); ?>" />
+                        <p class="description">Beispiel: +491721234567</p>
+                    </td>
+                </tr>
             </table>
             <?php submit_button(); ?>
         </form>
@@ -89,6 +103,7 @@ function studio_connect_enqueue_assets(): void
     $settings = [
         'email' => get_option('studio_connect_contact_email', ''),
         'phone' => get_option('studio_connect_contact_phone', ''),
+        'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
         'vdsLink' => 'https://www.vds-ev.de',
         'siteUrl' => home_url('/'),
     ];
@@ -125,8 +140,8 @@ function studio_connect_render_widget(): void
         <div class="studio-connect-panel" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
             <div class="studio-connect-header">
                 <div class="studio-connect-header-text">
-                    <div class="studio-connect-title">Pascal Krell</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">● Online</div>
+                    <div class="studio-connect-title">Studio Support</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Online & bereit</div>
                 </div>
                 <button class="studio-connect-close" type="button" aria-label="Chat schließen">
                     <i class="fa-solid fa-times" aria-hidden="true"></i>
@@ -175,21 +190,15 @@ function studio_connect_get_inline_styles(): string
     --sc-border: #eef0f5;
     --sc-muted: #f2f2f5;
     --sc-soft: #fcfcfd;
-    --sc-shadow: 0 20px 80px rgba(0,0,0,0.15), 0 5px 20px rgba(0,0,0,0.05);
+    --sc-shadow: 0 25px 90px rgba(0,0,0,0.2);
 }
 
 .studio-connect-widget {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 99999;
+    bottom: 25px;
+    right: 25px;
+    z-index: 999999;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    transform: translateY(0);
-    transition: transform 0.3s ease;
-}
-
-.studio-connect-widget.lift-up {
-    transform: translateY(-80px);
 }
 
 .studio-connect-launcher {
@@ -225,10 +234,11 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-panel {
-    width: 360px;
-    height: 600px;
+    width: 400px;
+    height: 700px;
+    max-height: 80vh;
     background: var(--sc-light);
-    border-radius: 12px;
+    border-radius: 18px;
     box-shadow: var(--sc-shadow);
     border: 1px solid var(--sc-border);
     display: flex;
@@ -253,13 +263,14 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-header {
     height: 70px;
-    background: var(--sc-light);
+    background: #0b0f19;
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 0 24px;
-    color: var(--sc-dark);
-    border-bottom: 1px solid var(--sc-muted);
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
 }
 
 .studio-connect-header-text {
@@ -269,56 +280,54 @@ function studio_connect_get_inline_styles(): string
 .studio-connect-title {
     font-weight: 700;
     font-size: 16px;
-    color: var(--sc-dark);
+    color: #ffffff;
 }
 
 .studio-connect-subtitle {
     font-size: 13px;
-    color: var(--sc-text-sub);
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .studio-connect-close {
     border: none;
     background: transparent;
-    color: #555555;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     font-size: 16px;
 }
 
 .studio-connect-body {
-    flex: 1;
-    padding: 24px;
+    flex: 1 1 auto;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    background: var(--sc-soft);
-}
-
-.studio-connect-messages {
-    flex: 1;
+    background: #ffffff;
     overflow-y: auto;
-    padding-right: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
 }
 
-.studio-connect-messages::-webkit-scrollbar {
+.studio-connect-body::-webkit-scrollbar {
     width: 6px;
 }
 
-.studio-connect-messages::-webkit-scrollbar-track {
+.studio-connect-body::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.studio-connect-messages::-webkit-scrollbar-thumb {
+.studio-connect-body::-webkit-scrollbar-thumb {
     background: #d2d2d7;
     border-radius: 8px;
 }
 
-.studio-connect-messages {
+.studio-connect-body {
     scrollbar-color: #d2d2d7 transparent;
     scrollbar-width: thin;
+}
+
+.studio-connect-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .studio-connect-bubble {
@@ -406,9 +415,11 @@ function studio_connect_get_inline_styles(): string
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
-    border-top: 1px solid var(--sc-muted);
-    background: var(--sc-light);
+    padding: 0 20px;
+    border-top: 1px solid #eeeeee;
+    background: #ffffff;
+    height: 60px;
+    flex: 0 0 auto;
 }
 
 .studio-connect-footer-spacer {
@@ -513,7 +524,7 @@ function studio_connect_get_inline_styles(): string
 
     .studio-connect-panel {
         width: 100%;
-        height: 520px;
+        height: 80vh;
     }
 }
 CSS;
@@ -536,6 +547,7 @@ class StudioBot {
         this.closeButton = document.querySelector('.studio-connect-close');
         this.resetButton = document.getElementById('studio-connect-reset');
         this.mailButton = document.getElementById('studio-connect-mail');
+        this.body = document.querySelector('.studio-connect-body');
         this.calculator = document.getElementById('studio-connect-calculator');
         this.wordsInput = document.getElementById('studio-connect-words');
         this.result = document.getElementById('studio-connect-result');
@@ -550,7 +562,6 @@ class StudioBot {
 
         this.bindEvents();
         this.renderStep('start');
-        this.startCollisionCheck();
         this.startPulseCycle();
     }
 
@@ -558,13 +569,13 @@ class StudioBot {
         return {
             start: {
                 id: 'start',
-                text: 'Hallo! Willkommen bei Pascal Krell. Womit kann ich helfen?',
+                text: 'Hallo! Wie kann ich weiterhelfen?',
                 options: [
                     { label: '🎧 Demos & Casting', nextId: 'demos' },
-                    { label: '💰 Gagen & Preise', nextId: 'preise' },
-                    { label: '🎙 Studio & Technik', nextId: 'technik' },
+                    { label: '💰 Preise & Gagen', nextId: 'preise' },
+                    { label: '🎙 Technik & Studio', nextId: 'technik' },
                     { label: '⏱ Wort-Rechner', nextId: 'rechner' },
-                    { label: '⚡ Kontakt', nextId: 'kontakt' }
+                    { label: '⚡ Kontakt & Booking', nextId: 'kontakt' }
                 ]
             },
             demos: {
@@ -622,8 +633,8 @@ class StudioBot {
                 id: 'kontakt',
                 text: 'Hier sind meine Kontaktdaten. Tippe zum Kopieren.',
                 options: [
-                    { label: 'E-Mail öffnen', action: 'email' },
-                    { label: 'Telefon anrufen', action: 'phone' },
+                    { label: 'Mail', action: 'email' },
+                    { label: 'Anruf', action: 'phone' },
                     { label: 'WhatsApp', action: 'whatsapp' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
@@ -736,12 +747,12 @@ class StudioBot {
         }
 
         if (option.action === 'whatsapp') {
-            const phone = this.settings.phone || '';
-            const digits = phone.replace(/[^\d+]/g, '');
+            const phone = this.settings.whatsapp || '';
+            const digits = phone.replace(/\D/g, '');
             if (digits) {
                 window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
             } else {
-                this.createBubble('Bitte eine Telefonnummer im Backend hinterlegen.', 'bot');
+                this.createBubble('Bitte eine WhatsApp-Nummer im Backend hinterlegen.', 'bot');
             }
             return;
         }
@@ -764,7 +775,7 @@ class StudioBot {
         const bubble = document.createElement('div');
         bubble.className = `studio-connect-bubble ${type}`;
         this.messages.appendChild(bubble);
-        this.messages.scrollTop = this.messages.scrollHeight;
+        this.scrollToBottom();
         if (type === 'bot') {
             this.soundEngine.play('msg_in');
             return this.typeWriter(bubble, text);
@@ -805,11 +816,11 @@ class StudioBot {
             typingIndicator.className = 'studio-connect-bubble bot studio-connect-typing';
             typingIndicator.textContent = '...';
             this.messages.appendChild(typingIndicator);
-            this.messages.scrollTop = this.messages.scrollHeight;
+            this.scrollToBottom();
             const timer = setInterval(() => {
                 bubble.textContent += text.charAt(index);
                 index += 1;
-                this.messages.scrollTop = this.messages.scrollHeight;
+                this.scrollToBottom();
                 if (index >= text.length) {
                     clearInterval(timer);
                     typingIndicator.remove();
@@ -849,28 +860,37 @@ class StudioBot {
             row.appendChild(phoneBtn);
         }
 
+        if (this.settings.whatsapp) {
+            const whatsappBtn = document.createElement('button');
+            whatsappBtn.type = 'button';
+            whatsappBtn.className = 'studio-connect-copy';
+            whatsappBtn.dataset.copy = this.settings.whatsapp;
+            whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> ' + this.settings.whatsapp;
+            row.appendChild(whatsappBtn);
+        }
+
         if (!row.children.length) {
             const fallback = document.createElement('div');
-            fallback.textContent = 'Bitte E-Mail und Telefon im Backend hinterlegen.';
+            fallback.textContent = 'Bitte E-Mail, Telefon und WhatsApp im Backend hinterlegen.';
             bubble.appendChild(fallback);
         } else {
             bubble.appendChild(row);
         }
 
         this.messages.appendChild(bubble);
-        this.messages.scrollTop = this.messages.scrollHeight;
+        this.scrollToBottom();
         this.soundEngine.play('msg_in');
     }
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: '● Online',
+            start: 'Online & bereit',
             demos: 'Demos & Casting',
-            preise: 'Gagen & Preise',
-            vdsinfo: 'Gagen & Preise',
-            technik: 'Studio & Technik',
-            remote: 'Studio & Technik',
-            kontakt: 'Kontakt',
+            preise: 'Preise & Gagen',
+            vdsinfo: 'Preise & Gagen',
+            technik: 'Technik & Studio',
+            remote: 'Technik & Studio',
+            kontakt: 'Kontakt & Booking',
             rechner: 'Wort-Rechner'
         };
         if (this.headerSubtext && map[stepId]) {
@@ -921,32 +941,13 @@ class StudioBot {
         }, 15000);
     }
 
-    startCollisionCheck() {
-        const isVisible = (element) => {
-            if (!element) {
-                return false;
-            }
-            const style = window.getComputedStyle(element);
-            return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
-        };
-
-        const updateLift = () => {
-            const candidates = document.querySelectorAll('.gemerkte-demos, .saved-demos, [id*="saved"]');
-            let shouldLift = false;
-            candidates.forEach((element) => {
-                if (isVisible(element)) {
-                    shouldLift = true;
-                }
-            });
-            if (shouldLift) {
-                this.widget.classList.add('lift-up');
-            } else {
-                this.widget.classList.remove('lift-up');
-            }
-        };
-
-        updateLift();
-        window.setInterval(updateLift, 1000);
+    scrollToBottom() {
+        if (!this.body) {
+            return;
+        }
+        requestAnimationFrame(() => {
+            this.body.scrollTop = this.body.scrollHeight;
+        });
     }
 
     createCopyMarkup(text) {
