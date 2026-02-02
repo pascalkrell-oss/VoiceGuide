@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Pascal Krell StudioConnect
- * Description: Premium-Chat-Widget im Support-Board-Stil für Pascal Krell Studio.
- * Version: 3.0.0
+ * Plugin Name: StudioConnect Pro
+ * Description: Premium-Chat-Widget im Support-Portal-Design für Pascal Krell Studio.
+ * Version: 4.0.0
  * Author: Pascal Krell Studio
  * License: GPL-2.0+
  */
@@ -140,8 +140,8 @@ function studio_connect_render_widget(): void
         <div class="studio-connect-panel" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true">
             <div class="studio-connect-header">
                 <div class="studio-connect-header-text">
-                    <div class="studio-connect-title">Studio Support</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Online & bereit</div>
+                    <div class="studio-connect-title">Support Portal</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Studio Hamburg • Online</div>
                 </div>
                 <button class="studio-connect-close" type="button" aria-label="Chat schließen">
                     <i class="fa-solid fa-times" aria-hidden="true"></i>
@@ -183,9 +183,9 @@ function studio_connect_get_inline_styles(): string
     return <<<CSS
 :root {
     --sc-primary: #1a93ee;
-    --sc-dark: #222222;
+    --sc-dark: #0f141a;
     --sc-light: #ffffff;
-    --sc-text-main: #444444;
+    --sc-text-main: #1c1e21;
     --sc-text-sub: #1a93ee;
     --sc-border: #eef0f5;
     --sc-muted: #f2f2f5;
@@ -195,25 +195,29 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-widget {
     position: fixed;
-    bottom: 25px;
-    right: 25px;
+    right: 0;
+    bottom: 0;
     z-index: 999999;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .studio-connect-launcher {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    border: 1px solid var(--sc-border);
-    background: var(--sc-light);
-    color: #555555;
-    font-size: 20px;
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 999999;
+    width: 60px;
+    height: 60px;
+    border-radius: 999px;
+    border: none;
+    background: var(--sc-primary);
+    color: #ffffff;
+    font-size: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 16px 40px rgba(26, 147, 238, 0.35);
     transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
@@ -234,9 +238,13 @@ function studio_connect_get_inline_styles(): string
 }
 
 .studio-connect-panel {
-    width: 400px;
-    height: 700px;
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 380px;
+    height: 650px;
     max-height: 80vh;
+    z-index: 999998;
     background: var(--sc-light);
     border-radius: 18px;
     box-shadow: var(--sc-shadow);
@@ -263,7 +271,7 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-header {
     height: 70px;
-    background: #0b0f19;
+    background: var(--sc-dark);
     display: flex;
     align-items: center;
     gap: 14px;
@@ -279,13 +287,22 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-title {
     font-weight: 700;
-    font-size: 16px;
+    font-size: 18px;
     color: #ffffff;
 }
 
 .studio-connect-subtitle {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.studio-connect-subtitle::before {
+    content: '●';
+    color: #22c55e;
+    font-size: 10px;
 }
 
 .studio-connect-close {
@@ -332,17 +349,18 @@ function studio_connect_get_inline_styles(): string
 
 .studio-connect-bubble {
     max-width: 85%;
-    padding: 12px 16px;
-    border-radius: 10px;
+    padding: 14px 18px;
+    border-radius: 18px;
     font-size: 14px;
     line-height: 1.6;
 }
 
 .studio-connect-bubble.bot {
-    background: #f2f4f7;
+    background: #f0f2f5;
     color: var(--sc-text-main);
-    border-radius: 10px 10px 10px 0;
+    border-radius: 18px 18px 18px 4px;
     align-self: flex-start;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .studio-connect-bubble.user {
@@ -439,6 +457,7 @@ function studio_connect_get_inline_styles(): string
     justify-content: center;
     width: 42px;
     height: 42px;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .studio-connect-footer-btn:hover {
@@ -517,14 +536,17 @@ function studio_connect_get_inline_styles(): string
 }
 
 @media (max-width: 480px) {
-    .studio-connect-widget {
-        right: 12px;
-        left: 12px;
-    }
-
     .studio-connect-panel {
         width: 100%;
         height: 80vh;
+        right: 12px;
+        left: 12px;
+        bottom: 90px;
+    }
+
+    .studio-connect-launcher {
+        right: 16px;
+        bottom: 20px;
     }
 }
 CSS;
@@ -569,13 +591,13 @@ class StudioBot {
         return {
             start: {
                 id: 'start',
-                text: 'Hallo! Wie kann ich weiterhelfen?',
+                text: 'Moin! Willkommen im Support Portal. Wie kann ich helfen?',
                 options: [
                     { label: '🎧 Demos & Casting', nextId: 'demos' },
                     { label: '💰 Preise & Gagen', nextId: 'preise' },
                     { label: '🎙 Technik & Studio', nextId: 'technik' },
                     { label: '⏱ Wort-Rechner', nextId: 'rechner' },
-                    { label: '⚡ Kontakt & Booking', nextId: 'kontakt' }
+                    { label: '⚡ Kontakt', nextId: 'kontakt' }
                 ]
             },
             demos: {
@@ -585,40 +607,22 @@ class StudioBot {
                     { label: 'Werbung', action: 'anchor', target: '#werbung' },
                     { label: 'Doku', action: 'anchor', target: '#doku' },
                     { label: 'Image', action: 'anchor', target: '#image' },
-                    { label: 'Gaming', action: 'anchor', target: '#gaming' },
                     { label: 'Zurück', nextId: 'start' }
                 ]
             },
             preise: {
                 id: 'preise',
-                text: 'Orientierung nach VDS-Standard. Soll ich dir die Infos öffnen?',
+                text: 'Infos nach VDS-Standard für Sprecherhonorare.',
                 options: [
-                    { label: 'VDS Info', nextId: 'vdsinfo' },
-                    { label: 'VDS Liste öffnen', action: 'vdslink' },
+                    { label: 'VDS Info', action: 'vdslink' },
                     { label: 'Zurück', nextId: 'start' }
-                ]
-            },
-            vdsinfo: {
-                id: 'vdsinfo',
-                text: 'Die VDS-Liste liefert transparente Richtwerte für Sprecherhonorare.',
-                options: [
-                    { label: 'VDS Liste öffnen', action: 'vdslink' },
-                    { label: 'Zurück', nextId: 'preise' }
                 ]
             },
             technik: {
                 id: 'technik',
-                text: 'Neumann U87 / RME.',
+                text: 'Studio-Setup: Neumann U87.',
                 options: [
-                    { label: 'Remote Regie?', nextId: 'remote' },
                     { label: 'Zurück', nextId: 'start' }
-                ]
-            },
-            remote: {
-                id: 'remote',
-                text: 'Remote-Regie via SessionLinkPRO oder Source-Connect möglich.',
-                options: [
-                    { label: 'Zurück', nextId: 'technik' }
                 ]
             },
             rechner: {
@@ -631,7 +635,7 @@ class StudioBot {
             },
             kontakt: {
                 id: 'kontakt',
-                text: 'Hier sind meine Kontaktdaten. Tippe zum Kopieren.',
+                text: 'Hier sind die Kontaktmöglichkeiten.',
                 options: [
                     { label: 'Mail', action: 'email' },
                     { label: 'Anruf', action: 'phone' },
@@ -796,7 +800,7 @@ class StudioBot {
     updateCalculator() {
         const words = Number.parseFloat(this.wordsInput.value);
         if (Number.isNaN(words) || words <= 0) {
-            this.result.textContent = 'Bitte eine gültige Wortanzahl eingeben.';
+            this.result.textContent = '';
             return;
         }
 
@@ -804,7 +808,7 @@ class StudioBot {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         const paddedSeconds = String(seconds).padStart(2, '0');
-        this.result.textContent = `Min:Sek ${minutes}:${paddedSeconds}`;
+        this.result.textContent = `⏱ Bei moderatem Tempo entspricht das ca. ${minutes} Min ${paddedSeconds} Sek Sprechzeit.`;
     }
 
     typeWriter(bubble, text) {
@@ -884,13 +888,11 @@ class StudioBot {
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Online & bereit',
+            start: 'Studio Hamburg • Online',
             demos: 'Demos & Casting',
             preise: 'Preise & Gagen',
-            vdsinfo: 'Preise & Gagen',
             technik: 'Technik & Studio',
-            remote: 'Technik & Studio',
-            kontakt: 'Kontakt & Booking',
+            kontakt: 'Kontakt',
             rechner: 'Wort-Rechner'
         };
         if (this.headerSubtext && map[stepId]) {
