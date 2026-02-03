@@ -2,6 +2,9 @@ const SC_STATE_KEY = 'sc_state_v2';
 const SC_LEGACY_KEY = 'sc_chat_state';
 const SC_LEGACY_PREFIX = 'sc_chat_state_';
 const SC_RESET_PARAM = 'reset-chat';
+const SC_CONTACT_PREFILL_KEY = 'sc_contact_prefill_v1';
+const SC_RETURNING_KEY = 'sc_returning_v1';
+const SC_PREFILL_MAX_AGE = 2 * 60 * 60 * 1000;
 
 const getDefaultState = () => ({
     isOpen: false,
@@ -20,7 +23,8 @@ const getDefaultState = () => ({
         returnToStepId: ''
     },
     flags: {
-        welcomed: false
+        welcomed: false,
+        returnWelcomed: false
     }
 });
 
@@ -46,7 +50,8 @@ const normalizeState = (state) => {
             }
         },
         flags: {
-            welcomed: Boolean(state.flags?.welcomed)
+            welcomed: Boolean(state.flags?.welcomed),
+            returnWelcomed: Boolean(state.flags?.returnWelcomed)
         }
     };
 };
@@ -342,6 +347,7 @@ class StudioBot {
             typingRow: null,
             optionsDisabled: false
         };
+        this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
         this.homeTooltip = null;
         this.soundEngine = new SoundController();
@@ -578,7 +584,7 @@ class StudioBot {
                     id: 'briefing_summary',
                     text: '',
                     options: [
-                        { label: 'Zum Kontaktformular', userPromptText: 'Zum Kontaktformular.', action: 'hardlink', target: '/kontakt/#kontaktformular_direkt' },
+                        { label: 'Zum Kontaktformular', userPromptText: 'Zum Kontaktformular.', action: 'briefing_contact' },
                         { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
                         { label: 'Zurück', userPromptText: 'Zurück.', action: 'back' }
                     ]
@@ -669,6 +675,7 @@ class StudioBot {
         if (!this.messages || !this.dock) {
             return;
         }
+        this.clearTypewriter();
         this.ensureValidStep();
         this.updateHeaderSubtext(this.state.currentStepId);
         this.messages.innerHTML = '';
@@ -681,14 +688,19 @@ class StudioBot {
             this.lastRenderedHistoryLength = this.state.history.length;
         }
 
-        this.state.history.forEach((entry) => {
+        this.state.history.forEach((entry, index) => {
             const { row, bubble } = this.createMessageRow(entry.role);
             if (entry.role === 'bot') {
-                bubble.innerHTML = this.createCopyMarkup(entry.text);
-                bubble.dataset.typed = 'true';
+                if (entry.typed === false) {
+                    bubble.textContent = entry.text;
+                    bubble.style.whiteSpace = 'pre-line';
+                } else {
+                    bubble.innerHTML = this.createCopyMarkup(entry.text);
+                }
             } else {
                 bubble.textContent = entry.text;
             }
+            bubble.dataset.index = String(index);
             this.messages.appendChild(row);
         });
 
@@ -773,7 +785,7 @@ class StudioBot {
             });
             this.dock.appendChild(optionsContainer);
             this.options = optionsContainer;
-            step.options.forEach((option) => this.appendOption(option));
+            this.getFilteredOptions(step.options).forEach((option) => this.appendOption(option));
             this.applyOptionsDisabled();
         }
 
@@ -792,6 +804,7 @@ class StudioBot {
             }
         }
 
+        this.animateLatestBotMessage();
         this.scrollToBottom();
     }
 
@@ -836,6 +849,13 @@ class StudioBot {
         this.ui.isTyping = false;
         this.removeTypingIndicator();
         this.renderApp();
+
+        if (option.action === 'briefing_contact') {
+            this.setContactPrefillFromBriefing();
+            window.location.href = '/kontakt/#kontaktformular_direkt';
+            this.setOptionsDisabled(false);
+            return;
+        }
 
         if (option.action === 'anchor' && option.target) {
             this.triggerAnchor(option.target);
@@ -941,11 +961,15 @@ class StudioBot {
     }
 
     pushMessage(role, text) {
-        this.state.history.push({
+        const entry = {
             role,
             text,
             ts: Date.now()
-        });
+        };
+        if (role === 'bot') {
+            entry.typed = false;
+        }
+        this.state.history.push(entry);
     }
 
     clearTypingState() {
@@ -955,6 +979,13 @@ class StudioBot {
         this.ui.typingTimer = null;
         this.ui.isTyping = false;
         this.removeTypingIndicator();
+    }
+
+    clearTypewriter() {
+        if (this.activeTypewriter && this.activeTypewriter.timer) {
+            window.clearTimeout(this.activeTypewriter.timer);
+        }
+        this.activeTypewriter = null;
     }
 
     getTypingDelay() {
@@ -1145,6 +1176,8 @@ class StudioBot {
         }
         this.state.isOpen = true;
         this.applyOpenState(true);
+        this.maybeShowReturnGreeting();
+        this.markReturningVisitor();
         saveState(this.state);
         this.renderApp();
         window.setTimeout(() => {
@@ -1533,6 +1566,120 @@ class StudioBot {
         ].join('\n');
     }
 
+    buildBriefingContactTemplate() {
+        const briefing = this.state.context?.briefing || {};
+        const einsatz = briefing.einsatz || 'Keine Angabe';
+        const tonalitaet = briefing.tonalitaet || 'Keine Angabe';
+        const laenge = briefing.laenge || 'Keine Angabe';
+        const deadline = briefing.deadline || 'Keine Angabe';
+        const aussprache = briefing.aussprache || 'Keine Angabe';
+        const wordCount = typeof this.state.context?.wordCount === 'number' ? this.state.context.wordCount : 0;
+        const lines = [
+            'Hallo Pascal,',
+            'hier sind die Briefing-Infos:',
+            `- Einsatz: ${einsatz}`,
+            `- Tonalität: ${tonalitaet}`,
+            `- Länge: ${laenge}`,
+            `- Deadline: ${deadline}`,
+            `- Aussprache: ${aussprache}`
+        ];
+        if (wordCount > 0) {
+            lines.push(`- Wortanzahl/geschätzte Dauer: ${wordCount} Wörter (~${formatDuration(wordCount)} Min.)`);
+        }
+        lines.push('Danke!');
+        return lines.join('\n');
+    }
+
+    setContactPrefillFromBriefing() {
+        try {
+            const text = this.buildBriefingContactTemplate();
+            const payload = {
+                text,
+                ts: Date.now(),
+                source: 'briefing'
+            };
+            localStorage.setItem(SC_CONTACT_PREFILL_KEY, JSON.stringify(payload));
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    getFilteredOptions(options = []) {
+        return options.filter((option) => option.action !== 'back');
+    }
+
+    maybeShowReturnGreeting() {
+        let hasOpenedBefore = false;
+        try {
+            hasOpenedBefore = localStorage.getItem(SC_RETURNING_KEY) === '1';
+        } catch (error) {
+            hasOpenedBefore = false;
+        }
+        if (hasOpenedBefore && !this.state.flags?.returnWelcomed && this.state.history.length > 0) {
+            this.state.flags = { ...this.state.flags, returnWelcomed: true };
+            this.enqueueBotMessage('Willkommen zurück! Schön, Dich wiederzusehen.');
+        }
+    }
+
+    markReturningVisitor() {
+        try {
+            if (!localStorage.getItem(SC_RETURNING_KEY)) {
+                localStorage.setItem(SC_RETURNING_KEY, '1');
+            }
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    animateLatestBotMessage() {
+        if (!this.messages) {
+            return;
+        }
+        this.clearTypewriter();
+        const entries = this.state.history;
+        let targetIndex = -1;
+        for (let i = entries.length - 1; i >= 0; i -= 1) {
+            if (entries[i].role === 'bot' && entries[i].typed === false) {
+                targetIndex = i;
+                break;
+            }
+        }
+        if (targetIndex < 0) {
+            return;
+        }
+        const entry = entries[targetIndex];
+        const bubble = this.messages.querySelector(`.studio-connect-bubble[data-index="${targetIndex}"]`);
+        if (!bubble) {
+            return;
+        }
+        const fullText = entry.text || '';
+        if (!fullText) {
+            entry.typed = true;
+            saveState(this.state);
+            return;
+        }
+        bubble.style.whiteSpace = 'pre-line';
+        bubble.textContent = '';
+        let position = 0;
+        const baseDelay = 18;
+        const variance = 12;
+        const step = () => {
+            position += 1;
+            bubble.textContent = fullText.slice(0, position);
+            if (position < fullText.length) {
+                const delay = baseDelay + Math.floor(Math.random() * variance);
+                this.activeTypewriter.timer = window.setTimeout(step, delay);
+                return;
+            }
+            bubble.style.whiteSpace = '';
+            bubble.innerHTML = this.createCopyMarkup(fullText);
+            entry.typed = true;
+            saveState(this.state);
+            this.activeTypewriter = null;
+        };
+        this.activeTypewriter = { index: targetIndex, timer: window.setTimeout(step, baseDelay) };
+    }
+
     delay(ms) {
         return new Promise((resolve) => {
             window.setTimeout(resolve, ms);
@@ -1578,6 +1725,114 @@ class SoundController {
     }
 }
 
+const initContactPrefill = () => {
+    const isContactPage = () => {
+        const href = window.location.href.toLowerCase();
+        const path = window.location.pathname.toLowerCase();
+        return href.includes('#kontaktformular_direkt') || path.includes('kontakt');
+    };
+
+    if (!isContactPage()) {
+        return;
+    }
+
+    let payload = null;
+    try {
+        const raw = localStorage.getItem(SC_CONTACT_PREFILL_KEY);
+        if (!raw) {
+            return;
+        }
+        payload = JSON.parse(raw);
+    } catch (error) {
+        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return;
+    }
+
+    if (!payload || typeof payload.text !== 'string' || typeof payload.ts !== 'number') {
+        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return;
+    }
+
+    if (Date.now() - payload.ts > SC_PREFILL_MAX_AGE) {
+        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return;
+    }
+
+    const findForm = () => {
+        return document.querySelector('form#fluentform_3')
+            || document.querySelector('form.fluentform[data-form_id="3"]')
+            || document.querySelector('form[data-form_id="3"]');
+    };
+
+    const findMessageField = (form) => {
+        if (!form) {
+            return null;
+        }
+        const selectors = [
+            'textarea[name="message"]',
+            'textarea[name="nachricht"]',
+            'textarea[name*="message" i]',
+            'textarea[placeholder*="Nachricht" i]',
+            'textarea.ff-el-form-control'
+        ];
+        for (const selector of selectors) {
+            const field = form.querySelector(selector);
+            if (field) {
+                return field;
+            }
+        }
+        const textareas = Array.from(form.querySelectorAll('textarea'));
+        if (!textareas.length) {
+            return null;
+        }
+        const getSizeScore = (textarea) => {
+            const rows = Number.parseInt(textarea.getAttribute('rows'), 10);
+            const rowScore = Number.isNaN(rows) ? 0 : rows * 20;
+            return Math.max(textarea.scrollHeight || 0, textarea.offsetHeight || 0, rowScore);
+        };
+        return textareas.sort((a, b) => getSizeScore(b) - getSizeScore(a))[0];
+    };
+
+    const attemptPrefill = () => {
+        const form = findForm();
+        if (!form) {
+            return false;
+        }
+        const textarea = findMessageField(form);
+        if (!textarea) {
+            return false;
+        }
+        const existing = (textarea.value || '').trim();
+        if (existing.length > 10) {
+            localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+            return true;
+        }
+        textarea.value = payload.text;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof textarea.focus === 'function') {
+            textarea.focus({ preventScroll: true });
+        }
+        if (typeof textarea.scrollIntoView === 'function') {
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return true;
+    };
+
+    if (attemptPrefill()) {
+        return;
+    }
+
+    const observer = new MutationObserver(() => {
+        if (attemptPrefill()) {
+            observer.disconnect();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.setTimeout(() => observer.disconnect(), 3000);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     let studioConnectBot = null;
     const startChat = () => {
@@ -1591,4 +1846,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('sc-widget')) {
         startChat();
     }
+    initContactPrefill();
 });
