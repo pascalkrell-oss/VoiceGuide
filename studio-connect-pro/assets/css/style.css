@@ -174,26 +174,6 @@
     gap: 6px;
 }
 
-.sc-online-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    line-height: 1;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: #b7c1d1;
-    text-transform: lowercase;
-}
-
-.sc-online-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #35c76b;
-}
-
 .studio-connect-body {
     flex: 1 1 auto;
     padding: 0;

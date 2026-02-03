@@ -155,7 +155,7 @@ function scp_render_widget(): void
     <div class="studio-connect-widget" id="sc-widget" aria-live="polite">
         <button class="studio-connect-launcher" id="sc-launcher" type="button" aria-label="Pascal Krell StudioConnect öffnen">
             <span class="studio-connect-launcher-icon" aria-hidden="true">
-                <i class="fa-solid fa-question"></i>
+                <i class="fa-solid fa-life-ring"></i>
             </span>
         </button>
         <div class="studio-connect-panel" id="sc-container" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true" tabindex="-1">
