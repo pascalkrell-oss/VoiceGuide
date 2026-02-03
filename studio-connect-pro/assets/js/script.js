@@ -619,7 +619,7 @@ class StudioBot {
                     id: 'briefing_summary',
                     text: '',
                     options: [
-                        { label: 'Zum Kontaktformular', userPromptText: 'Zum Kontaktformular.', action: 'briefing_contact' },
+                        { label: 'Jetzt anfragen', userPromptText: 'Jetzt anfragen.', action: 'briefing_contact' },
                         { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
                     ]
                 };
@@ -1243,22 +1243,7 @@ class StudioBot {
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
-            this.ensureOnlineIndicator();
         }
-    }
-
-    ensureOnlineIndicator() {
-        if (!this.headerSubtext || !this.headerSubtext.parentElement) {
-            return;
-        }
-        const parent = this.headerSubtext.parentElement;
-        if (parent.querySelector('.sc-online-indicator')) {
-            return;
-        }
-        const indicator = document.createElement('span');
-        indicator.className = 'sc-online-indicator';
-        indicator.innerHTML = '<span class="sc-online-dot" aria-hidden="true"></span><span>online</span>';
-        parent.appendChild(indicator);
     }
 
     positionHomeTooltip() {
@@ -1496,11 +1481,11 @@ class StudioBot {
             return;
         }
         if (this.isOpen) {
-            this.launcherIcon.classList.remove('fa-question');
+            this.launcherIcon.classList.remove('fa-life-ring');
             this.launcherIcon.classList.add('fa-times');
         } else {
             this.launcherIcon.classList.remove('fa-times');
-            this.launcherIcon.classList.add('fa-question');
+            this.launcherIcon.classList.add('fa-life-ring');
         }
     }
 
