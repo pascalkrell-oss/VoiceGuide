@@ -10,12 +10,6 @@
     --sc-shadow: 0 25px 90px rgba(0, 0, 0, 0.2);
 }
 
-div[class*="gemerkte"],
-.saved-demos {
-    right: 100px !important;
-    bottom: 30px !important;
-}
-
 .sc-widget-root {
     position: fixed;
     right: 0;
@@ -180,6 +174,26 @@ div[class*="gemerkte"],
     gap: 6px;
 }
 
+.sc-online-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #b7c1d1;
+    text-transform: lowercase;
+}
+
+.sc-online-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #35c76b;
+}
+
 .studio-connect-body {
     flex: 1 1 auto;
     padding: 0;
@@ -314,7 +328,8 @@ div[class*="gemerkte"],
     background: var(--sc-primary);
     color: #ffffff;
     border-radius: 50px;
-    padding: 10px 16px;
+    padding-block: 10px;
+    padding-inline: 16px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -409,7 +424,8 @@ div[class*="gemerkte"],
     background: var(--sc-primary);
     color: #ffffff;
     border-radius: 50px;
-    padding: 10px 16px;
+    padding-block: 10px;
+    padding-inline: 16px;
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s ease;
@@ -436,7 +452,8 @@ div[class*="gemerkte"],
     background: #f5f7fb;
     color: #1c1e21;
     border-radius: 12px;
-    padding: 12px 16px;
+    padding-block: 12px;
+    padding-inline: 16px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -473,9 +490,10 @@ div[class*="gemerkte"],
 
 .sc-contact-btn {
     width: 100%;
-    gap: 8px;
-    padding-left: 16px;
-    padding-right: 16px;
+    display: grid;
+    grid-template-columns: 26px 1fr 26px;
+    column-gap: 8px;
+    padding-inline: 16px;
 }
 
 .sc-contact-btn .sc-contact-icon,
@@ -485,11 +503,13 @@ div[class*="gemerkte"],
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    justify-self: center;
 }
 
 .sc-contact-btn .sc-contact-label {
     flex: 1;
     text-align: center;
+    justify-self: center;
 }
 
 .sc-contact-btn .sc-contact-spacer {
@@ -602,7 +622,8 @@ div[class*="gemerkte"],
     background: transparent;
     color: #ffffff;
     border-radius: 999px;
-    padding: 8px 12px;
+    padding-block: 8px;
+    padding-inline: 12px;
     font-size: 12px;
     cursor: pointer;
     display: inline-flex;
