@@ -22,6 +22,7 @@ div[class*="gemerkte"],
     bottom: 0;
     z-index: 999999;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: visible;
 }
 
 .studio-connect-launcher {
@@ -86,12 +87,12 @@ div[class*="gemerkte"],
     max-height: 85vh;
     z-index: 999998;
     background: var(--sc-light);
-    border-radius: 18px;
+    border-radius: 20px;
     box-shadow: var(--sc-shadow);
     border: 1px solid var(--sc-border);
     display: flex;
     flex-direction: column;
-    overflow: visible;
+    overflow: hidden;
     opacity: 0;
     pointer-events: none;
     transform: translateY(12px);
@@ -113,6 +114,7 @@ div[class*="gemerkte"],
     padding: 0 18px;
     color: #ffffff;
     flex: 0 0 auto;
+    border-radius: 20px 20px 0 0;
 }
 
 .studio-connect-header-icon {
@@ -367,8 +369,8 @@ div[class*="gemerkte"],
 }
 
 #studio-connect-words {
-    border: 1px solid transparent;
-    background: #f3f4f6;
+    border: 1px solid #d7deea;
+    background: #ffffff;
     border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
@@ -605,9 +607,9 @@ div[class*="gemerkte"],
 
 .studio-connect-home-tooltip {
     position: absolute;
-    bottom: 44px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -100%) translateY(-6px);
     background: #1f242c;
     color: #ffffff;
     font-size: 11px;
@@ -616,12 +618,13 @@ div[class*="gemerkte"],
     opacity: 0;
     pointer-events: none;
     white-space: nowrap;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease;
     z-index: 10000;
 }
 
-.studio-connect-home:hover .studio-connect-home-tooltip {
+.studio-connect-home-tooltip.is-visible {
     opacity: 1;
+    transform: translate(-50%, -100%) translateY(0);
 }
 
 .studio-connect-home-badge {
@@ -632,6 +635,10 @@ div[class*="gemerkte"],
     height: 6px;
     border-radius: 999px;
     background: #1a93ee;
+}
+
+.studio-connect-home .studio-connect-home-badge {
+    display: none;
 }
 
 .studio-connect-footer-socials {
@@ -661,6 +668,32 @@ div[class*="gemerkte"],
 .studio-connect-toast.is-visible {
     opacity: 1;
     transform: translate(-50%, 0);
+}
+
+.sc-list {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sc-list li {
+    position: relative;
+    padding-left: 26px;
+}
+
+.sc-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.2em;
+    width: 16px;
+    height: 16px;
+    background-image: url("https://dev.pascal-krell.de/wp-content/uploads/2025/08/check-mark-icon.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 @media (max-width: 480px) {
