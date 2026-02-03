@@ -9,7 +9,15 @@ const getDefaultState = () => ({
     history: [],
     navStack: [],
     context: {
-        wordCount: 0
+        wordCount: 0,
+        briefing: {
+            einsatz: '',
+            tonalitaet: '',
+            laenge: '',
+            deadline: '',
+            aussprache: ''
+        },
+        returnToStepId: ''
     },
     flags: {
         welcomed: false
@@ -27,7 +35,15 @@ const normalizeState = (state) => {
         navStack: Array.isArray(state.navStack) ? state.navStack : [],
         context: {
             ...(state.context && typeof state.context === 'object' ? state.context : {}),
-            wordCount: typeof state.context?.wordCount === 'number' ? state.context.wordCount : 0
+            wordCount: typeof state.context?.wordCount === 'number' ? state.context.wordCount : 0,
+            returnToStepId: typeof state.context?.returnToStepId === 'string' ? state.context.returnToStepId : '',
+            briefing: {
+                einsatz: typeof state.context?.briefing?.einsatz === 'string' ? state.context.briefing.einsatz : '',
+                tonalitaet: typeof state.context?.briefing?.tonalitaet === 'string' ? state.context.briefing.tonalitaet : '',
+                laenge: typeof state.context?.briefing?.laenge === 'string' ? state.context.briefing.laenge : '',
+                deadline: typeof state.context?.briefing?.deadline === 'string' ? state.context.briefing.deadline : '',
+                aussprache: typeof state.context?.briefing?.aussprache === 'string' ? state.context.briefing.aussprache : ''
+            }
         },
         flags: {
             welcomed: Boolean(state.flags?.welcomed)
@@ -346,6 +362,9 @@ class StudioBot {
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
         this.ensureValidStep();
+        if (this.widget) {
+            this.widget.classList.add('sc-widget-root');
+        }
         if (this.state.isOpen && this.state.history.length === 0) {
             this.ensureStartMessage();
             saveState(this.state);
@@ -368,7 +387,14 @@ class StudioBot {
             rechner: this.getStepConfig('rechner'),
             rechte: this.getStepConfig('rechte'),
             rechte_beispiele: this.getStepConfig('rechte_beispiele'),
-            kontakt: this.getStepConfig('kontakt')
+            kontakt: this.getStepConfig('kontakt'),
+            briefing: this.getStepConfig('briefing'),
+            briefing_einsatz: this.getStepConfig('briefing_einsatz'),
+            briefing_tonalitaet: this.getStepConfig('briefing_tonalitaet'),
+            briefing_laenge: this.getStepConfig('briefing_laenge'),
+            briefing_deadline: this.getStepConfig('briefing_deadline'),
+            briefing_aussprache: this.getStepConfig('briefing_aussprache'),
+            briefing_summary: this.getStepConfig('briefing_summary')
         };
     }
 
@@ -379,6 +405,11 @@ class StudioBot {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
                     options: [
+                        {
+                            label: 'Briefing-Check (30 Sek.)',
+                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
+                            nextId: 'briefing'
+                        },
                         { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
@@ -469,11 +500,99 @@ class StudioBot {
                     text: 'Du erreichst Pascal am schnellsten über die unten stehenden Kontaktwege.',
                     options: []
                 };
+            case 'briefing':
+                return {
+                    id: 'briefing',
+                    text: 'Super – in 30 Sekunden haben wir die wichtigsten Infos. Los geht’s:',
+                    options: [
+                        { label: 'Start', userPromptText: 'Start.', nextId: 'briefing_einsatz' },
+                        { label: 'Zurück', userPromptText: 'Zurück.', action: 'back' }
+                    ]
+                };
+            case 'briefing_einsatz':
+                return {
+                    id: 'briefing_einsatz',
+                    text: 'Wofür ist die Aufnahme gedacht (Einsatz)?',
+                    options: [
+                        { label: 'Website / Imagefilm', briefingKey: 'einsatz', briefingValue: 'Website / Imagefilm', nextId: 'briefing_tonalitaet' },
+                        { label: 'Social Organic (ohne Ads)', briefingKey: 'einsatz', briefingValue: 'Social Organic (ohne Ads)', nextId: 'briefing_tonalitaet' },
+                        { label: 'Social Ads / Paid', briefingKey: 'einsatz', briefingValue: 'Social Ads / Paid', nextId: 'briefing_tonalitaet' },
+                        { label: 'YouTube / Online Video', briefingKey: 'einsatz', briefingValue: 'YouTube / Online Video', nextId: 'briefing_tonalitaet' },
+                        { label: 'Radio / TV', briefingKey: 'einsatz', briefingValue: 'Radio / TV', nextId: 'briefing_tonalitaet' },
+                        { label: 'Noch unsicher', briefingKey: 'einsatz', briefingValue: 'Noch unsicher', nextId: 'briefing_tonalitaet' }
+                    ]
+                };
+            case 'briefing_tonalitaet':
+                return {
+                    id: 'briefing_tonalitaet',
+                    text: 'Welche Tonalität passt am besten?',
+                    options: [
+                        { label: 'Warm & vertrauensvoll', briefingKey: 'tonalitaet', briefingValue: 'Warm & vertrauensvoll', nextId: 'briefing_laenge' },
+                        { label: 'Modern & dynamisch', briefingKey: 'tonalitaet', briefingValue: 'Modern & dynamisch', nextId: 'briefing_laenge' },
+                        { label: 'Sachlich & seriös', briefingKey: 'tonalitaet', briefingValue: 'Sachlich & seriös', nextId: 'briefing_laenge' },
+                        { label: 'Werblich & energetisch', briefingKey: 'tonalitaet', briefingValue: 'Werblich & energetisch', nextId: 'briefing_laenge' },
+                        { label: 'Humorvoll / locker', briefingKey: 'tonalitaet', briefingValue: 'Humorvoll / locker', nextId: 'briefing_laenge' }
+                    ]
+                };
+            case 'briefing_laenge':
+                return {
+                    id: 'briefing_laenge',
+                    text: 'Wie lang ist Dein Text ungefähr?',
+                    options: [
+                        { label: 'Kurz (bis ~30 Sek.)', briefingKey: 'laenge', briefingValue: 'Kurz (bis ~30 Sek.)', nextId: 'briefing_deadline' },
+                        { label: 'Mittel (30–90 Sek.)', briefingKey: 'laenge', briefingValue: 'Mittel (30–90 Sek.)', nextId: 'briefing_deadline' },
+                        { label: 'Lang (90 Sek.–3 Min.)', briefingKey: 'laenge', briefingValue: 'Lang (90 Sek.–3 Min.)', nextId: 'briefing_deadline' },
+                        { label: 'Sehr lang (3+ Min.)', briefingKey: 'laenge', briefingValue: 'Sehr lang (3+ Min.)', nextId: 'briefing_deadline' },
+                        {
+                            label: 'Ich nutze den Wort-Rechner',
+                            briefingKey: 'laenge',
+                            briefingValue: 'Ich nutze den Wort-Rechner',
+                            nextId: 'rechner',
+                            returnToStepId: 'briefing_deadline'
+                        }
+                    ]
+                };
+            case 'briefing_deadline':
+                return {
+                    id: 'briefing_deadline',
+                    text: 'Bis wann brauchst Du das Ergebnis?',
+                    options: [
+                        { label: 'Heute / ASAP', briefingKey: 'deadline', briefingValue: 'Heute / ASAP', nextId: 'briefing_aussprache' },
+                        { label: '24 Stunden', briefingKey: 'deadline', briefingValue: '24 Stunden', nextId: 'briefing_aussprache' },
+                        { label: '2–3 Tage', briefingKey: 'deadline', briefingValue: '2–3 Tage', nextId: 'briefing_aussprache' },
+                        { label: 'Termin / später', briefingKey: 'deadline', briefingValue: 'Termin / später', nextId: 'briefing_aussprache' }
+                    ]
+                };
+            case 'briefing_aussprache':
+                return {
+                    id: 'briefing_aussprache',
+                    text: 'Gibt es schwierige Namen, Marken oder Fremdwörter?',
+                    options: [
+                        { label: 'Nein', briefingKey: 'aussprache', briefingValue: 'Nein', nextId: 'briefing_summary' },
+                        { label: 'Ja – schicke ich mit', briefingKey: 'aussprache', briefingValue: 'Ja – schicke ich mit', nextId: 'briefing_summary' },
+                        { label: 'Unsicher', briefingKey: 'aussprache', briefingValue: 'Unsicher', nextId: 'briefing_summary' }
+                    ]
+                };
+            case 'briefing_summary':
+                return {
+                    id: 'briefing_summary',
+                    text: '',
+                    options: [
+                        { label: 'Zum Kontaktformular', userPromptText: 'Zum Kontaktformular.', action: 'hardlink', target: '/kontakt/#kontaktformular_direkt' },
+                        { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
+                        { label: 'Zurück', userPromptText: 'Zurück.', action: 'back' }
+                    ]
+                };
             default:
                 return {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
                     options: [
+                        {
+                            label: 'Briefing-Check (30 Sek.)',
+                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
+                            nextId: 'briefing'
+                        },
                         { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
@@ -602,7 +721,8 @@ class StudioBot {
                 { registerInteraction: this.registerInteraction.bind(this) }
             );
             this.dock.appendChild(calculator);
-            if (step.options && step.options.length) {
+            const rechnerOptions = this.getRechnerOptions();
+            if (rechnerOptions && rechnerOptions.length) {
                 const optionsContainer = document.createElement('div');
                 optionsContainer.id = 'studio-connect-options';
                 optionsContainer.className = 'studio-connect-options';
@@ -617,13 +737,16 @@ class StudioBot {
                         userPromptText: button.dataset.userPromptText || undefined,
                         nextId: button.dataset.nextId || undefined,
                         action: button.dataset.action || undefined,
-                        target: button.dataset.target || undefined
+                        target: button.dataset.target || undefined,
+                        briefingKey: button.dataset.briefingKey || undefined,
+                        briefingValue: button.dataset.briefingValue || undefined,
+                        returnToStepId: button.dataset.returnToStepId || undefined
                     };
                     this.handleOption(option);
                 });
                 this.dock.appendChild(optionsContainer);
                 this.options = optionsContainer;
-                step.options.forEach((option) => this.appendOption(option));
+                rechnerOptions.forEach((option) => this.appendOption(option));
                 this.applyOptionsDisabled();
             }
         } else if (step) {
@@ -635,14 +758,17 @@ class StudioBot {
                 if (!button) {
                     return;
                 }
-                const option = {
-                    label: button.dataset.label || button.textContent,
-                    userLabel: button.dataset.userLabel || undefined,
-                    userPromptText: button.dataset.userPromptText || undefined,
-                    nextId: button.dataset.nextId || undefined,
-                    action: button.dataset.action || undefined,
-                    target: button.dataset.target || undefined
-                };
+                    const option = {
+                        label: button.dataset.label || button.textContent,
+                        userLabel: button.dataset.userLabel || undefined,
+                        userPromptText: button.dataset.userPromptText || undefined,
+                        nextId: button.dataset.nextId || undefined,
+                        action: button.dataset.action || undefined,
+                        target: button.dataset.target || undefined,
+                        briefingKey: button.dataset.briefingKey || undefined,
+                        briefingValue: button.dataset.briefingValue || undefined,
+                        returnToStepId: button.dataset.returnToStepId || undefined
+                    };
                 this.handleOption(option);
             });
             this.dock.appendChild(optionsContainer);
@@ -698,6 +824,7 @@ class StudioBot {
         this.soundEngine.play('click');
         const label = option.userPromptText || option.userLabel || option.label;
         this.pushMessage('user', label);
+        this.applyOptionContext(option);
         this.setOptionsDisabled(true);
         this.renderAndSave();
 
@@ -758,6 +885,16 @@ class StudioBot {
             this.renderAndSave();
             return;
         }
+        if (nextStep.id === 'briefing_summary') {
+            const summaryText = this.buildBriefingSummaryMessage();
+            if (immediateBotMessage) {
+                this.pushMessage('bot', summaryText);
+                this.renderAndSave();
+                return;
+            }
+            this.enqueueBotMessage(summaryText);
+            return;
+        }
         if (immediateBotMessage) {
             this.pushMessage('bot', nextStep.text);
             this.renderAndSave();
@@ -778,6 +915,12 @@ class StudioBot {
     handleBack() {
         this.registerInteraction();
         this.clearTypingState();
+        if (this.state.currentStepId === 'rechner' && this.state.context?.returnToStepId) {
+            const returnStep = this.state.context.returnToStepId;
+            this.clearReturnToStepId();
+            this.transitionToStep(returnStep, { skipStack: true, suppressBotMessage: true });
+            return;
+        }
         if (this.state.history.length === 0) {
             this.ensureStartMessage();
             this.renderAndSave();
@@ -891,21 +1034,21 @@ class StudioBot {
         if (!this.homeButton) {
             return;
         }
-        let tooltip = this.homeButton.querySelector('.studio-connect-home-tooltip');
+        let tooltip = document.getElementById('sc-tooltip');
         if (!tooltip) {
             tooltip = document.createElement('div');
-            tooltip.className = 'studio-connect-home-tooltip';
+            tooltip.id = 'sc-tooltip';
+            tooltip.className = 'sc-tooltip';
+            tooltip.setAttribute('role', 'tooltip');
             tooltip.textContent = 'Neustart';
-        } else {
-            tooltip.remove();
         }
         const defaultLabel = tooltip.textContent.trim() || 'Neustart';
         const hoverLabel = 'Zum Start zurück';
-        tooltip.dataset.defaultLabel = defaultLabel;
-        tooltip.dataset.hoverLabel = hoverLabel;
         this.homeTooltip = tooltip;
         const host = this.widget || document.body;
-        host.appendChild(tooltip);
+        if (!host.contains(tooltip)) {
+            host.appendChild(tooltip);
+        }
         const maxWidth = Math.max(
             this.measureButtonWidth(tooltip, defaultLabel),
             this.measureButtonWidth(tooltip, hoverLabel)
@@ -971,7 +1114,14 @@ class StudioBot {
             rechte_beispiele: 'Einsatz-Beispiele',
             kontakt: 'Kontakt',
             rechner: 'Wort-Rechner',
-            ablauf: 'Ablauf der Zusammenarbeit'
+            ablauf: 'Ablauf der Zusammenarbeit',
+            briefing: 'Briefing-Check',
+            briefing_einsatz: 'Briefing-Check',
+            briefing_tonalitaet: 'Briefing-Check',
+            briefing_laenge: 'Briefing-Check',
+            briefing_deadline: 'Briefing-Check',
+            briefing_aussprache: 'Briefing-Check',
+            briefing_summary: 'Briefing-Check'
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
@@ -983,10 +1133,8 @@ class StudioBot {
             return;
         }
         const buttonRect = this.homeButton.getBoundingClientRect();
-        const host = this.widget || document.body;
-        const hostRect = host.getBoundingClientRect();
-        const left = buttonRect.left - hostRect.left + buttonRect.width / 2;
-        const top = buttonRect.top - hostRect.top - 8;
+        const left = buttonRect.left + buttonRect.width / 2 - 8;
+        const top = buttonRect.top - 10;
         this.homeTooltip.style.left = `${left}px`;
         this.homeTooltip.style.top = `${top}px`;
     }
@@ -1125,6 +1273,15 @@ class StudioBot {
         }
         if (option.target) {
             button.dataset.target = option.target;
+        }
+        if (option.briefingKey) {
+            button.dataset.briefingKey = option.briefingKey;
+        }
+        if (option.briefingValue) {
+            button.dataset.briefingValue = option.briefingValue;
+        }
+        if (option.returnToStepId) {
+            button.dataset.returnToStepId = option.returnToStepId;
         }
         this.options.appendChild(button);
     }
@@ -1306,6 +1463,74 @@ class StudioBot {
         this.dock.querySelectorAll('.studio-connect-option-btn').forEach((button) => {
             button.disabled = this.ui.optionsDisabled;
         });
+    }
+
+    applyOptionContext(option) {
+        const briefingKey = option.briefingKey;
+        const briefingValue = option.briefingValue;
+        if (briefingKey && typeof briefingValue === 'string') {
+            const nextBriefing = {
+                ...(this.state.context?.briefing || {})
+            };
+            nextBriefing[briefingKey] = briefingValue;
+            this.state.context = {
+                ...this.state.context,
+                briefing: nextBriefing
+            };
+        }
+        if (option.returnToStepId) {
+            this.state.context = {
+                ...this.state.context,
+                returnToStepId: option.returnToStepId
+            };
+        } else if (this.state.currentStepId === 'briefing_laenge') {
+            this.clearReturnToStepId();
+        }
+        if (this.state.currentStepId === 'rechner' && option.nextId) {
+            this.clearReturnToStepId();
+        }
+    }
+
+    clearReturnToStepId() {
+        if (this.state.context?.returnToStepId) {
+            this.state.context = {
+                ...this.state.context,
+                returnToStepId: ''
+            };
+        }
+    }
+
+    getRechnerOptions() {
+        const options = [];
+        if (this.state.context?.returnToStepId) {
+            options.push({
+                label: 'Weiter im Briefing',
+                userPromptText: 'Weiter im Briefing.',
+                nextId: this.state.context.returnToStepId
+            });
+        }
+        options.push({ label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' });
+        return options;
+    }
+
+    buildBriefingSummaryMessage() {
+        const briefing = this.state.context?.briefing || {};
+        const einsatz = briefing.einsatz || 'Keine Angabe';
+        const tonalitaet = briefing.tonalitaet || 'Keine Angabe';
+        const laenge = briefing.laenge || 'Keine Angabe';
+        const deadline = briefing.deadline || 'Keine Angabe';
+        const aussprache = briefing.aussprache || 'Keine Angabe';
+        return [
+            'Perfekt – so kann Pascal Dein Projekt schnell und passend einschätzen:',
+            '',
+            `• Einsatz: ${einsatz}`,
+            `• Tonalität: ${tonalitaet}`,
+            `• Länge: ${laenge}`,
+            `• Deadline: ${deadline}`,
+            `• Aussprache: ${aussprache}`,
+            '',
+            'Wenn Du mir Deinen Text/Link kurz mitsendest, kann Pascal Dir direkt ein individuelles Angebot erstellen.'
+        ].join('\n');
     }
 
     delay(ms) {
