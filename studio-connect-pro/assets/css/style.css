@@ -95,6 +95,7 @@
     overflow: hidden;
     opacity: 0;
     pointer-events: none;
+    visibility: hidden;
     transform: translateY(12px);
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
@@ -102,6 +103,7 @@
 .studio-connect-widget.is-open .studio-connect-panel {
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
     transform: translateY(0);
 }
 
