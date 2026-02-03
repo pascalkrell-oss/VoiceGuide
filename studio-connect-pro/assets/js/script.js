@@ -18,6 +18,7 @@ const getDefaultState = () => ({
             einsatz: '',
             tonalitaet: '',
             laenge: '',
+            laufzeit: '',
             deadline: '',
             aussprache: ''
         },
@@ -46,6 +47,7 @@ const normalizeState = (state) => {
                 einsatz: typeof state.context?.briefing?.einsatz === 'string' ? state.context.briefing.einsatz : '',
                 tonalitaet: typeof state.context?.briefing?.tonalitaet === 'string' ? state.context.briefing.tonalitaet : '',
                 laenge: typeof state.context?.briefing?.laenge === 'string' ? state.context.briefing.laenge : '',
+                laufzeit: typeof state.context?.briefing?.laufzeit === 'string' ? state.context.briefing.laufzeit : '',
                 deadline: typeof state.context?.briefing?.deadline === 'string' ? state.context.briefing.deadline : '',
                 aussprache: typeof state.context?.briefing?.aussprache === 'string' ? state.context.briefing.aussprache : ''
             }
@@ -176,10 +178,12 @@ const renderContactCard = (state, sc_vars, helpers) => {
         emailBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span><span class="sc-contact-label">E-Mail: ${sc_vars.email}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
+            window.location.href = `mailto:${sc_vars.email}`;
+            if (helpers.showToast) {
+                helpers.showToast('E-Mail-Programm geöffnet');
+            }
         });
         actions.appendChild(emailBtn);
-        hasCopyAction = true;
     }
 
     if (sc_vars.phone) {
@@ -237,6 +241,8 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
     const wrapper = document.createElement('div');
     wrapper.id = 'studio-connect-calculator';
     wrapper.className = 'studio-connect-calculator is-visible';
+    const returnToStepId = state.context?.returnToStepId || '';
+    const shouldAutoProceed = Boolean(returnToStepId);
 
     const input = document.createElement('input');
     input.type = 'number';
@@ -266,6 +272,7 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
     updateOutput(currentValue);
 
     let debounceTimer = null;
+    let autoProceedTimer = null;
     const scheduleSave = (value) => {
         if (debounceTimer) {
             window.clearTimeout(debounceTimer);
@@ -284,12 +291,33 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
         onStatePatch({ context: { ...state.context, wordCount: clamped } }, { silent: true });
     };
 
+    const scheduleAutoProceed = (value) => {
+        if (!shouldAutoProceed) {
+            return;
+        }
+        if (autoProceedTimer) {
+            window.clearTimeout(autoProceedTimer);
+        }
+        if (value < 1 || value > 10000) {
+            return;
+        }
+        autoProceedTimer = window.setTimeout(() => {
+            if (!wrapper.isConnected) {
+                return;
+            }
+            if (helpers.proceedFromCalculator) {
+                helpers.proceedFromCalculator();
+            }
+        }, 600);
+    };
+
     input.addEventListener('input', () => {
         helpers.registerInteraction();
         const rawValue = Number.parseInt(input.value, 10);
         const safeValue = Number.isNaN(rawValue) ? 0 : rawValue;
         updateOutput(safeValue);
         scheduleSave(safeValue);
+        scheduleAutoProceed(safeValue);
     });
 
     input.addEventListener('blur', () => {
@@ -312,7 +340,9 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
 
     wrapper.appendChild(input);
     wrapper.appendChild(output);
-    wrapper.appendChild(cta);
+    if (!shouldAutoProceed) {
+        wrapper.appendChild(cta);
+    }
 
     return wrapper;
 };
@@ -353,6 +383,7 @@ class StudioBot {
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
+        this.isAutoProceeding = false;
 
         if (this.resetRequested) {
             clearState();
@@ -392,6 +423,7 @@ class StudioBot {
             kontakt: this.getStepConfig('kontakt'),
             briefing: this.getStepConfig('briefing'),
             briefing_einsatz: this.getStepConfig('briefing_einsatz'),
+            briefing_laufzeit: this.getStepConfig('briefing_laufzeit'),
             briefing_tonalitaet: this.getStepConfig('briefing_tonalitaet'),
             briefing_laenge: this.getStepConfig('briefing_laenge'),
             briefing_deadline: this.getStepConfig('briefing_deadline'),
@@ -513,10 +545,22 @@ class StudioBot {
                     options: [
                         { label: 'Website / Imagefilm', briefingKey: 'einsatz', briefingValue: 'Website / Imagefilm', nextId: 'briefing_tonalitaet' },
                         { label: 'Social Organic (ohne Ads)', briefingKey: 'einsatz', briefingValue: 'Social Organic (ohne Ads)', nextId: 'briefing_tonalitaet' },
-                        { label: 'Social Ads / Paid', briefingKey: 'einsatz', briefingValue: 'Social Ads / Paid', nextId: 'briefing_tonalitaet' },
+                        { label: 'Social Ads / Paid', briefingKey: 'einsatz', briefingValue: 'Social Ads / Paid', nextId: 'briefing_laufzeit' },
                         { label: 'YouTube / Online Video', briefingKey: 'einsatz', briefingValue: 'YouTube / Online Video', nextId: 'briefing_tonalitaet' },
                         { label: 'Radio / TV', briefingKey: 'einsatz', briefingValue: 'Radio / TV', nextId: 'briefing_tonalitaet' },
                         { label: 'Noch unsicher', briefingKey: 'einsatz', briefingValue: 'Noch unsicher', nextId: 'briefing_tonalitaet' }
+                    ]
+                };
+            case 'briefing_laufzeit':
+                return {
+                    id: 'briefing_laufzeit',
+                    text: 'Wie lange soll der Spot / die Kampagne aktiv sein?',
+                    options: [
+                        { label: '2–4 Wochen', briefingKey: 'laufzeit', briefingValue: '2–4 Wochen', nextId: 'briefing_tonalitaet' },
+                        { label: '2–4 Monate', briefingKey: 'laufzeit', briefingValue: '2–4 Monate', nextId: 'briefing_tonalitaet' },
+                        { label: '6 Monate', briefingKey: 'laufzeit', briefingValue: '6 Monate', nextId: 'briefing_tonalitaet' },
+                        { label: '1 Jahr', briefingKey: 'laufzeit', briefingValue: '1 Jahr', nextId: 'briefing_tonalitaet' },
+                        { label: 'Noch unklar', briefingKey: 'laufzeit', briefingValue: 'Noch unklar', nextId: 'briefing_tonalitaet' }
                     ]
                 };
             case 'briefing_tonalitaet':
@@ -708,14 +752,18 @@ class StudioBot {
         if (step && step.id === 'kontakt') {
             const card = renderContactCard(this.state, this.settings, {
                 copyToClipboard: this.copyToClipboard.bind(this),
-                registerInteraction: this.registerInteraction.bind(this)
+                registerInteraction: this.registerInteraction.bind(this),
+                showToast: this.showToast.bind(this)
             });
             this.dock.appendChild(card);
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
                 (patch, options) => this.patchState(patch, options),
-                { registerInteraction: this.registerInteraction.bind(this) }
+                {
+                    registerInteraction: this.registerInteraction.bind(this),
+                    proceedFromCalculator: this.handleCalculatorProceed.bind(this)
+                }
             );
             this.dock.appendChild(calculator);
             const rechnerOptions = this.getRechnerOptions();
@@ -833,7 +881,12 @@ class StudioBot {
 
         if (option.action === 'briefing_contact') {
             this.setContactPrefillFromBriefing();
-            window.location.href = '/kontakt/#kontaktformular_direkt';
+            if (isContactPage()) {
+                window.location.hash = '#kontaktformular_direkt';
+                applyContactPrefill();
+            } else {
+                window.location.href = '/kontakt/#kontaktformular_direkt';
+            }
             this.setOptionsDisabled(false);
             return;
         }
@@ -869,7 +922,8 @@ class StudioBot {
             return;
         }
 
-        if (option.action) {
+        const nonRepeatActions = ['anchor', 'hardlink', 'form', 'email', 'phone', 'whatsapp', 'vdslink', 'gagenrechner', 'briefing_contact'];
+        if (option.action && !nonRepeatActions.includes(option.action)) {
             await this.advanceToStep(this.state.currentStepId, { repeatCurrent: true });
         }
 
@@ -986,7 +1040,7 @@ class StudioBot {
         bubble.innerHTML = '<span class="studio-connect-typing-dots"><span></span><span></span><span></span></span>';
         this.messages.appendChild(row);
         this.ui.typingRow = row;
-        this.scrollToBottom();
+        this.scheduleScrollIntoView(row);
     }
 
     removeTypingIndicator() {
@@ -997,6 +1051,7 @@ class StudioBot {
             this.ui.typingRow.parentNode.removeChild(this.ui.typingRow);
         }
         this.ui.typingRow = null;
+        this.scrollToBottom();
     }
 
     async showBotMessage(text, { withTypingDots = true } = {}) {
@@ -1037,7 +1092,7 @@ class StudioBot {
             bubble.style.whiteSpace = 'pre-line';
             bubble.textContent = '';
             this.messages.appendChild(row);
-            this.scrollToBottom();
+            this.scheduleScrollIntoView(row);
 
             const maxTypeChars = 180;
             const fullText = text;
@@ -1047,7 +1102,7 @@ class StudioBot {
             const step = () => {
                 position += 1;
                 bubble.textContent = typeText.slice(0, position);
-                this.scrollToBottom();
+                this.scheduleScrollIntoView(row);
                 if (position < typeText.length) {
                     const delay = 12 + Math.floor(Math.random() * 15);
                     this.activeTypewriter.timer = window.setTimeout(step, delay);
@@ -1179,6 +1234,7 @@ class StudioBot {
             ablauf: 'Ablauf der Zusammenarbeit',
             briefing: 'Briefing-Check',
             briefing_einsatz: 'Briefing-Check',
+            briefing_laufzeit: 'Briefing-Check',
             briefing_tonalitaet: 'Briefing-Check',
             briefing_laenge: 'Briefing-Check',
             briefing_deadline: 'Briefing-Check',
@@ -1187,7 +1243,22 @@ class StudioBot {
         };
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
+            this.ensureOnlineIndicator();
         }
+    }
+
+    ensureOnlineIndicator() {
+        if (!this.headerSubtext || !this.headerSubtext.parentElement) {
+            return;
+        }
+        const parent = this.headerSubtext.parentElement;
+        if (parent.querySelector('.sc-online-indicator')) {
+            return;
+        }
+        const indicator = document.createElement('span');
+        indicator.className = 'sc-online-indicator';
+        indicator.innerHTML = '<span class="sc-online-dot" aria-hidden="true"></span><span>online</span>';
+        parent.appendChild(indicator);
     }
 
     positionHomeTooltip() {
@@ -1259,6 +1330,18 @@ class StudioBot {
         }
         requestAnimationFrame(() => {
             this.chatArea.scrollTop = this.chatArea.scrollHeight;
+        });
+    }
+
+    scheduleScrollIntoView(row) {
+        if (!this.chatArea) {
+            return;
+        }
+        requestAnimationFrame(() => {
+            this.chatArea.scrollTop = this.chatArea.scrollHeight;
+            if (row && typeof row.scrollIntoView === 'function') {
+                row.scrollIntoView({ block: 'end' });
+            }
         });
     }
 
@@ -1352,7 +1435,7 @@ class StudioBot {
         if (action === 'email') {
             if (this.settings.email) {
                 window.location.href = `mailto:${this.settings.email}`;
-                return null;
+                return 'halt';
             }
             await this.showBotMessage('Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie Dir anbieten.');
             return 'halt';
@@ -1361,7 +1444,7 @@ class StudioBot {
         if (action === 'phone') {
             if (this.settings.phone) {
                 window.location.href = `tel:${this.settings.phone}`;
-                return null;
+                return 'halt';
             }
             await this.showBotMessage('Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich Dich direkt weiter.');
             return 'halt';
@@ -1376,7 +1459,7 @@ class StudioBot {
                 await this.showBotMessage('Bitte im Backend eine WhatsApp-Nummer hinterlegen, dann öffne ich den Chat.');
                 return 'halt';
             }
-            return null;
+            return 'halt';
         }
 
         if (action === 'vdslink') {
@@ -1386,7 +1469,7 @@ class StudioBot {
                 await this.showBotMessage('Der VDS-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
                 return 'halt';
             }
-            return null;
+            return 'halt';
         }
 
         if (action === 'gagenrechner') {
@@ -1396,13 +1479,13 @@ class StudioBot {
                 await this.showBotMessage('Der Gagenrechner-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
                 return 'halt';
             }
-            return null;
+            return 'halt';
         }
 
         if (action === 'form') {
             const baseUrl = (this.settings.siteUrl || '/').replace(/\/$/, '');
             window.location.href = `${baseUrl}/kontakt/`;
-            return null;
+            return 'halt';
         }
 
         return null;
@@ -1553,6 +1636,9 @@ class StudioBot {
                 ...(this.state.context?.briefing || {})
             };
             nextBriefing[briefingKey] = briefingValue;
+            if (briefingKey === 'einsatz' && briefingValue !== 'Social Ads / Paid') {
+                nextBriefing.laufzeit = '';
+            }
             this.state.context = {
                 ...this.state.context,
                 briefing: nextBriefing
@@ -1580,6 +1666,20 @@ class StudioBot {
         }
     }
 
+    async handleCalculatorProceed() {
+        if (this.isAutoProceeding) {
+            return;
+        }
+        const returnToStepId = this.state.context?.returnToStepId;
+        if (!returnToStepId) {
+            return;
+        }
+        this.isAutoProceeding = true;
+        this.clearReturnToStepId();
+        await this.advanceToStep(returnToStepId);
+        this.isAutoProceeding = false;
+    }
+
     getRechnerOptions() {
         const options = [];
         if (this.state.context?.returnToStepId) {
@@ -1588,6 +1688,7 @@ class StudioBot {
                 userPromptText: 'Weiter im Briefing.',
                 nextId: this.state.context.returnToStepId
             });
+            return options;
         }
         options.push({ label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' });
         return options;
@@ -1600,17 +1701,23 @@ class StudioBot {
         const laenge = briefing.laenge || 'Keine Angabe';
         const deadline = briefing.deadline || 'Keine Angabe';
         const aussprache = briefing.aussprache || 'Keine Angabe';
-        return [
+        const lines = [
             'Perfekt – so kann Pascal Dein Projekt schnell und passend einschätzen:',
             '',
             `• Einsatz: ${einsatz}`,
+        ];
+        if (briefing.laufzeit) {
+            lines.push(`• Laufzeit: ${briefing.laufzeit}`);
+        }
+        lines.push(
             `• Tonalität: ${tonalitaet}`,
             `• Länge: ${laenge}`,
             `• Deadline: ${deadline}`,
             `• Aussprache: ${aussprache}`,
             '',
-            'Wenn Du mir Deinen Text/Link kurz mitsendest, kann Pascal Dir direkt ein individuelles Angebot erstellen.'
-        ].join('\n');
+            'Tippe auf „Jetzt anfragen“ – ich bringe Dich direkt zum Kontaktformular und übernehme Deine Briefing-Angaben als Vorlage.'
+        );
+        return lines.join('\n');
     }
 
     buildBriefingContactTemplate() {
@@ -1625,14 +1732,20 @@ class StudioBot {
             'Hallo Pascal,',
             'hier sind die Briefing-Infos:',
             `- Einsatz: ${einsatz}`,
+        ];
+        if (briefing.laufzeit) {
+            lines.push(`- Laufzeit: ${briefing.laufzeit}`);
+        }
+        lines.push(
             `- Tonalität: ${tonalitaet}`,
             `- Länge: ${laenge}`,
             `- Deadline: ${deadline}`,
             `- Aussprache: ${aussprache}`
-        ];
+        );
         if (wordCount > 0) {
             lines.push(`- Wortanzahl/geschätzte Dauer: ${wordCount} Wörter (~${formatDuration(wordCount)} Min.)`);
         }
+        lines.push('', 'Möchtest Du mir noch etwas zum Projekt sagen?', 'Zusatzinfos: ');
         lines.push('Danke!');
         return lines.join('\n');
     }
@@ -1700,112 +1813,125 @@ class SoundController {
     }
 }
 
-const initContactPrefill = () => {
-    const isContactPage = () => {
-        const href = window.location.href.toLowerCase();
-        const path = window.location.pathname.toLowerCase();
-        return href.includes('#kontaktformular_direkt') || path.includes('kontakt');
-    };
+function isContactPage() {
+    const href = window.location.href.toLowerCase();
+    const path = window.location.pathname.toLowerCase();
+    return href.includes('#kontaktformular_direkt') || path.includes('kontakt');
+}
 
-    if (!isContactPage()) {
-        return;
-    }
-
+function getPrefillPayload() {
     let payload = null;
     try {
         const raw = localStorage.getItem(SC_CONTACT_PREFILL_KEY);
         if (!raw) {
-            return;
+            return null;
         }
         payload = JSON.parse(raw);
     } catch (error) {
         localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
-        return;
+        return null;
     }
 
     if (!payload || typeof payload.text !== 'string' || typeof payload.ts !== 'number') {
         localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
-        return;
+        return null;
     }
 
     if (Date.now() - payload.ts > SC_PREFILL_MAX_AGE) {
         localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return null;
+    }
+
+    return payload;
+}
+
+function findContactForm() {
+    return document.querySelector('form#fluentform_3')
+        || document.querySelector('form.fluentform[data-form_id="3"]')
+        || document.querySelector('form[data-form_id="3"]');
+}
+
+function findContactMessageField(form) {
+    if (!form) {
+        return null;
+    }
+    const selectors = [
+        'textarea[name="message"]',
+        'textarea[name="nachricht"]',
+        'textarea[name*="message" i]',
+        'textarea[placeholder*="Nachricht" i]',
+        'textarea.ff-el-form-control'
+    ];
+    for (const selector of selectors) {
+        const field = form.querySelector(selector);
+        if (field) {
+            return field;
+        }
+    }
+    const textareas = Array.from(form.querySelectorAll('textarea'));
+    if (!textareas.length) {
+        return null;
+    }
+    const getSizeScore = (textarea) => {
+        const rows = Number.parseInt(textarea.getAttribute('rows'), 10);
+        const rowScore = Number.isNaN(rows) ? 0 : rows * 20;
+        return Math.max(textarea.scrollHeight || 0, textarea.offsetHeight || 0, rowScore);
+    };
+    return textareas.sort((a, b) => getSizeScore(b) - getSizeScore(a))[0];
+}
+
+function attemptContactPrefill(payload) {
+    const form = findContactForm();
+    if (!form) {
+        return false;
+    }
+    const textarea = findContactMessageField(form);
+    if (!textarea) {
+        return false;
+    }
+    const existing = (textarea.value || '').trim();
+    if (existing.length > 10) {
+        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+        return true;
+    }
+    textarea.value = payload.text;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('change', { bubbles: true }));
+    if (typeof textarea.focus === 'function') {
+        textarea.focus({ preventScroll: true });
+    }
+    if (typeof textarea.scrollIntoView === 'function') {
+        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
+    return true;
+}
+
+function applyContactPrefill() {
+    const payload = getPrefillPayload();
+    if (!payload) {
         return;
     }
 
-    const findForm = () => {
-        return document.querySelector('form#fluentform_3')
-            || document.querySelector('form.fluentform[data-form_id="3"]')
-            || document.querySelector('form[data-form_id="3"]');
-    };
-
-    const findMessageField = (form) => {
-        if (!form) {
-            return null;
-        }
-        const selectors = [
-            'textarea[name="message"]',
-            'textarea[name="nachricht"]',
-            'textarea[name*="message" i]',
-            'textarea[placeholder*="Nachricht" i]',
-            'textarea.ff-el-form-control'
-        ];
-        for (const selector of selectors) {
-            const field = form.querySelector(selector);
-            if (field) {
-                return field;
-            }
-        }
-        const textareas = Array.from(form.querySelectorAll('textarea'));
-        if (!textareas.length) {
-            return null;
-        }
-        const getSizeScore = (textarea) => {
-            const rows = Number.parseInt(textarea.getAttribute('rows'), 10);
-            const rowScore = Number.isNaN(rows) ? 0 : rows * 20;
-            return Math.max(textarea.scrollHeight || 0, textarea.offsetHeight || 0, rowScore);
-        };
-        return textareas.sort((a, b) => getSizeScore(b) - getSizeScore(a))[0];
-    };
-
-    const attemptPrefill = () => {
-        const form = findForm();
-        if (!form) {
-            return false;
-        }
-        const textarea = findMessageField(form);
-        if (!textarea) {
-            return false;
-        }
-        const existing = (textarea.value || '').trim();
-        if (existing.length > 10) {
-            localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
-            return true;
-        }
-        textarea.value = payload.text;
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-        if (typeof textarea.focus === 'function') {
-            textarea.focus({ preventScroll: true });
-        }
-        if (typeof textarea.scrollIntoView === 'function') {
-            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
-        return true;
-    };
-
-    if (attemptPrefill()) {
+    if (attemptContactPrefill(payload)) {
         return;
     }
 
     const observer = new MutationObserver(() => {
-        if (attemptPrefill()) {
+        if (attemptContactPrefill(payload)) {
             observer.disconnect();
         }
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window.setTimeout(() => observer.disconnect(), 3000);
+}
+
+const initContactPrefill = () => {
+    if (!isContactPage()) {
+        return;
+    }
+
+    applyContactPrefill();
 };
 
 document.addEventListener('DOMContentLoaded', () => {
