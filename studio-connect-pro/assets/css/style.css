@@ -321,6 +321,7 @@ div[class*="gemerkte"],
     align-items: center;
     justify-content: center;
     text-align: center;
+    line-height: 1.2;
 }
 
 .studio-connect-option-btn:hover {
@@ -414,6 +415,7 @@ div[class*="gemerkte"],
     align-items: center;
     justify-content: center;
     text-align: center;
+    line-height: 1.2;
 }
 
 .studio-connect-calculator-btn:hover {
@@ -444,6 +446,7 @@ div[class*="gemerkte"],
     box-shadow: 0 10px 20px rgba(26, 40, 70, 0.08);
     text-align: center;
     position: relative;
+    line-height: 1.2;
 }
 
 .studio-connect-copy i {
@@ -602,6 +605,7 @@ div[class*="gemerkte"],
     pointer-events: auto;
     z-index: 9999;
     text-align: center;
+    line-height: 1.2;
 }
 
 .studio-connect-home:hover {
