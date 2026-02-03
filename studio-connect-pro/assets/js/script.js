@@ -152,7 +152,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         const emailBtn = document.createElement('button');
         emailBtn.type = 'button';
         emailBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        emailBtn.innerHTML = '<i class="fa-solid fa-envelope" aria-hidden="true"></i><span>E-Mail</span>';
+        emailBtn.innerHTML = `<i class="fa-solid fa-envelope" aria-hidden="true"></i><span>E-Mail: ${sc_vars.email}</span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
@@ -165,7 +165,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         const phoneBtn = document.createElement('button');
         phoneBtn.type = 'button';
         phoneBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        phoneBtn.innerHTML = '<i class="fa-solid fa-phone" aria-hidden="true"></i><span>Telefon</span>';
+        phoneBtn.innerHTML = `<i class="fa-solid fa-phone" aria-hidden="true"></i><span>Telefon: ${sc_vars.phone}</span>`;
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert');
@@ -174,21 +174,22 @@ const renderContactCard = (state, sc_vars, helpers) => {
         hasCopyAction = true;
     }
 
-    if (sc_vars.whatsapp) {
+    const whatsappValue = sc_vars.whatsapp || sc_vars.phone;
+    if (whatsappValue) {
         const whatsappBtn = document.createElement('button');
         whatsappBtn.type = 'button';
         whatsappBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        whatsappBtn.innerHTML = '<i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp</span>';
+        whatsappBtn.innerHTML = `<i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp: ${whatsappValue}</span>`;
         whatsappBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            const digits = sc_vars.whatsapp.replace(/\D/g, '');
+            const digits = whatsappValue.replace(/\D/g, '');
             if (digits) {
                 const popup = window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
                 if (!popup) {
-                    helpers.copyToClipboard(sc_vars.whatsapp, 'WhatsApp-Nummer kopiert');
+                    helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert');
                 }
             } else {
-                helpers.copyToClipboard(sc_vars.whatsapp, 'WhatsApp-Nummer kopiert');
+                helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert');
             }
         });
         actions.appendChild(whatsappBtn);
@@ -285,7 +286,7 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
 
     cta.addEventListener('click', () => {
         helpers.registerInteraction();
-        window.location.href = '/kontakt/';
+        window.location.href = '/kontakt/#kontaktformular_direkt';
     });
 
     wrapper.appendChild(input);
@@ -322,8 +323,11 @@ class StudioBot {
         this.ui = {
             isTyping: false,
             typingTimer: null,
-            typingRow: null
+            typingRow: null,
+            optionsDisabled: false
         };
+        this.interactionChain = Promise.resolve();
+        this.homeTooltip = null;
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
@@ -373,7 +377,7 @@ class StudioBot {
             case 'start':
                 return {
                     id: 'start',
-                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für dein Projekt. Womit darf ich dir helfen?',
+                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
                     options: [
                         { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
@@ -381,7 +385,7 @@ class StudioBot {
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
                         {
                             label: 'Einsatz & Rechte',
-                            userPromptText: 'Kannst du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            userPromptText: 'Kannst Du mir kurz Nutzungsrechte & Einsatz erklären?',
                             nextId: 'rechte'
                         },
                         { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
@@ -391,11 +395,11 @@ class StudioBot {
                 const navLinks = this.settings.nav_links || {};
                 return {
                     id: 'demos',
-                    text: 'Gerne! Welche Demo-Kategorie möchtest du hören? Ich schicke dir sofort die passenden Hörproben.',
+                    text: 'Gerne! Welche Demo-Kategorie möchtest Du hören? Ich leite Dich zur passenden Seite.',
                     options: [
                         { label: 'Werbung', userPromptText: 'Ich möchte Werbung-Demos hören.', action: 'hardlink', target: navLinks.werbung },
                         { label: 'Webvideo', userPromptText: 'Gibt es Webvideo-Demos?', action: 'hardlink', target: navLinks.webvideo },
-                        { label: 'Telefonansage', userPromptText: 'Hast du Telefonansagen als Demo?', action: 'hardlink', target: navLinks.telefonansage },
+                        { label: 'Telefonansage', userPromptText: 'Hast Du Telefonansagen als Demo?', action: 'hardlink', target: navLinks.telefonansage },
                         { label: 'Podcast', userPromptText: 'Kann ich Podcast-Demos hören?', action: 'hardlink', target: navLinks.podcast },
                         { label: 'Imagefilm', userPromptText: 'Ich suche Imagefilm-Demos.', action: 'hardlink', target: navLinks.imagefilm },
                         { label: 'Erklärvideo', userPromptText: 'Gibt es Erklärvideo-Demos?', action: 'hardlink', target: navLinks.erklaervideo },
@@ -405,10 +409,10 @@ class StudioBot {
             case 'preise':
                 return {
                     id: 'preise',
-                    text: 'Ich arbeite transparent nach VDS-Standards. Du bekommst klare Buyouts, saubere Deliverables und verlässliche Timing-Zusagen. Womit soll ich starten?',
+                    text: 'Die Kalkulation erfolgt transparent nach VDS-Standards. Du bekommst klare Buyouts, saubere Deliverables und verlässliche Timing-Zusagen. Womit soll ich starten?',
                     options: [
-                        { label: 'VDS-Gagenliste', userPromptText: 'Kannst du mir die VDS-Gagenliste zeigen?', action: 'vdslink' },
-                        { label: 'Gagenrechner', userPromptText: 'Kannst du den Gagenrechner öffnen?', action: 'gagenrechner' },
+                        { label: 'VDS-Gagenliste', userPromptText: 'Kannst Du mir die VDS-Gagenliste zeigen?', action: 'vdslink' },
+                        { label: 'Gagenrechner', userPromptText: 'Kannst Du den Gagenrechner öffnen?', action: 'gagenrechner' },
                         { label: 'Wort-Rechner', userPromptText: 'Wie lange dauert mein Text ungefähr?', nextId: 'rechner' },
                         { label: 'Direkt anfragen', userPromptText: 'Ich möchte direkt anfragen.', nextId: 'kontakt' }
                     ]
@@ -425,7 +429,7 @@ class StudioBot {
             case 'ablauf':
                 return {
                     id: 'ablauf',
-                    text: 'So läuft die Zusammenarbeit ab:\n\n1. Anfrage & kurzer Skript-Check (Timing, Aussprache, Stil)\n2. Angebot mit klaren Nutzungsrechten & Timing\n3. Aufnahme – meist innerhalb 24h\n4. Lieferung als WAV/MP3 inkl. sauberer Dateibenennung\n5. Feedbackrunde mit klar geregelten Revisionen\n\nMicro-Tipp: Kurze Sätze und klare Betonungen helfen für einen natürlichen Flow.',
+                    text: 'So läuft die Zusammenarbeit ab:\n\n• Anfrage & kurzer Skript-Check (Timing, Aussprache, Stil)\n• Angebot mit klaren Nutzungsrechten & Timing\n• Aufnahme – meist innerhalb 24h\n• Lieferung als WAV/MP3 inkl. sauberer Dateibenennung\n• Feedbackrunde mit klar geregelten Revisionen\n\nMicro-Tipp: Kurze Sätze und klare Betonungen helfen für einen natürlichen Flow.',
                     options: [
                         { label: 'Projekt anfragen', userPromptText: 'Ich möchte ein Projekt anfragen.', action: 'form' }
                     ]
@@ -442,9 +446,9 @@ class StudioBot {
             case 'rechte':
                 return {
                     id: 'rechte',
-                    text: 'Kurz erklärt: Produktion ist die Aufnahme selbst – Nutzung regelt, wo und wie lange der Spot/Clip laufen darf.\n\n• Einsatzorte wie Website, Social Organic, Social Ads, YouTube PreRoll oder Radio/TV regional zählen unterschiedlich.\n• Nutzungsrechte hängen von Reichweite, Mediaspend und Zeitraum ab.\n• Je klarer der Einsatz, desto fairer kann ich kalkulieren.\n\nSag mir einfach, wo und wie lange – ich kalkuliere fair & transparent.',
+                    text: 'Kurz erklärt: Produktion ist die Aufnahme selbst – Nutzung regelt, wo und wie lange der Spot/Clip laufen darf.\n\n• Einsatzorte wie Website, Social Organic, Social Ads, YouTube PreRoll oder Radio/TV regional zählen unterschiedlich.\n• Nutzungsrechte hängen von Reichweite, Mediaspend und Zeitraum ab.\n• Je klarer der Einsatz, desto fairer kann Pascal kalkulieren.\n\nJe mehr Informationen Pascal hat, desto genauer kann er Dir ein individuelles Angebot erstellen.',
                     options: [
-                        { label: 'Beispiele sehen', userPromptText: 'Hast du Beispiele für typische Einsätze?', nextId: 'rechte_beispiele' },
+                        { label: 'Beispiele sehen', userPromptText: 'Hast Du Beispiele für typische Einsätze?', nextId: 'rechte_beispiele' },
                         { label: 'Zurück', userPromptText: 'Zurück zur Übersicht.', action: 'back' },
                         { label: 'Kontakt', userPromptText: 'Ich möchte kurz Rücksprache halten.', nextId: 'kontakt' }
                     ]
@@ -452,22 +456,23 @@ class StudioBot {
             case 'rechte_beispiele':
                 return {
                     id: 'rechte_beispiele',
-                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWenn du willst, schlage ich dir sofort die passende Rechte-Kombi vor.',
+                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWenn Du mir kurz den Einsatz nennst (Plattform + Zeitraum), kann Pascal Dir die passende Lizenz schnell einordnen.',
                     options: [
-                        { label: 'Zurück', userPromptText: 'Zurück zu Einsatz & Rechten.', action: 'back' },
-                        { label: 'Kontakt', userPromptText: 'Bitte kalkuliere mir das kurz.', nextId: 'kontakt' }
+                        { label: 'Beispiele', userPromptText: 'Zeig mir Beispiele.', nextId: 'rechte_beispiele' },
+                        { label: 'Kontakt', userPromptText: 'Bitte kalkuliere mir das kurz.', nextId: 'kontakt' },
+                        { label: 'Zurück', userPromptText: 'Zurück zu Einsatz & Rechten.', action: 'back' }
                     ]
                 };
             case 'kontakt':
                 return {
                     id: 'kontakt',
-                    text: 'Du erreichst Pascal am schnellsten so – mein winkendes Mikrofon zeigt dir den kürzesten Weg.',
+                    text: 'Du erreichst Pascal am schnellsten über die unten stehenden Kontaktwege.',
                     options: []
                 };
             default:
                 return {
                     id: 'start',
-                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für dein Projekt. Womit darf ich dir helfen?',
+                    text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
                     options: [
                         { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
@@ -475,7 +480,7 @@ class StudioBot {
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
                         {
                             label: 'Einsatz & Rechte',
-                            userPromptText: 'Kannst du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            userPromptText: 'Kannst Du mir kurz Nutzungsrechte & Einsatz erklären?',
                             nextId: 'rechte'
                         },
                         { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
@@ -619,6 +624,7 @@ class StudioBot {
                 this.dock.appendChild(optionsContainer);
                 this.options = optionsContainer;
                 step.options.forEach((option) => this.appendOption(option));
+                this.applyOptionsDisabled();
             }
         } else if (step) {
             const optionsContainer = document.createElement('div');
@@ -642,6 +648,7 @@ class StudioBot {
             this.dock.appendChild(optionsContainer);
             this.options = optionsContainer;
             step.options.forEach((option) => this.appendOption(option));
+            this.applyOptionsDisabled();
         }
 
         if (this.ui.isTyping) {
@@ -674,11 +681,34 @@ class StudioBot {
     }
 
     handleOption(option) {
+        if (this.ui.optionsDisabled) {
+            return;
+        }
+        this.queueInteraction(option);
+    }
+
+    async queueInteraction(option) {
+        this.interactionChain = this.interactionChain.then(() => this.runInteraction(option)).catch(() => {});
+        return this.interactionChain;
+    }
+
+    async runInteraction(option) {
         this.registerInteraction();
         this.clearTypingState();
         this.soundEngine.play('click');
         const label = option.userPromptText || option.userLabel || option.label;
         this.pushMessage('user', label);
+        this.setOptionsDisabled(true);
+        this.renderAndSave();
+
+        await this.delay(150 + Math.floor(Math.random() * 101));
+        this.ui.isTyping = true;
+        this.renderApp();
+
+        await this.delay(this.getTypingDelay());
+        this.ui.isTyping = false;
+        this.removeTypingIndicator();
+        this.renderApp();
 
         if (option.action === 'anchor' && option.target) {
             this.triggerAnchor(option.target);
@@ -687,6 +717,13 @@ class StudioBot {
         if (option.action === 'hardlink' && option.target) {
             saveState(this.state);
             window.location.href = option.target;
+            this.setOptionsDisabled(false);
+            return;
+        }
+
+        if (option.action === 'back') {
+            this.handleBack();
+            this.setOptionsDisabled(false);
             return;
         }
 
@@ -695,21 +732,20 @@ class StudioBot {
         }
 
         if (option.nextId) {
-            this.transitionToStep(option.nextId);
+            this.transitionToStep(option.nextId, { immediateBotMessage: true });
+            this.setOptionsDisabled(false);
             return;
         }
 
         if (option.action) {
-            if (option.action === 'back') {
-                this.handleBack();
-                return;
-            }
-            this.transitionToStep(this.state.currentStepId, { repeatCurrent: true });
+            this.transitionToStep(this.state.currentStepId, { repeatCurrent: true, immediateBotMessage: true });
         }
+
+        this.setOptionsDisabled(false);
     }
 
     transitionToStep(stepId, options = {}) {
-        const { repeatCurrent = false, skipStack = false, suppressBotMessage = false } = options;
+        const { repeatCurrent = false, skipStack = false, suppressBotMessage = false, immediateBotMessage = false } = options;
         const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
         if (!nextStep) {
             return;
@@ -719,6 +755,11 @@ class StudioBot {
         }
         this.state.currentStepId = nextStep.id;
         if (suppressBotMessage) {
+            this.renderAndSave();
+            return;
+        }
+        if (immediateBotMessage) {
+            this.pushMessage('bot', nextStep.text);
             this.renderAndSave();
             return;
         }
@@ -774,7 +815,7 @@ class StudioBot {
     }
 
     getTypingDelay() {
-        return 450 + Math.floor(Math.random() * 351);
+        return 500 + Math.floor(Math.random() * 401);
     }
 
     showTypingIndicator() {
@@ -850,14 +891,21 @@ class StudioBot {
         if (!this.homeButton) {
             return;
         }
-        const tooltip = this.homeButton.querySelector('.studio-connect-home-tooltip');
+        let tooltip = this.homeButton.querySelector('.studio-connect-home-tooltip');
         if (!tooltip) {
-            return;
+            tooltip = document.createElement('div');
+            tooltip.className = 'studio-connect-home-tooltip';
+            tooltip.textContent = 'Neustart';
+        } else {
+            tooltip.remove();
         }
         const defaultLabel = tooltip.textContent.trim() || 'Neustart';
         const hoverLabel = 'Zum Start zurück';
         tooltip.dataset.defaultLabel = defaultLabel;
         tooltip.dataset.hoverLabel = hoverLabel;
+        this.homeTooltip = tooltip;
+        const host = this.widget || document.body;
+        host.appendChild(tooltip);
         const maxWidth = Math.max(
             this.measureButtonWidth(tooltip, defaultLabel),
             this.measureButtonWidth(tooltip, hoverLabel)
@@ -865,11 +913,28 @@ class StudioBot {
         if (Number.isFinite(maxWidth) && maxWidth > 0) {
             tooltip.style.minWidth = `${Math.ceil(maxWidth)}px`;
         }
-        this.homeButton.addEventListener('mouseenter', () => {
+        const showTooltip = () => {
             tooltip.textContent = hoverLabel;
-        });
-        this.homeButton.addEventListener('mouseleave', () => {
+            this.positionHomeTooltip();
+            tooltip.classList.add('is-visible');
+        };
+        const hideTooltip = () => {
             tooltip.textContent = defaultLabel;
+            tooltip.classList.remove('is-visible');
+        };
+        this.homeButton.addEventListener('mouseenter', showTooltip);
+        this.homeButton.addEventListener('mouseleave', hideTooltip);
+        this.homeButton.addEventListener('focus', showTooltip);
+        this.homeButton.addEventListener('blur', hideTooltip);
+        window.addEventListener('scroll', () => {
+            if (tooltip.classList.contains('is-visible')) {
+                this.positionHomeTooltip();
+            }
+        }, true);
+        window.addEventListener('resize', () => {
+            if (tooltip.classList.contains('is-visible')) {
+                this.positionHomeTooltip();
+            }
         });
     }
 
@@ -911,6 +976,19 @@ class StudioBot {
         if (this.headerSubtext && map[stepId]) {
             this.headerSubtext.textContent = map[stepId];
         }
+    }
+
+    positionHomeTooltip() {
+        if (!this.homeButton || !this.homeTooltip) {
+            return;
+        }
+        const buttonRect = this.homeButton.getBoundingClientRect();
+        const host = this.widget || document.body;
+        const hostRect = host.getBoundingClientRect();
+        const left = buttonRect.left - hostRect.left + buttonRect.width / 2;
+        const top = buttonRect.top - hostRect.top - 8;
+        this.homeTooltip.style.left = `${left}px`;
+        this.homeTooltip.style.top = `${top}px`;
     }
 
     openPanel() {
@@ -975,10 +1053,37 @@ class StudioBot {
     }
 
     createCopyMarkup(text) {
-        const escaped = this.escapeHtml(text);
         const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
         const phoneRegex = /(\+?\d[\d\s().-]{6,}\d)/g;
-        let withEmails = escaped.replace(/\n/g, '<br>');
+        const lines = text.split('\n');
+        let markup = '';
+        let inList = false;
+        const closeList = () => {
+            if (inList) {
+                markup += '</ul>';
+                inList = false;
+            }
+        };
+        lines.forEach((line, index) => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('•')) {
+                if (!inList) {
+                    markup += '<ul class="sc-list">';
+                    inList = true;
+                }
+                const itemText = trimmed.replace(/^•\s*/, '');
+                markup += `<li>${this.escapeHtml(itemText)}</li>`;
+                return;
+            }
+            closeList();
+            if (trimmed === '') {
+                markup += '<br>';
+                return;
+            }
+            markup += `${this.escapeHtml(line)}${index < lines.length - 1 ? '<br>' : ''}`;
+        });
+        closeList();
+        let withEmails = markup;
         withEmails = withEmails.replace(emailRegex, (match) => {
             return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
         });
@@ -1030,7 +1135,7 @@ class StudioBot {
                 window.location.href = `mailto:${this.settings.email}`;
                 return true;
             }
-            this.pushMessage('bot', 'Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie dir anbieten.');
+            this.pushMessage('bot', 'Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie Dir anbieten.');
             this.renderAndSave();
             return true;
         }
@@ -1040,7 +1145,7 @@ class StudioBot {
                 window.location.href = `tel:${this.settings.phone}`;
                 return true;
             }
-            this.pushMessage('bot', 'Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich dich direkt weiter.');
+            this.pushMessage('bot', 'Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich Dich direkt weiter.');
             this.renderAndSave();
             return true;
         }
@@ -1182,6 +1287,31 @@ class StudioBot {
         const url = new URL(window.location.href);
         url.searchParams.delete(SC_RESET_PARAM);
         window.history.replaceState({}, document.title, url.toString());
+    }
+
+    setOptionsDisabled(disabled) {
+        this.ui.optionsDisabled = Boolean(disabled);
+        if (this.options) {
+            this.applyOptionsDisabled();
+        }
+    }
+
+    applyOptionsDisabled() {
+        if (this.options) {
+            this.options.classList.toggle('is-disabled', this.ui.optionsDisabled);
+        }
+        if (!this.dock) {
+            return;
+        }
+        this.dock.querySelectorAll('.studio-connect-option-btn').forEach((button) => {
+            button.disabled = this.ui.optionsDisabled;
+        });
+    }
+
+    delay(ms) {
+        return new Promise((resolve) => {
+            window.setTimeout(resolve, ms);
+        });
     }
 }
 
