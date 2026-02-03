@@ -3,7 +3,7 @@ const SC_LEGACY_KEY = 'sc_chat_state';
 const SC_LEGACY_PREFIX = 'sc_chat_state_';
 const SC_RESET_PARAM = 'reset-chat';
 const SC_CONTACT_PREFILL_KEY = 'sc_contact_prefill_v1';
-const SC_RETURNING_KEY = 'sc_returning_v1';
+const SC_HAS_VISITED_KEY = 'sc_has_visited_v1';
 const SC_PREFILL_MAX_AGE = 2 * 60 * 60 * 1000;
 
 const getDefaultState = () => ({
@@ -13,6 +13,7 @@ const getDefaultState = () => ({
     navStack: [],
     context: {
         wordCount: 0,
+        briefingStarted: false,
         briefing: {
             einsatz: '',
             tonalitaet: '',
@@ -23,8 +24,7 @@ const getDefaultState = () => ({
         returnToStepId: ''
     },
     flags: {
-        welcomed: false,
-        returnWelcomed: false
+        welcomed: false
     }
 });
 
@@ -40,6 +40,7 @@ const normalizeState = (state) => {
         context: {
             ...(state.context && typeof state.context === 'object' ? state.context : {}),
             wordCount: typeof state.context?.wordCount === 'number' ? state.context.wordCount : 0,
+            briefingStarted: Boolean(state.context?.briefingStarted),
             returnToStepId: typeof state.context?.returnToStepId === 'string' ? state.context.returnToStepId : '',
             briefing: {
                 einsatz: typeof state.context?.briefing?.einsatz === 'string' ? state.context.briefing.einsatz : '',
@@ -50,8 +51,7 @@ const normalizeState = (state) => {
             }
         },
         flags: {
-            welcomed: Boolean(state.flags?.welcomed),
-            returnWelcomed: Boolean(state.flags?.returnWelcomed)
+            welcomed: Boolean(state.flags?.welcomed)
         }
     };
 };
@@ -161,7 +161,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     const formBtn = document.createElement('button');
     formBtn.type = 'button';
     formBtn.className = 'studio-connect-copy is-primary sc-contact-btn';
-    formBtn.innerHTML = '<i class="fa-solid fa-file-pen" aria-hidden="true"></i><span>Formular</span>';
+    formBtn.innerHTML = '<span class="sc-contact-icon"><i class="fa-solid fa-file-pen" aria-hidden="true"></i></span><span class="sc-contact-label">Formular</span><span class="sc-contact-spacer" aria-hidden="true"></span>';
     formBtn.addEventListener('click', () => {
         helpers.registerInteraction();
         window.location.href = '/kontakt/';
@@ -173,7 +173,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         const emailBtn = document.createElement('button');
         emailBtn.type = 'button';
         emailBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        emailBtn.innerHTML = `<i class="fa-solid fa-envelope" aria-hidden="true"></i><span>E-Mail: ${sc_vars.email}</span>`;
+        emailBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span><span class="sc-contact-label">E-Mail: ${sc_vars.email}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
@@ -186,7 +186,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         const phoneBtn = document.createElement('button');
         phoneBtn.type = 'button';
         phoneBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        phoneBtn.innerHTML = `<i class="fa-solid fa-phone" aria-hidden="true"></i><span>Telefon: ${sc_vars.phone}</span>`;
+        phoneBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-phone" aria-hidden="true"></i></span><span class="sc-contact-label">Telefon: ${sc_vars.phone}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert');
@@ -200,7 +200,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         const whatsappBtn = document.createElement('button');
         whatsappBtn.type = 'button';
         whatsappBtn.className = 'studio-connect-copy is-copy sc-contact-btn';
-        whatsappBtn.innerHTML = `<i class="fa-brands fa-whatsapp" aria-hidden="true"></i><span>WhatsApp: ${whatsappValue}</span>`;
+        whatsappBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></span><span class="sc-contact-label">WhatsApp: ${whatsappValue}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         whatsappBtn.addEventListener('click', () => {
             helpers.registerInteraction();
             const digits = whatsappValue.replace(/\D/g, '');
@@ -371,10 +371,6 @@ class StudioBot {
         if (this.widget) {
             this.widget.classList.add('sc-widget-root');
         }
-        if (this.state.isOpen && this.state.history.length === 0) {
-            this.ensureStartMessage();
-            saveState(this.state);
-        }
 
         this.refreshDomReferences();
         this.bindEvents();
@@ -486,7 +482,6 @@ class StudioBot {
                     text: 'Kurz erklärt: Produktion ist die Aufnahme selbst – Nutzung regelt, wo und wie lange der Spot/Clip laufen darf.\n\n• Einsatzorte wie Website, Social Organic, Social Ads, YouTube PreRoll oder Radio/TV regional zählen unterschiedlich.\n• Nutzungsrechte hängen von Reichweite, Mediaspend und Zeitraum ab.\n• Je klarer der Einsatz, desto fairer kann Pascal kalkulieren.\n\nJe mehr Informationen Pascal hat, desto genauer kann er Dir ein individuelles Angebot erstellen.',
                     options: [
                         { label: 'Beispiele sehen', userPromptText: 'Hast Du Beispiele für typische Einsätze?', nextId: 'rechte_beispiele' },
-                        { label: 'Zurück', userPromptText: 'Zurück zur Übersicht.', action: 'back' },
                         { label: 'Kontakt', userPromptText: 'Ich möchte kurz Rücksprache halten.', nextId: 'kontakt' }
                     ]
                 };
@@ -497,7 +492,6 @@ class StudioBot {
                     options: [
                         { label: 'Beispiele', userPromptText: 'Zeig mir Beispiele.', nextId: 'rechte_beispiele' },
                         { label: 'Kontakt', userPromptText: 'Bitte kalkuliere mir das kurz.', nextId: 'kontakt' },
-                        { label: 'Zurück', userPromptText: 'Zurück zu Einsatz & Rechten.', action: 'back' }
                     ]
                 };
             case 'kontakt':
@@ -510,10 +504,7 @@ class StudioBot {
                 return {
                     id: 'briefing',
                     text: 'Super – in 30 Sekunden haben wir die wichtigsten Infos. Los geht’s:',
-                    options: [
-                        { label: 'Start', userPromptText: 'Start.', nextId: 'briefing_einsatz' },
-                        { label: 'Zurück', userPromptText: 'Zurück.', action: 'back' }
-                    ]
+                    options: []
                 };
             case 'briefing_einsatz':
                 return {
@@ -586,7 +577,6 @@ class StudioBot {
                     options: [
                         { label: 'Zum Kontaktformular', userPromptText: 'Zum Kontaktformular.', action: 'briefing_contact' },
                         { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
-                        { label: 'Zurück', userPromptText: 'Zurück.', action: 'back' }
                     ]
                 };
             default:
@@ -691,12 +681,7 @@ class StudioBot {
         this.state.history.forEach((entry, index) => {
             const { row, bubble } = this.createMessageRow(entry.role);
             if (entry.role === 'bot') {
-                if (entry.typed === false) {
-                    bubble.textContent = entry.text;
-                    bubble.style.whiteSpace = 'pre-line';
-                } else {
-                    bubble.innerHTML = this.createCopyMarkup(entry.text);
-                }
+                bubble.innerHTML = this.createCopyMarkup(entry.text);
             } else {
                 bubble.textContent = entry.text;
             }
@@ -804,7 +789,6 @@ class StudioBot {
             }
         }
 
-        this.animateLatestBotMessage();
         this.scrollToBottom();
     }
 
@@ -841,14 +825,11 @@ class StudioBot {
         this.setOptionsDisabled(true);
         this.renderAndSave();
 
-        await this.delay(150 + Math.floor(Math.random() * 101));
-        this.ui.isTyping = true;
-        this.renderApp();
-
-        await this.delay(this.getTypingDelay());
-        this.ui.isTyping = false;
-        this.removeTypingIndicator();
-        this.renderApp();
+        const shouldDelayForReply = Boolean(option.nextId)
+            || (option.action && !['briefing_contact', 'hardlink', 'back'].includes(option.action));
+        if (shouldDelayForReply) {
+            await this.delay(150 + Math.floor(Math.random() * 101));
+        }
 
         if (option.action === 'briefing_contact') {
             this.setContactPrefillFromBriefing();
@@ -875,24 +856,28 @@ class StudioBot {
         }
 
         if (option.action) {
-            this.handleContactAction(option.action);
+            const actionHandled = await this.handleContactAction(option.action);
+            if (actionHandled === 'halt') {
+                this.setOptionsDisabled(false);
+                return;
+            }
         }
 
         if (option.nextId) {
-            this.transitionToStep(option.nextId, { immediateBotMessage: true });
+            await this.advanceToStep(option.nextId);
             this.setOptionsDisabled(false);
             return;
         }
 
         if (option.action) {
-            this.transitionToStep(this.state.currentStepId, { repeatCurrent: true, immediateBotMessage: true });
+            await this.advanceToStep(this.state.currentStepId, { repeatCurrent: true });
         }
 
         this.setOptionsDisabled(false);
     }
 
-    transitionToStep(stepId, options = {}) {
-        const { repeatCurrent = false, skipStack = false, suppressBotMessage = false, immediateBotMessage = false } = options;
+    async advanceToStep(stepId, options = {}) {
+        const { repeatCurrent = false, skipStack = false, suppressBotMessage = false } = options;
         const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
         if (!nextStep) {
             return;
@@ -905,22 +890,29 @@ class StudioBot {
             this.renderAndSave();
             return;
         }
-        if (nextStep.id === 'briefing_summary') {
-            const summaryText = this.buildBriefingSummaryMessage();
-            if (immediateBotMessage) {
-                this.pushMessage('bot', summaryText);
-                this.renderAndSave();
-                return;
-            }
-            this.enqueueBotMessage(summaryText);
+        if (nextStep.id === 'briefing') {
+            await this.startBriefingFlow();
             return;
         }
-        if (immediateBotMessage) {
-            this.pushMessage('bot', nextStep.text);
-            this.renderAndSave();
+        const messageText = nextStep.id === 'briefing_summary' ? this.buildBriefingSummaryMessage() : nextStep.text;
+        await this.showBotMessage(messageText);
+    }
+
+    async startBriefingFlow() {
+        const briefingStep = this.logicTree.briefing;
+        if (!briefingStep) {
             return;
         }
-        this.enqueueBotMessage(nextStep.text);
+        await this.showBotMessage(briefingStep.text);
+        if (this.state.context?.briefingStarted) {
+            return;
+        }
+        this.state.context = {
+            ...this.state.context,
+            briefingStarted: true
+        };
+        await this.delay(150 + Math.floor(Math.random() * 101));
+        await this.advanceToStep('briefing_einsatz');
     }
 
     createBackButton() {
@@ -935,29 +927,18 @@ class StudioBot {
     handleBack() {
         this.registerInteraction();
         this.clearTypingState();
-        if (this.state.currentStepId === 'rechner' && this.state.context?.returnToStepId) {
-            const returnStep = this.state.context.returnToStepId;
-            this.clearReturnToStepId();
-            this.transitionToStep(returnStep, { skipStack: true, suppressBotMessage: true });
-            return;
-        }
-        if (this.state.history.length === 0) {
-            this.ensureStartMessage();
-            this.renderAndSave();
-            return;
-        }
         if (!this.state.navStack.length) {
-            this.transitionToStep('start', { skipStack: true, suppressBotMessage: true });
+            this.state.currentStepId = 'start';
+            saveState(this.state);
+            this.renderApp();
             return;
         }
         const nextStack = [...this.state.navStack];
         const previousStep = nextStack.pop();
         this.state.navStack = nextStack;
-        if (previousStep) {
-            this.transitionToStep(previousStep, { skipStack: true, suppressBotMessage: true });
-        } else {
-            this.transitionToStep('start', { skipStack: true, suppressBotMessage: true });
-        }
+        this.state.currentStepId = previousStep || 'start';
+        saveState(this.state);
+        this.renderApp();
     }
 
     pushMessage(role, text) {
@@ -966,9 +947,6 @@ class StudioBot {
             text,
             ts: Date.now()
         };
-        if (role === 'bot') {
-            entry.typed = false;
-        }
         this.state.history.push(entry);
     }
 
@@ -982,14 +960,20 @@ class StudioBot {
     }
 
     clearTypewriter() {
-        if (this.activeTypewriter && this.activeTypewriter.timer) {
+        if (!this.activeTypewriter) {
+            return;
+        }
+        if (this.activeTypewriter.timer) {
             window.clearTimeout(this.activeTypewriter.timer);
+        }
+        if (this.activeTypewriter.row && this.activeTypewriter.row.parentNode) {
+            this.activeTypewriter.row.parentNode.removeChild(this.activeTypewriter.row);
         }
         this.activeTypewriter = null;
     }
 
     getTypingDelay() {
-        return 500 + Math.floor(Math.random() * 401);
+        return 250 + Math.floor(Math.random() * 201);
     }
 
     showTypingIndicator() {
@@ -1015,26 +999,73 @@ class StudioBot {
         this.ui.typingRow = null;
     }
 
-    enqueueBotMessage(text, options = {}) {
-        const { immediate = false } = options;
+    async showBotMessage(text, { withTypingDots = true } = {}) {
         if (!text) {
             return;
         }
-        if (immediate || !this.messages) {
+        if (!this.messages) {
             this.pushMessage('bot', text);
             this.renderAndSave();
             return;
         }
+        const wasDisabled = this.ui.optionsDisabled;
+        if (!wasDisabled) {
+            this.setOptionsDisabled(true);
+        }
+        this.clearTypewriter();
         this.clearTypingState();
-        this.ui.isTyping = true;
-        this.showTypingIndicator();
-        const delay = this.getTypingDelay();
-        this.ui.typingTimer = window.setTimeout(() => {
+        if (withTypingDots) {
+            this.ui.isTyping = true;
+            this.showTypingIndicator();
+            await this.delay(this.getTypingDelay());
             this.ui.isTyping = false;
             this.removeTypingIndicator();
-            this.pushMessage('bot', text);
-            this.renderAndSave();
-        }, delay);
+        }
+        await this.runTypewriter(text);
+        if (!wasDisabled) {
+            this.setOptionsDisabled(false);
+        }
+    }
+
+    runTypewriter(text) {
+        return new Promise((resolve) => {
+            if (!this.messages) {
+                resolve();
+                return;
+            }
+            const { row, bubble } = this.createMessageRow('bot');
+            bubble.style.whiteSpace = 'pre-line';
+            bubble.textContent = '';
+            this.messages.appendChild(row);
+            this.scrollToBottom();
+
+            const maxTypeChars = 180;
+            const fullText = text;
+            const typeText = fullText.slice(0, maxTypeChars);
+            const remainingText = fullText.slice(maxTypeChars);
+            let position = 0;
+            const step = () => {
+                position += 1;
+                bubble.textContent = typeText.slice(0, position);
+                this.scrollToBottom();
+                if (position < typeText.length) {
+                    const delay = 12 + Math.floor(Math.random() * 15);
+                    this.activeTypewriter.timer = window.setTimeout(step, delay);
+                    return;
+                }
+                if (remainingText) {
+                    bubble.textContent = `${typeText}${remainingText}`;
+                }
+                if (row.parentNode) {
+                    row.parentNode.removeChild(row);
+                }
+                this.activeTypewriter = null;
+                this.pushMessage('bot', fullText);
+                this.renderAndSave();
+                resolve();
+            };
+            this.activeTypewriter = { row, timer: window.setTimeout(step, 12) };
+        });
     }
 
     renderAndSave() {
@@ -1170,16 +1201,14 @@ class StudioBot {
         this.homeTooltip.style.top = `${top}px`;
     }
 
-    openPanel() {
-        if (this.state.history.length === 0) {
-            this.ensureStartMessage();
-        }
+    async openPanel() {
         this.state.isOpen = true;
         this.applyOpenState(true);
-        this.maybeShowReturnGreeting();
-        this.markReturningVisitor();
-        saveState(this.state);
-        this.renderApp();
+        const greeted = await this.maybeShowGreeting();
+        if (!greeted) {
+            saveState(this.state);
+            this.renderApp();
+        }
         window.setTimeout(() => {
             const firstButton = this.panel ? this.panel.querySelector('button') : null;
             if (firstButton) {
@@ -1319,25 +1348,23 @@ class StudioBot {
         this.options.appendChild(button);
     }
 
-    handleContactAction(action) {
+    async handleContactAction(action) {
         if (action === 'email') {
             if (this.settings.email) {
                 window.location.href = `mailto:${this.settings.email}`;
-                return true;
+                return null;
             }
-            this.pushMessage('bot', 'Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie Dir anbieten.');
-            this.renderAndSave();
-            return true;
+            await this.showBotMessage('Bitte im Backend eine E-Mail-Adresse hinterlegen, dann kann ich sie Dir anbieten.');
+            return 'halt';
         }
 
         if (action === 'phone') {
             if (this.settings.phone) {
                 window.location.href = `tel:${this.settings.phone}`;
-                return true;
+                return null;
             }
-            this.pushMessage('bot', 'Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich Dich direkt weiter.');
-            this.renderAndSave();
-            return true;
+            await this.showBotMessage('Bitte im Backend eine Telefonnummer hinterlegen, dann leite ich Dich direkt weiter.');
+            return 'halt';
         }
 
         if (action === 'whatsapp') {
@@ -1346,39 +1373,39 @@ class StudioBot {
             if (digits) {
                 window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Bitte im Backend eine WhatsApp-Nummer hinterlegen, dann öffne ich den Chat.');
-                this.renderAndSave();
+                await this.showBotMessage('Bitte im Backend eine WhatsApp-Nummer hinterlegen, dann öffne ich den Chat.');
+                return 'halt';
             }
-            return true;
+            return null;
         }
 
         if (action === 'vdslink') {
             if (this.settings.vdsLink) {
                 window.open(this.settings.vdsLink, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Der VDS-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
-                this.renderAndSave();
+                await this.showBotMessage('Der VDS-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
+                return 'halt';
             }
-            return true;
+            return null;
         }
 
         if (action === 'gagenrechner') {
             if (this.settings.gagenrechnerLink) {
                 window.open(this.settings.gagenrechnerLink, '_blank', 'noopener');
             } else {
-                this.pushMessage('bot', 'Der Gagenrechner-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
-                this.renderAndSave();
+                await this.showBotMessage('Der Gagenrechner-Link fehlt noch im Backend. Sobald er drin ist, öffne ich ihn hier.');
+                return 'halt';
             }
-            return true;
+            return null;
         }
 
         if (action === 'form') {
             const baseUrl = (this.settings.siteUrl || '/').replace(/\/$/, '');
             window.location.href = `${baseUrl}/kontakt/`;
-            return true;
+            return null;
         }
 
-        return false;
+        return null;
     }
 
     updateLauncherState() {
@@ -1400,9 +1427,12 @@ class StudioBot {
         this.state = getDefaultState();
         this.state.isOpen = true;
         this.clearTypingState();
-        this.ensureStartMessage();
         this.applyOpenState(true, true);
-        this.renderAndSave();
+        this.maybeShowGreeting().then((greeted) => {
+            if (!greeted) {
+                this.renderAndSave();
+            }
+        });
     }
 
     refreshDomReferences() {
@@ -1458,13 +1488,30 @@ class StudioBot {
         this.showToast(message);
     }
 
-    ensureStartMessage() {
-        this.state.currentStepId = 'start';
-        const startStep = this.logicTree.start;
-        if (startStep && !this.state.flags?.welcomed) {
-            this.state.flags = { ...this.state.flags, welcomed: true };
-            this.enqueueBotMessage(startStep.text);
+    async maybeShowGreeting() {
+        if (this.state.flags?.welcomed || this.state.history.length > 0) {
+            return false;
         }
+        let hasVisited = false;
+        try {
+            hasVisited = localStorage.getItem(SC_HAS_VISITED_KEY) === '1';
+        } catch (error) {
+            hasVisited = false;
+        }
+        const greetingText = hasVisited
+            ? 'Willkommen zurück! Wie kann ich Dir dieses Mal weiterhelfen?'
+            : this.logicTree.start?.text || '';
+        this.state.currentStepId = 'start';
+        if (!hasVisited) {
+            try {
+                localStorage.setItem(SC_HAS_VISITED_KEY, '1');
+            } catch (error) {
+                // Ignore.
+            }
+        }
+        this.state.flags = { ...this.state.flags, welcomed: true };
+        await this.showBotMessage(greetingText);
+        return true;
     }
 
     ensureValidStep() {
@@ -1606,78 +1653,6 @@ class StudioBot {
 
     getFilteredOptions(options = []) {
         return options.filter((option) => option.action !== 'back');
-    }
-
-    maybeShowReturnGreeting() {
-        let hasOpenedBefore = false;
-        try {
-            hasOpenedBefore = localStorage.getItem(SC_RETURNING_KEY) === '1';
-        } catch (error) {
-            hasOpenedBefore = false;
-        }
-        if (hasOpenedBefore && !this.state.flags?.returnWelcomed && this.state.history.length > 0) {
-            this.state.flags = { ...this.state.flags, returnWelcomed: true };
-            this.enqueueBotMessage('Willkommen zurück! Schön, Dich wiederzusehen.');
-        }
-    }
-
-    markReturningVisitor() {
-        try {
-            if (!localStorage.getItem(SC_RETURNING_KEY)) {
-                localStorage.setItem(SC_RETURNING_KEY, '1');
-            }
-        } catch (error) {
-            // Ignore.
-        }
-    }
-
-    animateLatestBotMessage() {
-        if (!this.messages) {
-            return;
-        }
-        this.clearTypewriter();
-        const entries = this.state.history;
-        let targetIndex = -1;
-        for (let i = entries.length - 1; i >= 0; i -= 1) {
-            if (entries[i].role === 'bot' && entries[i].typed === false) {
-                targetIndex = i;
-                break;
-            }
-        }
-        if (targetIndex < 0) {
-            return;
-        }
-        const entry = entries[targetIndex];
-        const bubble = this.messages.querySelector(`.studio-connect-bubble[data-index="${targetIndex}"]`);
-        if (!bubble) {
-            return;
-        }
-        const fullText = entry.text || '';
-        if (!fullText) {
-            entry.typed = true;
-            saveState(this.state);
-            return;
-        }
-        bubble.style.whiteSpace = 'pre-line';
-        bubble.textContent = '';
-        let position = 0;
-        const baseDelay = 18;
-        const variance = 12;
-        const step = () => {
-            position += 1;
-            bubble.textContent = fullText.slice(0, position);
-            if (position < fullText.length) {
-                const delay = baseDelay + Math.floor(Math.random() * variance);
-                this.activeTypewriter.timer = window.setTimeout(step, delay);
-                return;
-            }
-            bubble.style.whiteSpace = '';
-            bubble.innerHTML = this.createCopyMarkup(fullText);
-            entry.typed = true;
-            saveState(this.state);
-            this.activeTypewriter = null;
-        };
-        this.activeTypewriter = { index: targetIndex, timer: window.setTimeout(step, baseDelay) };
     }
 
     delay(ms) {
