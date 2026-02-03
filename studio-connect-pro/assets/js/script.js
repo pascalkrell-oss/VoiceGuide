@@ -163,7 +163,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     const formBtn = document.createElement('button');
     formBtn.type = 'button';
     formBtn.className = 'studio-connect-copy is-primary sc-contact-btn';
-    formBtn.innerHTML = '<span class="sc-contact-icon"><i class="fa-solid fa-file-pen" aria-hidden="true"></i></span><span class="sc-contact-label">Formular</span><span class="sc-contact-spacer" aria-hidden="true"></span>';
+    formBtn.innerHTML = '<span class="sc-contact-icon"><i class="fa-solid fa-file-pen" aria-hidden="true"></i></span><span class="sc-contact-label">Kontaktformular</span><span class="sc-contact-spacer" aria-hidden="true"></span>';
     formBtn.addEventListener('click', () => {
         helpers.registerInteraction();
         window.location.href = '/kontakt/';
@@ -380,6 +380,7 @@ class StudioBot {
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
         this.homeTooltip = null;
+        this.hideHomeTooltip = null;
         this.soundEngine = new SoundController();
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
@@ -547,7 +548,7 @@ class StudioBot {
                         { label: 'Social Organic (ohne Ads)', briefingKey: 'einsatz', briefingValue: 'Social Organic (ohne Ads)', nextId: 'briefing_tonalitaet' },
                         { label: 'Social Ads / Paid', briefingKey: 'einsatz', briefingValue: 'Social Ads / Paid', nextId: 'briefing_laufzeit' },
                         { label: 'YouTube / Online Video', briefingKey: 'einsatz', briefingValue: 'YouTube / Online Video', nextId: 'briefing_tonalitaet' },
-                        { label: 'Radio / TV', briefingKey: 'einsatz', briefingValue: 'Radio / TV', nextId: 'briefing_tonalitaet' },
+                        { label: 'Radio / TV', briefingKey: 'einsatz', briefingValue: 'Radio / TV', nextId: 'briefing_laufzeit' },
                         { label: 'Noch unsicher', briefingKey: 'einsatz', briefingValue: 'Noch unsicher', nextId: 'briefing_tonalitaet' }
                     ]
                 };
@@ -1174,6 +1175,9 @@ class StudioBot {
             tooltip.style.minWidth = `${Math.ceil(maxWidth)}px`;
         }
         const showTooltip = () => {
+            if (!this.isOpen) {
+                return;
+            }
             tooltip.textContent = hoverLabel;
             this.positionHomeTooltip();
             tooltip.classList.add('is-visible');
@@ -1182,6 +1186,7 @@ class StudioBot {
             tooltip.textContent = defaultLabel;
             tooltip.classList.remove('is-visible');
         };
+        this.hideHomeTooltip = hideTooltip;
         this.homeButton.addEventListener('mouseenter', showTooltip);
         this.homeButton.addEventListener('mouseleave', hideTooltip);
         this.homeButton.addEventListener('focus', showTooltip);
@@ -1276,6 +1281,9 @@ class StudioBot {
     closePanel() {
         this.state.isOpen = false;
         this.applyOpenState(false, true);
+        if (this.hideHomeTooltip) {
+            this.hideHomeTooltip();
+        }
         saveState(this.state);
     }
 
@@ -1519,6 +1527,9 @@ class StudioBot {
         this.panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
         this.isOpen = isOpen;
         this.updateLauncherState();
+        if (!isOpen && this.hideHomeTooltip) {
+            this.hideHomeTooltip();
+        }
         if (!silent && isOpen) {
             this.soundEngine.play('open');
         }
@@ -1621,7 +1632,7 @@ class StudioBot {
                 ...(this.state.context?.briefing || {})
             };
             nextBriefing[briefingKey] = briefingValue;
-            if (briefingKey === 'einsatz' && briefingValue !== 'Social Ads / Paid') {
+            if (briefingKey === 'einsatz' && !['Social Ads / Paid', 'Radio / TV'].includes(briefingValue)) {
                 nextBriefing.laufzeit = '';
             }
             this.state.context = {
