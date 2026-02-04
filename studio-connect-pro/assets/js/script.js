@@ -1846,6 +1846,8 @@ const resetLauncherPosition = (launcher) => {
     launcher.style.left = SC_LAUNCHER_DEFAULTS.left;
     launcher.style.right = SC_LAUNCHER_DEFAULTS.right;
     launcher.style.bottom = SC_LAUNCHER_DEFAULTS.bottom;
+    launcher.style.top = 'auto';
+    launcher.style.margin = '0';
 };
 
 const alignLauncherToSavedButton = () => {
@@ -1864,14 +1866,24 @@ const alignLauncherToSavedButton = () => {
     const launcherWidth = launcherRect.width || 44;
     const launcherHeight = launcherRect.height || 44;
     const left = rect.right + gap;
-    const bottom = window.innerHeight - rect.bottom;
+    const savedStyles = window.getComputedStyle(savedButton);
+    const savedBottomPx = parseFloat(savedStyles.bottom);
+    const savedPosition = savedStyles.position;
+    let baseBottom = Math.round(window.innerHeight - rect.bottom);
+    if (savedPosition === 'fixed' && Number.isFinite(savedBottomPx)) {
+        baseBottom = savedBottomPx;
+    }
     launcher.style.left = `${left}px`;
     launcher.style.right = 'auto';
-    launcher.style.bottom = `${Math.max(12, bottom)}px`;
+    launcher.style.bottom = savedPosition === 'fixed' && Number.isFinite(savedBottomPx)
+        ? `${savedBottomPx}px`
+        : `${Math.max(12, baseBottom)}px`;
     if (left + launcherWidth > window.innerWidth - 12) {
         resetLauncherPosition(launcher);
-        launcher.style.bottom = `${Math.max(12, bottom - (launcherHeight + gap))}px`;
+        launcher.style.bottom = `${Math.max(12, baseBottom - (launcherHeight + gap))}px`;
     }
+    launcher.style.top = 'auto';
+    launcher.style.margin = '0';
 };
 
 const initLauncherAlignment = () => {
