@@ -5,6 +5,11 @@ const SC_RESET_PARAM = 'reset-chat';
 const SC_CONTACT_PREFILL_KEY = 'sc_contact_prefill_v1';
 const SC_HAS_VISITED_KEY = 'sc_has_visited_v1';
 const SC_PREFILL_MAX_AGE = 2 * 60 * 60 * 1000;
+const SC_LAUNCHER_DEFAULTS = {
+    right: '30px',
+    bottom: '30px',
+    left: 'auto'
+};
 
 const getDefaultState = () => ({
     isOpen: false,
@@ -1533,6 +1538,7 @@ class StudioBot {
         if (!silent && isOpen) {
             this.soundEngine.play('open');
         }
+        alignLauncherToSavedButton();
     }
 
     copyToClipboard(value, message) {
@@ -1815,6 +1821,69 @@ function isContactPage() {
     return href.includes('#kontaktformular_direkt') || path.includes('kontakt');
 }
 
+const debounce = (fn, wait = 100) => {
+    let timer;
+    return (...args) => {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => fn(...args), wait);
+    };
+};
+
+const getFirstVisibleSavedButton = () => {
+    const selectors = ['.saved-demos', '[class*="gemerkte"]', '[data-saved-demos]', '#saved-demos'];
+    for (const selector of selectors) {
+        const elements = Array.from(document.querySelectorAll(selector));
+        for (const element of elements) {
+            if (element.getClientRects().length > 0) {
+                return element;
+            }
+        }
+    }
+    return null;
+};
+
+const resetLauncherPosition = (launcher) => {
+    launcher.style.left = SC_LAUNCHER_DEFAULTS.left;
+    launcher.style.right = SC_LAUNCHER_DEFAULTS.right;
+    launcher.style.bottom = SC_LAUNCHER_DEFAULTS.bottom;
+};
+
+const alignLauncherToSavedButton = () => {
+    const launcher = document.querySelector('.studio-connect-launcher');
+    if (!launcher) {
+        return;
+    }
+    const savedButton = getFirstVisibleSavedButton();
+    if (!savedButton) {
+        resetLauncherPosition(launcher);
+        return;
+    }
+    const rect = savedButton.getBoundingClientRect();
+    const gap = 14;
+    const launcherRect = launcher.getBoundingClientRect();
+    const launcherWidth = launcherRect.width || 44;
+    const launcherHeight = launcherRect.height || 44;
+    const left = rect.right + gap;
+    const bottom = window.innerHeight - rect.bottom;
+    launcher.style.left = `${left}px`;
+    launcher.style.right = 'auto';
+    launcher.style.bottom = `${Math.max(12, bottom)}px`;
+    if (left + launcherWidth > window.innerWidth - 12) {
+        resetLauncherPosition(launcher);
+        launcher.style.bottom = `${Math.max(12, bottom - (launcherHeight + gap))}px`;
+    }
+};
+
+const initLauncherAlignment = () => {
+    alignLauncherToSavedButton();
+    const debouncedAlign = debounce(alignLauncherToSavedButton, 100);
+    window.addEventListener('resize', debouncedAlign);
+    const observer = new MutationObserver(debouncedAlign);
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+};
+
 function getPrefillPayload() {
     let payload = null;
     try {
@@ -1944,4 +2013,5 @@ document.addEventListener('DOMContentLoaded', () => {
         startChat();
     }
     initContactPrefill();
+    initLauncherAlignment();
 });
