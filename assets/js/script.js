@@ -357,16 +357,131 @@ const renderWordCalculator = (state, onStatePatch, helpers) => {
     return wrapper;
 };
 
+
+const renderCallbackForm = (helpers) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sc-callback-form';
+
+    const info = document.createElement('div');
+    info.className = 'sc-callback-hint';
+    info.textContent = 'Wir verwenden die Angaben nur zur Rückmeldung auf Deine Anfrage.';
+
+    const grid = document.createElement('div');
+    grid.className = 'sc-callback-grid';
+
+    const phone = document.createElement('input');
+    phone.type = 'tel';
+    phone.name = 'phone';
+    phone.placeholder = 'Telefonnummer';
+    phone.className = 'sc-callback-input';
+
+    const time = document.createElement('input');
+    time.type = 'time';
+    time.name = 'time';
+    time.className = 'sc-callback-input';
+
+    grid.appendChild(phone);
+    grid.appendChild(time);
+
+    const note = document.createElement('textarea');
+    note.name = 'note';
+    note.className = 'sc-callback-textarea';
+    note.placeholder = 'Kurze Notiz (optional)';
+    note.maxLength = 240;
+
+    const status = document.createElement('div');
+    status.className = 'sc-callback-status';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'studio-connect-option-btn';
+    button.textContent = 'Rückruf anfordern';
+
+    const setStatus = (message, type) => {
+        status.className = `sc-callback-status ${type ? `is-${type}` : ''}`.trim();
+        status.textContent = message || '';
+    };
+
+    button.addEventListener('click', async () => {
+        helpers.registerInteraction();
+        setStatus('', '');
+        const phoneValue = (phone.value || '').trim();
+        const timeValue = (time.value || '').trim();
+        const noteValue = (note.value || '').trim().slice(0, 240);
+
+        if (!/^[0-9+\-\s()]{7,}$/.test(phoneValue)) {
+            setStatus('Bitte eine gültige Telefonnummer eingeben.', 'error');
+            return;
+        }
+
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeValue)) {
+            setStatus('Bitte eine gültige Wunschuhrzeit angeben.', 'error');
+            return;
+        }
+
+        button.disabled = true;
+        const previousText = button.textContent;
+        button.textContent = 'Wird gesendet…';
+
+        try {
+            const body = new URLSearchParams();
+            body.set('action', 'scp_callback_request');
+            body.set('security', helpers.nonce || '');
+            body.set('phone', phoneValue);
+            body.set('time', timeValue);
+            body.set('note', noteValue);
+            body.set('page_url', window.location.href);
+
+            const response = await fetch(helpers.ajaxUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: body.toString()
+            });
+            const payload = await response.json();
+
+            if (!response.ok || !payload.success) {
+                throw new Error(payload?.data?.message || 'Senden fehlgeschlagen.');
+            }
+
+            setStatus(payload.data?.message || 'Danke! Rückrufwunsch ist eingegangen.', 'success');
+            phone.value = '';
+            time.value = '';
+            note.value = '';
+        } catch (error) {
+            setStatus(error.message || 'Senden fehlgeschlagen. Bitte später erneut versuchen.', 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = previousText;
+        }
+    });
+
+    wrapper.appendChild(info);
+    wrapper.appendChild(grid);
+    wrapper.appendChild(note);
+    wrapper.appendChild(button);
+    wrapper.appendChild(status);
+    return wrapper;
+};
+
 class StudioBot {
     constructor(settings) {
         const defaults = {
             vdsLink: 'https://www.sprecherverband.de/wp-content/uploads/2025/02/VDS_Gagenkompass_2025.pdf',
-            gagenrechnerLink: 'https://dev.pascal-krell.de/gagenrechner/',
+            gagenrechnerLink: `${window.location.origin}/extras/gagenrechner/`,
+            studiofinderLink: `${window.location.origin}/extras/studio-finder/`,
+            skriptanalyseLink: `${window.location.origin}/extras/skript-analyse-fuer-sprecher-und-autoren/`,
             siteUrl: window.location.origin,
             avatar_url: '',
-            nav_links: {}
+            nav_links: {},
+            module_links: {}
         };
         this.settings = { ...defaults, ...settings };
+        this.settings.module_links = {
+            studiofinder: settings?.module_links?.studiofinder || defaults.studiofinderLink,
+            gagenrechner: settings?.module_links?.gagenrechner || defaults.gagenrechnerLink,
+            skriptanalyse: settings?.module_links?.skriptanalyse || defaults.skriptanalyseLink
+        };
+        this.pageContext = this.getPageContext();
         this.widget = document.getElementById('sc-widget');
         this.panel = document.getElementById('sc-container');
         this.launcher = document.getElementById('sc-launcher');
@@ -440,6 +555,7 @@ class StudioBot {
     buildLogicTree() {
         return {
             start: this.getStepConfig('start'),
+            callback: this.getStepConfig('callback'),
             demos: this.getStepConfig('demos'),
             preise: this.getStepConfig('preise'),
             technik: this.getStepConfig('technik'),
@@ -455,8 +571,62 @@ class StudioBot {
             briefing_laenge: this.getStepConfig('briefing_laenge'),
             briefing_deadline: this.getStepConfig('briefing_deadline'),
             briefing_aussprache: this.getStepConfig('briefing_aussprache'),
-            briefing_summary: this.getStepConfig('briefing_summary')
+            briefing_summary: this.getStepConfig('briefing_summary'),
+            sa_hub: this.getStepConfig('sa_hub'),
+            gr_hub: this.getStepConfig('gr_hub'),
+            sf_hub: this.getStepConfig('sf_hub'),
+            sa_quickstart: this.getStepConfig('sa_quickstart'),
+            sa_teleprompter: this.getStepConfig('sa_teleprompter'),
+            sa_pdf: this.getStepConfig('sa_pdf'),
+            sa_analyseboxen: this.getStepConfig('sa_analyseboxen'),
+            sa_sprechdauer: this.getStepConfig('sa_sprechdauer'),
+            sa_projekte: this.getStepConfig('sa_projekte'),
+            sa_premium: this.getStepConfig('sa_premium'),
+            gr_projektart: this.getStepConfig('gr_projektart'),
+            gr_rechte: this.getStepConfig('gr_rechte'),
+            gr_optionen: this.getStepConfig('gr_optionen'),
+            gr_preisdetails: this.getStepConfig('gr_preisdetails'),
+            gr_pdf: this.getStepConfig('gr_pdf'),
+            gr_reset: this.getStepConfig('gr_reset'),
+            gr_fehler: this.getStepConfig('gr_fehler'),
+            sf_suche: this.getStepConfig('sf_suche'),
+            sf_karte: this.getStepConfig('sf_karte'),
+            sf_premium: this.getStepConfig('sf_premium'),
+            sf_feedback: this.getStepConfig('sf_feedback'),
+            sf_importexport: this.getStepConfig('sf_importexport'),
+            sf_probleme: this.getStepConfig('sf_probleme')
         };
+    }
+
+    getStartOptions() {
+        const options = [
+            {
+                label: 'Briefing-Check (30 Sek.)',
+                userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
+                nextId: 'briefing'
+            },
+            { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
+            { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
+            { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
+            { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
+            {
+                label: 'Einsatz & Rechte',
+                userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
+                nextId: 'rechte'
+            },
+            { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' },
+            { label: 'Rückruf gewünscht', userPromptText: 'Ich möchte einen Rückruf anfordern.', nextId: 'callback' }
+        ];
+
+        if (this.pageContext.moduleKey === 'studiofinder') {
+            options.push({ label: 'Studio-Finder Hilfe', userPromptText: 'Studio-Finder Hilfe öffnen.', nextId: 'sf_hub' });
+        } else if (this.pageContext.moduleKey === 'gagenrechner') {
+            options.push({ label: 'Gagenrechner Hilfe', userPromptText: 'Gagenrechner Hilfe öffnen.', nextId: 'gr_hub' });
+        } else if (this.pageContext.moduleKey === 'skriptanalyse') {
+            options.push({ label: 'Skript-Analyse Hilfe', userPromptText: 'Skript-Analyse Hilfe öffnen.', nextId: 'sa_hub' });
+        }
+
+        return options;
     }
 
     getStepConfig(stepId) {
@@ -465,23 +635,7 @@ class StudioBot {
                 return {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
-                    options: [
-                        {
-                            label: 'Briefing-Check (30 Sek.)',
-                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
-                            nextId: 'briefing'
-                        },
-                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
-                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
-                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
-                        {
-                            label: 'Einsatz & Rechte',
-                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
-                            nextId: 'rechte'
-                        },
-                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
-                    ]
+                    options: this.getStartOptions()
                 };
             case 'demos':
                 const navLinks = this.settings.nav_links || {};
@@ -650,29 +804,240 @@ class StudioBot {
                         { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
                     ]
                 };
+            case 'callback':
+                return {
+                    id: 'callback',
+                    text: 'Trag Deine Daten ein – wir melden uns zuverlässig zurück.',
+                    action: 'callback_form',
+                    options: [
+                        { label: 'Kontakt', userPromptText: 'Kontakt anzeigen.', nextId: 'kontakt' }
+                    ]
+                };
+            case 'sa_hub':
+                return {
+                    id: 'sa_hub',
+                    text: 'Hilfecenter Skript-Analyse: Die wichtigsten Funktionen auf einen Blick.',
+                    options: [
+                        { label: 'Schnellstart', userPromptText: 'Schnellstart öffnen.', nextId: 'sa_quickstart' },
+                        { label: 'Teleprompter', userPromptText: 'Teleprompter öffnen.', nextId: 'sa_teleprompter' },
+                        { label: 'PDF Export', userPromptText: 'PDF Export öffnen.', nextId: 'sa_pdf' },
+                        { label: 'Analyseboxen erklärt', userPromptText: 'Analyseboxen erklärt.', nextId: 'sa_analyseboxen' },
+                        { label: 'Sprechdauer & Tempo', userPromptText: 'Sprechdauer & Tempo.', nextId: 'sa_sprechdauer' },
+                        { label: 'Projekte speichern/laden', userPromptText: 'Projekte speichern/laden.', nextId: 'sa_projekte' },
+                        { label: 'Premium – Überblick', userPromptText: 'Premium Überblick.', nextId: 'sa_premium' },
+                        { label: 'Zum Tool', userPromptText: 'Skript-Analyse öffnen.', action: 'open_module_tool', target: 'skriptanalyse' }
+                    ]
+                };
+            case 'gr_hub':
+                return {
+                    id: 'gr_hub',
+                    text: 'Hilfecenter Gagenrechner: Schnell zu den wichtigsten Themen.',
+                    options: [
+                        { label: 'Projektart wählen', userPromptText: 'Projektart wählen.', nextId: 'gr_projektart' },
+                        { label: 'Nutzungsrechte & Buyouts', userPromptText: 'Nutzungsrechte & Buyouts.', nextId: 'gr_rechte' },
+                        { label: 'Optionen & Add-ons', userPromptText: 'Optionen & Add-ons.', nextId: 'gr_optionen' },
+                        { label: 'Preisdetails (Rechenweg)', userPromptText: 'Preisdetails öffnen.', nextId: 'gr_preisdetails' },
+                        { label: 'PDF Export', userPromptText: 'PDF Export öffnen.', nextId: 'gr_pdf' },
+                        { label: 'Zurücksetzen (System Clear)', userPromptText: 'Zurücksetzen erklären.', nextId: 'gr_reset' },
+                        { label: 'Häufige Fehler', userPromptText: 'Häufige Fehler anzeigen.', nextId: 'gr_fehler' },
+                        { label: 'Zum Tool', userPromptText: 'Gagenrechner öffnen.', action: 'open_module_tool', target: 'gagenrechner' }
+                    ]
+                };
+            case 'sf_hub':
+                return {
+                    id: 'sf_hub',
+                    text: 'Hilfecenter Studio-Finder: Orientierung für Suche, Karte und Daten.',
+                    options: [
+                        { label: 'Suche & Filter', userPromptText: 'Suche & Filter öffnen.', nextId: 'sf_suche' },
+                        { label: 'Karte & Standort', userPromptText: 'Karte & Standort öffnen.', nextId: 'sf_karte' },
+                        { label: 'Premium-Studios', userPromptText: 'Premium-Studios anzeigen.', nextId: 'sf_premium' },
+                        { label: 'Idee/Fehler senden', userPromptText: 'Idee/Fehler senden.', nextId: 'sf_feedback' },
+                        { label: 'Import/Export', userPromptText: 'Import/Export.', nextId: 'sf_importexport' },
+                        { label: 'Häufige Probleme', userPromptText: 'Häufige Probleme.', nextId: 'sf_probleme' },
+                        { label: 'Zum Tool', userPromptText: 'Studio-Finder öffnen.', action: 'open_module_tool', target: 'studiofinder' }
+                    ]
+                };
+            case 'sa_quickstart':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Direkt ein Skript einfügen oder laden.',
+                    'Analyse starten und Kennzahlen im oberen Bereich prüfen.',
+                    'Kritische Stellen zuerst überarbeiten, dann erneut prüfen.',
+                    'Texte in kurzen Absätzen verbessern Lesbarkeit und Rhythmus.',
+                    'Ergebnisse optional als PDF dokumentieren.'
+                ]), id: 'sa_quickstart' };
+            case 'sa_teleprompter':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Studio-Mode reduziert Ablenkung und fokussiert den Text.',
+                    'Tempo schrittweise erhöhen, bis es natürlich klingt.',
+                    'Kurze Blickpausen helfen für ruhigen Lesefluss.',
+                    'Schwierige Namen vorher markieren und langsam anfahren.',
+                    'Bei langen Passagen mit Abschnitten arbeiten.'
+                ]), id: 'sa_teleprompter' };
+            case 'sa_pdf':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'PDF bündelt Analysewerte und Textstand kompakt.',
+                    'Vor Versand Datum und Versionsstand prüfen.',
+                    'Für Freigaben kurze Notiz zum Einsatzzweck ergänzen.',
+                    'Export nach größeren Änderungen erneut erstellen.',
+                    'Dateinamen klar halten für Teams und Kunden.'
+                ]), id: 'sa_pdf' };
+            case 'sa_analyseboxen':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Lesbarkeit zeigt, wie leicht der Text erfassbar ist.',
+                    'Pausen- und Satzstruktur steuern Verständlichkeit.',
+                    'Füllwörter reduzieren, um Fokus zu erhöhen.',
+                    'Betonungsmarker helfen bei dynamischen Passagen.',
+                    'Unklare Begriffe früh vereinheitlichen.'
+                ]), id: 'sa_analyseboxen' };
+            case 'sa_sprechdauer':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Sprechdauer basiert auf Tempo und Textlänge.',
+                    'Für Werbung eher straffer, für Erklärungen ruhiger kalkulieren.',
+                    'Satzlängen beeinflussen reale Aufnahmezeit deutlich.',
+                    'Pausen nicht unterschätzen, sie tragen zur Wirkung bei.',
+                    'Mehrere Takes für Sicherheit einplanen.'
+                ]), id: 'sa_sprechdauer' };
+            case 'sa_projekte':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Projektstände regelmäßig speichern.',
+                    'Versionen sauber benennen (Datum/Zweck).',
+                    'Beim Laden auf richtigen Textstand achten.',
+                    'Export als Backup vor größeren Anpassungen nutzen.',
+                    'Teamwork: eindeutige Verantwortlichkeiten festlegen.'
+                ]), id: 'sa_projekte' };
+            case 'sa_premium':
+                return { ...this.buildModuleTopicStep('sa_hub', 'skriptanalyse', [
+                    'Premium bündelt erweiterte Analyse- und Workflow-Funktionen.',
+                    'Zusatztools unterstützen längere oder komplexe Skripte.',
+                    'Export- und Projektfunktionen werden erweitert nutzbar.',
+                    'Für Agenturen lohnt sich Premium bei hoher Frequenz.',
+                    'Vor Upgrade kurz Feature-Abgleich mit Bedarf machen.'
+                ]), id: 'sa_premium' };
+            case 'gr_projektart':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'Projektart zuerst festlegen, sie ist die Rechenbasis.',
+                    'Werbung, Social, Erklärfilm und E-Learning unterscheiden sich.',
+                    'Plattform und Einsatzgebiet gleich zu Beginn definieren.',
+                    'Unscharfe Projektangaben führen oft zu falscher Spanne.',
+                    'Im Zweifel konservativ einstufen und später verfeinern.'
+                ]), id: 'gr_projektart' };
+            case 'gr_rechte':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'Gebiet, Laufzeit und Medien bestimmen die Nutzungsrechte.',
+                    'Typische Kombinationen: DACH + 12 Monate + Social Ads.',
+                    'Buyouts steigen mit Reichweite und Dauer deutlich an.',
+                    'Paid Media getrennt von rein organischer Nutzung betrachten.',
+                    'Bei Unsicherheit lieber etwas großzügiger kalkulieren.'
+                ]), id: 'gr_rechte' };
+            case 'gr_optionen':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'Add-ons wie Express-Lieferung oder Zusatzversionen separat erfassen.',
+                    'Mehrsprachigkeit und Schnittvarianten früh berücksichtigen.',
+                    'Revisionen transparent als Option einplanen.',
+                    'Sonderwünsche mit Aufwand und Timing koppeln.',
+                    'Optionen immer nachvollziehbar dokumentieren.'
+                ]), id: 'gr_optionen' };
+            case 'gr_preisdetails':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'Preisdetails zeigen den Rechenweg pro Baustein.',
+                    'Basisvergütung und Nutzungsanteil getrennt betrachten.',
+                    'Zwischensummen helfen bei Abstimmung mit Auftraggebern.',
+                    'Bei Änderungen nur betroffene Bausteine neu prüfen.',
+                    'So bleiben Angebote konsistent und erklärbar.'
+                ]), id: 'gr_preisdetails' };
+            case 'gr_pdf':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'PDF exportiert die aktuelle Kalkulation als Nachweis.',
+                    'Vor Versand Parameter und Datum prüfen.',
+                    'Datei für interne Freigaben versionieren.',
+                    'Mehrere Varianten separat exportieren.',
+                    'PDF eignet sich gut als Angebotsanhang.'
+                ]), id: 'gr_pdf' };
+            case 'gr_reset':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'System Clear setzt Eingaben auf Ausgangszustand zurück.',
+                    'Vor Reset bei Bedarf PDF sichern.',
+                    'Reset hilft bei widersprüchlichen Parameterständen.',
+                    'Nach Reset Projektart zuerst erneut wählen.',
+                    'So bleibt die Kalkulation sauber aufgebaut.'
+                ]), id: 'gr_reset' };
+            case 'gr_fehler':
+                return { ...this.buildModuleTopicStep('gr_hub', 'gagenrechner', [
+                    'Häufig: falsches Einsatzgebiet oder Laufzeit übersehen.',
+                    'Paid/Organic nicht vermischen.',
+                    'Projektart nicht mitten im Prozess wechseln.',
+                    'Add-ons doppelt vermeiden.',
+                    'Ergebnis vor Export kurz gegen Briefing prüfen.'
+                ]), id: 'gr_fehler' };
+            case 'sf_suche':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Suche startet mit Genre, Ort oder Ausstattung.',
+                    'Filter schrittweise setzen statt alles auf einmal.',
+                    'Trefferliste nach Relevanz und Verfügbarkeit prüfen.',
+                    'Bei zu wenigen Treffern einzelne Filter lösen.',
+                    'Favoriten intern notieren für Vergleich.'
+                ]), id: 'sf_suche' };
+            case 'sf_karte':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Karte zeigt Studios im räumlichen Kontext.',
+                    'Standortfreigabe verbessert Nähe-Sortierung.',
+                    'Datenschutz: Standortdaten nur zur Suche verwenden.',
+                    'Ohne Freigabe funktioniert die Karte weiterhin manuell.',
+                    'Zoomen hilft bei Ballungsräumen mit vielen Treffern.'
+                ]), id: 'sf_karte' };
+            case 'sf_premium':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Premium-Studios sind erweitert kuratiert und markiert.',
+                    'Details zu Ausstattung und Services besonders prüfen.',
+                    'Für enge Deadlines Premium-Angebote priorisieren.',
+                    'Vergleich trotzdem mit Standard-Treffern durchführen.',
+                    'Kontaktwege pro Studio direkt dokumentieren.'
+                ]), id: 'sf_premium' };
+            case 'sf_feedback':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Ideen und Fehler direkt über Feedback melden.',
+                    'Kurze Beschreibung mit Schrittfolge hilft bei Prüfung.',
+                    'Bei Bugs Browser und Gerät mit angeben.',
+                    'Screenshots beschleunigen die Einordnung.',
+                    'Rückmeldungen verbessern Suchqualität nachhaltig.'
+                ]), id: 'sf_feedback' };
+            case 'sf_importexport':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Import übernimmt bestehende Datenstände schnell.',
+                    'Vor Import Format und Pflichtfelder prüfen.',
+                    'Export eignet sich für Backup und Team-Sharing.',
+                    'Versionen mit Datum kennzeichnen.',
+                    'Große Änderungen zuerst in Testdaten prüfen.'
+                ]), id: 'sf_importexport' };
+            case 'sf_probleme':
+                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
+                    'Leere Treffer: Filter zu streng oder Schreibweise prüfen.',
+                    'Karte lädt nicht: Standortberechtigung und Browser prüfen.',
+                    'Langsame Suche: Filter reduzieren und neu starten.',
+                    'Ungenaue Ergebnisse: Ort präzisieren.',
+                    'Persistente Fehler über Feedback melden.'
+                ]), id: 'sf_probleme' };
             default:
                 return {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
-                    options: [
-                        {
-                            label: 'Briefing-Check (30 Sek.)',
-                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
-                            nextId: 'briefing'
-                        },
-                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
-                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
-                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
-                        {
-                            label: 'Einsatz & Rechte',
-                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
-                            nextId: 'rechte'
-                        },
-                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
-                    ]
+                    options: this.getStartOptions()
                 };
         }
+    }
+
+
+    buildModuleTopicStep(hubStepId, moduleTarget, points) {
+        const bullets = (points || []).map((point) => `• ${point}`);
+        return {
+            id: '',
+            text: bullets.join('\n'),
+            options: [
+                { label: 'Zur Übersicht', userPromptText: 'Zur Übersicht.', nextId: hubStepId },
+                { label: 'Zum Tool', userPromptText: 'Zum Tool.', action: 'open_module_tool', target: moduleTarget },
+                { label: 'Kontakt', userPromptText: 'Kontakt anzeigen.', nextId: 'kontakt' }
+            ]
+        };
     }
 
     bindEvents() {
@@ -771,7 +1136,7 @@ class StudioBot {
         }
 
         this.state.history.forEach((entry, index) => {
-            const { row, bubble } = this.createMessageRow(entry.role);
+            const { row, bubble, bubbleWrap } = this.createMessageRow(entry.role);
             if (entry.role === 'bot') {
                 bubble.innerHTML = this.createCopyMarkup(entry.text);
             } else {
@@ -782,7 +1147,7 @@ class StudioBot {
             }
             const meta = this.createMessageMeta(entry.role, entry.ts || entry.timestamp || entry.createdAt);
             bubble.dataset.index = String(index);
-            row.appendChild(meta);
+            bubbleWrap.appendChild(meta);
             this.messages.appendChild(row);
         });
 
@@ -813,6 +1178,40 @@ class StudioBot {
                 showToast: this.showToast.bind(this)
             });
             this.dock.appendChild(card);
+        } else if (step && step.id === 'callback') {
+            const callbackForm = renderCallbackForm({
+                registerInteraction: this.registerInteraction.bind(this),
+                ajaxUrl: this.settings.ajax_url || '/wp-admin/admin-ajax.php',
+                nonce: this.settings.callback_nonce || ''
+            });
+            this.dock.appendChild(callbackForm);
+            if (step.options && step.options.length) {
+                const optionsContainer = document.createElement('div');
+                optionsContainer.id = 'studio-connect-options';
+                optionsContainer.className = 'studio-connect-options';
+                optionsContainer.addEventListener('click', (event) => {
+                    const button = event.target.closest('.studio-connect-option-btn');
+                    if (!button) {
+                        return;
+                    }
+                    const option = {
+                        label: button.dataset.label || button.textContent,
+                        userLabel: button.dataset.userLabel || undefined,
+                        userPromptText: button.dataset.userPromptText || undefined,
+                        nextId: button.dataset.nextId || undefined,
+                        action: button.dataset.action || undefined,
+                        target: button.dataset.target || undefined,
+                        briefingKey: button.dataset.briefingKey || undefined,
+                        briefingValue: button.dataset.briefingValue || undefined,
+                        returnToStepId: button.dataset.returnToStepId || undefined
+                    };
+                    this.handleOption(option);
+                });
+                this.dock.appendChild(optionsContainer);
+                this.options = optionsContainer;
+                this.getFilteredOptions(step.options).forEach((option) => this.appendOption(option));
+                this.applyOptionsDisabled();
+            }
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
@@ -966,7 +1365,7 @@ class StudioBot {
         }
 
         if (option.action) {
-            const actionHandled = await this.handleContactAction(option.action);
+            const actionHandled = await this.handleContactAction(option);
             if (actionHandled === 'halt') {
                 this.setOptionsDisabled(false);
                 return;
@@ -979,7 +1378,7 @@ class StudioBot {
             return;
         }
 
-        const nonRepeatActions = ['anchor', 'hardlink', 'form', 'email', 'phone', 'whatsapp', 'vdslink', 'gagenrechner', 'briefing_contact'];
+        const nonRepeatActions = ['anchor', 'hardlink', 'form', 'email', 'phone', 'whatsapp', 'vdslink', 'gagenrechner', 'briefing_contact', 'open_module_tool'];
         if (option.action && !nonRepeatActions.includes(option.action)) {
             await this.advanceToStep(this.state.currentStepId, { repeatCurrent: true });
         }
@@ -1200,10 +1599,13 @@ class StudioBot {
             avatar.fetchPriority = 'high';
             row.appendChild(avatar);
         }
+        const bubbleWrap = document.createElement('div');
+        bubbleWrap.className = type === 'user' ? 'sc-bubble-wrap sc-bubble-wrap--user' : 'sc-bubble-wrap';
         const bubble = document.createElement('div');
         bubble.className = `studio-connect-bubble ${type}`;
-        row.appendChild(bubble);
-        return { row, bubble };
+        bubbleWrap.appendChild(bubble);
+        row.appendChild(bubbleWrap);
+        return { row, bubble, bubbleWrap };
     }
 
     formatMessageTime(timestamp) {
@@ -1315,7 +1717,31 @@ class StudioBot {
             briefing_laenge: 'Briefing-Check',
             briefing_deadline: 'Briefing-Check',
             briefing_aussprache: 'Briefing-Check',
-            briefing_summary: 'Briefing-Check'
+            briefing_summary: 'Briefing-Check',
+            callback: 'Rückruf gewünscht',
+            sa_hub: 'Skript-Analyse Hilfe',
+            gr_hub: 'Gagenrechner Hilfe',
+            sf_hub: 'Studio-Finder Hilfe',
+            sa_quickstart: 'Schnellstart',
+            sa_teleprompter: 'Teleprompter',
+            sa_pdf: 'PDF Export',
+            sa_analyseboxen: 'Analyseboxen erklärt',
+            sa_sprechdauer: 'Sprechdauer & Tempo',
+            sa_projekte: 'Projekte speichern/laden',
+            sa_premium: 'Premium – Überblick',
+            gr_projektart: 'Projektart wählen',
+            gr_rechte: 'Nutzungsrechte & Buyouts',
+            gr_optionen: 'Optionen & Add-ons',
+            gr_preisdetails: 'Preisdetails',
+            gr_pdf: 'PDF Export',
+            gr_reset: 'Zurücksetzen',
+            gr_fehler: 'Häufige Fehler',
+            sf_suche: 'Suche & Filter',
+            sf_karte: 'Karte & Standort',
+            sf_premium: 'Premium-Studios',
+            sf_feedback: 'Idee/Fehler senden',
+            sf_importexport: 'Import/Export',
+            sf_probleme: 'Häufige Probleme'
         };
         return map[stepId] || 'Start';
     }
@@ -1335,6 +1761,7 @@ class StudioBot {
             { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing'] },
             { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout'] },
             { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp'] },
+            { stepId: 'callback', label: 'Rückruf gewünscht', keywords: ['rückruf', 'telefon', 'uhrzeit', 'anrufen'] },
             { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] }
         ];
     }
@@ -1644,7 +2071,9 @@ class StudioBot {
         this.options.appendChild(button);
     }
 
-    async handleContactAction(action) {
+    async handleContactAction(option) {
+        const action = option?.action;
+        const target = option?.target || '';
         if (action === 'email') {
             if (this.settings.email) {
                 window.location.href = `mailto:${this.settings.email}`;
@@ -1698,6 +2127,15 @@ class StudioBot {
         if (action === 'form') {
             const baseUrl = (this.settings.siteUrl || '/').replace(/\/$/, '');
             window.location.href = `${baseUrl}/kontakt/`;
+            return 'halt';
+        }
+
+        if (action === 'open_module_tool') {
+            const links = this.settings.module_links || {};
+            const url = links[target] || links[this.pageContext.moduleKey] || '';
+            if (url) {
+                window.open(url, '_blank', 'noopener');
+            }
             return 'halt';
         }
 
@@ -2119,18 +2557,23 @@ class StudioBot {
     }
 
     getPageContext() {
-        const path = (window.location.pathname || '').toLowerCase();
-        const map = [
-            { match: ['/gagenrechner'], key: 'gagenrechner', label: 'Gagenrechner', actions: [{ id: 'rechner_help', title: 'So funktioniert der Rechner', stepId: 'rechner' }, { id: 'rechte', title: 'Nutzungsrechte & Buyouts', stepId: 'rechte' }, { id: 'kontakt', title: 'Angebot erstellen lassen', stepId: 'kontakt' }] },
-            { match: ['/kontakt'], key: 'kontakt', label: 'Kontakt', actions: [{ id: 'briefing', title: 'Was brauche ich fürs Briefing?', stepId: 'briefing' }, { id: 'ablauf', title: 'Antwortzeiten & Ablauf', stepId: 'ablauf' }] },
-            { match: ['/sprecher-leistungen', '/leistungen'], key: 'leistungen', label: 'Leistungen', actions: [{ id: 'demos', title: 'Leistung auswählen', stepId: 'demos' }, { id: 'preise', title: 'Preisfragen', stepId: 'preise' }] },
-            { match: ['/studio', '/equipment'], key: 'technik', label: 'Studio/Technik', actions: [{ id: 'technik', title: 'Technik-Setup', stepId: 'technik' }, { id: 'ablauf', title: 'Formate & Lieferung', stepId: 'ablauf' }] }
-        ];
-        const hit = map.find((entry) => entry.match.some((part) => path.includes(part)));
-        if (hit) {
-            return hit;
+        const rawPath = window.location.pathname || '/';
+        let path = rawPath.toLowerCase();
+        if (!path.endsWith('/')) {
+            path = `${path}/`;
         }
-        return { key: 'allgemein', label: 'Allgemein', actions: [{ id: 'preise', title: 'Preisfragen', stepId: 'preise' }, { id: 'kontakt', title: 'Kontakt', stepId: 'kontakt' }, { id: 'ablauf', title: 'Ablauf', stepId: 'ablauf' }] };
+
+        if (path.startsWith('/extras/studio-finder/')) {
+            return { moduleKey: 'studiofinder' };
+        }
+        if (path.startsWith('/extras/gagenrechner/')) {
+            return { moduleKey: 'gagenrechner' };
+        }
+        if (path.startsWith('/extras/skript-analyse-fuer-sprecher-und-autoren/')) {
+            return { moduleKey: 'skriptanalyse' };
+        }
+
+        return { moduleKey: 'general' };
     }
 
     createRecentChip(stepId, className = 'sc-chip') {
@@ -2216,14 +2659,14 @@ class StudioBot {
     }
 
     getProactiveText(context) {
-        if (context.key === 'gagenrechner') {
+        if (context.moduleKey === 'gagenrechner') {
             return 'Fragen zum Gagenrechner?';
         }
-        if (context.key === 'kontakt') {
-            return 'Soll ich beim Briefing helfen?';
+        if (context.moduleKey === 'studiofinder') {
+            return 'Fragen zum Studio-Finder?';
         }
-        if (context.key === 'leistungen') {
-            return 'Unsicher, welche Leistung passt?';
+        if (context.moduleKey === 'skriptanalyse') {
+            return 'Fragen zur Skript-Analyse?';
         }
         return 'Brauchst Du Hilfe bei Deinem Projekt?';
     }
