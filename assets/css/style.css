@@ -50,6 +50,10 @@
     animation: sc-pulse 1.6s ease-out;
 }
 
+.studio-connect-launcher.is-shaking .studio-connect-launcher-icon i {
+    animation: sc-shake 420ms ease-in-out;
+}
+
 .studio-connect-launcher-icon {
     display: inline-flex;
     align-items: center;
@@ -77,6 +81,26 @@
     }
     100% {
         box-shadow: 0 0 0 0 rgba(26, 147, 238, 0);
+    }
+}
+
+@keyframes sc-shake {
+    0%,
+    100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-1px) rotate(-10deg); }
+    40% { transform: translateX(1px) rotate(8deg); }
+    60% { transform: translateX(-1px) rotate(-6deg); }
+    80% { transform: translateX(1px) rotate(4deg); }
+}
+
+@keyframes sc-fade-out {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(0, 0, 0) scale(0.9);
     }
 }
 
@@ -857,16 +881,30 @@
 
 .studio-connect-home-badge {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 6px;
-    height: 6px;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
     border-radius: 999px;
-    background: #1a93ee;
+    background: #22c55e;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 180ms ease, transform 180ms ease;
 }
 
-.studio-connect-home .studio-connect-home-badge {
-    display: none;
+.studio-connect-home-badge::before {
+    content: '✓';
+}
+
+.studio-connect-home.has-copy-feedback .studio-connect-home-badge {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .studio-connect-footer-socials {
@@ -1040,6 +1078,7 @@
     padding: 10px 12px;
     width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
+    transition: opacity 260ms ease, transform 260ms ease;
 }
 
 .sc-proactive-bubble::after {
@@ -1133,10 +1172,32 @@
     line-height: 1;
 }
 
-.sc-proactive-bubble.sc-fade-out {
+
+.sc-proactive-links {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sc-proactive-link {
+    border: 1px solid #2c3544;
+    background: #161d27;
+    color: #c9d5e8;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.sc-proactive-bubble.is-scrolled-out {
     opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.9);
-    transition: opacity 300ms ease, transform 300ms ease;
+    transform: translate3d(0, 12px, 0) scale(0.96);
+    pointer-events: none;
+}
+
+.sc-proactive-bubble.sc-fade-out {
+    animation: sc-fade-out 300ms ease forwards;
 }
 
 @media (max-width: 640px) {

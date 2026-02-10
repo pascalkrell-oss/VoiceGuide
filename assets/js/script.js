@@ -14,6 +14,7 @@ const SC_LAUNCHER_DEFAULTS = {
 const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
+const SC_COPY_BADGE_TIMEOUT_MS = 1600;
 const PROACTIVE_DELAY_MS = 14000;
 const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
 
@@ -189,10 +190,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         emailBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span><span class="sc-contact-label">E-Mail: ${sc_vars.email}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            window.location.href = `mailto:${sc_vars.email}`;
-            if (helpers.showToast) {
-                helpers.showToast('E-Mail-Programm geöffnet');
-            }
+            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
         });
         actions.appendChild(emailBtn);
     }
@@ -508,7 +506,9 @@ class StudioBot {
             launchSound: null,
             soundBlocked: false,
             hintSoundPlayedForThisShow: false,
-            launchSoundRetryDone: false
+            launchSoundRetryDone: false,
+            launchSoundUnlocked: false,
+            launchSoundTimer: null
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -528,6 +528,7 @@ class StudioBot {
         this.searchResults = null;
         this.searchTrigger = null;
         this.handleDocumentMouseDown = null;
+        this.copyBadgeTimer = null;
 
         if (this.resetRequested) {
             clearState();
@@ -620,7 +621,7 @@ class StudioBot {
                 nextId: 'rechte'
             },
             { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' },
-            { label: 'Rückruf gewünscht', userPromptText: 'Ich möchte einen Rückruf anfordern.', nextId: 'callback' }
+            { label: 'Rückruf gewünscht', userPromptText: 'Ich wünsche einen Rückruf.', nextId: 'callback' }
         ];
 
         if (this.pageContext.moduleKey === 'studiofinder') {
@@ -1124,6 +1125,14 @@ class StudioBot {
         saveState(this.state);
             }
         });
+
+        window.addEventListener('scroll', () => {
+            if (!this.proactiveBubble) {
+                return;
+            }
+            const shouldHide = window.scrollY > 400;
+            this.proactiveBubble.classList.toggle('is-scrolled-out', shouldHide);
+        }, { passive: true });
     }
 
     renderApp() {
@@ -1573,7 +1582,7 @@ class StudioBot {
                 if (position < typeText.length) {
                     const typedChar = typeText.charAt(position - 1);
                     const baseDelay = 12 + Math.floor(Math.random() * 15);
-                    const delay = punctuationPausePattern.test(typedChar) ? baseDelay + 200 : baseDelay;
+                    const delay = punctuationPausePattern.test(typedChar) ? baseDelay + 220 : baseDelay;
                     this.activeTypewriter.timer = window.setTimeout(step, delay);
                     return;
                 }
@@ -1964,6 +1973,31 @@ class StudioBot {
             this.hasInteraction = true;
             this.soundEngine.unlock();
         }
+        this.unlockLauncherHintSound();
+    }
+
+    unlockLauncherHintSound() {
+        if (this.ui.launchSoundUnlocked) {
+            return;
+        }
+        const sound = this.ensureLauncherHintSound();
+        if (!sound) {
+            return;
+        }
+        sound.muted = true;
+        const playback = sound.play();
+        if (playback && typeof playback.then === 'function') {
+            playback.then(() => {
+                sound.pause();
+                sound.currentTime = 0;
+                sound.muted = false;
+                this.ui.launchSoundUnlocked = true;
+                this.ui.soundBlocked = false;
+            }).catch(() => {
+                sound.muted = false;
+                this.ui.soundBlocked = true;
+            });
+        }
     }
 
     startPulseCycle() {
@@ -2282,6 +2316,7 @@ class StudioBot {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(value).then(() => {
                 this.showToast(message);
+                this.showCopyFeedbackBadge();
             }).catch(() => {
                 this.execCopyFallback(value, message);
             });
@@ -2305,6 +2340,20 @@ class StudioBot {
         }
         document.body.removeChild(textarea);
         this.showToast(message);
+        this.showCopyFeedbackBadge();
+    }
+
+    showCopyFeedbackBadge() {
+        if (!this.homeButton) {
+            return;
+        }
+        this.homeButton.classList.add('has-copy-feedback');
+        if (this.copyBadgeTimer) {
+            window.clearTimeout(this.copyBadgeTimer);
+        }
+        this.copyBadgeTimer = window.setTimeout(() => {
+            this.homeButton.classList.remove('has-copy-feedback');
+        }, SC_COPY_BADGE_TIMEOUT_MS);
     }
 
     async maybeShowGreeting() {
@@ -2676,8 +2725,9 @@ class StudioBot {
         const textByContext = {
             general: [
                 'Brauchst Du Hilfe bei Deinem Projekt?',
-                'Möchtest Du den passenden Sprecher schneller finden?',
-                'Soll ich Dir direkt die nächsten Schritte zeigen?'
+                'Soll ich Pascal kurz für Deine Aufnahme anfragen?',
+                'Möchtest Du direkt mit Pascal für Dein Projekt planen?',
+                'Pascal ist gerade im Studio am Mikrofon – soll ich schon mal alles für ihn vorbereiten?'
             ],
             gagenrechner: [
                 'Soll ich Dir beim Kalkulieren helfen?',
@@ -2708,16 +2758,28 @@ class StudioBot {
             return 'Guten Morgen!';
         }
         if (hour >= 11 && hour < 18) {
-            return Math.random() < 0.5 ? 'Hallo!' : 'Schönen Tag!';
+            return 'Hallo!';
         }
         if (hour >= 18 && hour < 22) {
             return 'Guten Abend!';
         }
-        return Math.random() < 0.5 ? 'Noch wach?' : 'Nachtschicht?';
+        return 'Noch wach?';
     }
 
     scheduleProactiveBubble() {
+        if (this.proactiveTimeout) {
+            window.clearTimeout(this.proactiveTimeout);
+        }
         this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), PROACTIVE_DELAY_MS);
+    }
+
+    isToolPage(context = this.pageContext) {
+        return ['gagenrechner', 'studiofinder', 'skriptanalyse'].includes(context?.moduleKey);
+    }
+
+    getProactiveSeenKey(context = this.pageContext) {
+        const path = (window.location.pathname || '/').replace(/[^a-z0-9/_-]/gi, '_').toLowerCase();
+        return `${SC_PROACTIVE_SHOWN_KEY}:${context?.moduleKey || 'general'}:${path}`;
     }
 
     ensureLauncherHintSound() {
@@ -2736,40 +2798,50 @@ class StudioBot {
     }
 
     playLauncherHintSound(isUserTriggered = false) {
-        try {
-            const sound = this.ensureLauncherHintSound();
-            if (!sound) {
-                return;
-            }
-            sound.volume = 0.22;
-            sound.currentTime = 0;
-            const playback = sound.play();
-            if (playback && typeof playback.catch === 'function') {
-                playback.catch(() => {
-                    this.ui.soundBlocked = true;
-                });
-            }
-            if (isUserTriggered) {
-                this.ui.soundBlocked = false;
-                this.ui.launchSoundRetryDone = true;
-            }
-        } catch (error) {
-            // Ignore autoplay/runtime failures.
+        if (this.ui.launchSoundTimer) {
+            window.clearTimeout(this.ui.launchSoundTimer);
         }
+        this.ui.launchSoundTimer = window.setTimeout(() => {
+            try {
+                const sound = this.ensureLauncherHintSound();
+                if (!sound) {
+                    return;
+                }
+                sound.muted = false;
+                sound.volume = 0.22;
+                sound.currentTime = 0;
+                const playback = sound.play();
+                if (playback && typeof playback.catch === 'function') {
+                    playback.catch(() => {
+                        this.ui.soundBlocked = true;
+                    });
+                }
+                if (isUserTriggered) {
+                    this.ui.soundBlocked = false;
+                    this.ui.launchSoundRetryDone = true;
+                }
+            } catch (error) {
+                // Ignore autoplay/runtime failures.
+            }
+        }, 500);
     }
 
     showProactiveBubble() {
         if (this.isOpen) {
             return;
         }
-        try {
-            if (sessionStorage.getItem(SC_PROACTIVE_SHOWN_KEY) === '1') {
-                return;
-            }
-        } catch (error) {
-            // Ignore.
-        }
         const context = this.getPageContext();
+        const shouldPersist = !this.isToolPage(context);
+        if (shouldPersist) {
+            try {
+                if (sessionStorage.getItem(this.getProactiveSeenKey(context)) === '1') {
+                    return;
+                }
+            } catch (error) {
+                // Ignore.
+            }
+        }
+
         const proactiveText = this.getProactiveText(context);
         const bubble = document.createElement('div');
         bubble.className = 'sc-proactive-bubble';
@@ -2814,26 +2886,76 @@ class StudioBot {
         bubble.appendChild(closeButton);
         bubble.appendChild(mainButton);
 
+        const quickLinks = this.createProactiveQuickLinks(context);
+        if (quickLinks) {
+            bubble.appendChild(quickLinks);
+        }
+
         mainButton.addEventListener('click', () => {
             this.state.currentStepId = 'start';
             this.renderAndSave();
             this.openPanel();
             this.hideProactiveBubble();
-            this.persistProactiveShown();
+            this.persistProactiveShown(context);
         });
         closeButton.addEventListener('click', () => {
             bubble.classList.add('sc-fade-out');
             window.setTimeout(() => this.hideProactiveBubble(), 300);
-            this.persistProactiveShown();
+            this.persistProactiveShown(context);
         });
         document.body.appendChild(bubble);
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
         this.proactiveBubble = bubble;
+        if (window.scrollY > 400) {
+            bubble.classList.add('is-scrolled-out');
+        }
+        if (this.launcher) {
+            this.launcher.classList.add('is-shaking');
+            window.setTimeout(() => this.launcher.classList.remove('is-shaking'), 460);
+        }
         this.ui.hintSoundPlayedForThisShow = false;
         if (!this.ui.hintSoundPlayedForThisShow) {
             this.playLauncherHintSound();
             this.ui.hintSoundPlayedForThisShow = true;
         }
+    }
+
+    createProactiveQuickLinks(context) {
+        const linksByModule = {
+            gagenrechner: [
+                { label: 'Hilfe zu Buyouts', nextId: 'gr_rechte' },
+                { label: 'PDF-Export', nextId: 'gr_pdf' }
+            ],
+            studiofinder: [
+                { label: 'Suche & Filter', nextId: 'sf_suche' },
+                { label: 'Premium-Studios', nextId: 'sf_premium' }
+            ],
+            skriptanalyse: [
+                { label: 'Schnellstart', nextId: 'sa_quickstart' },
+                { label: 'Analyseboxen', nextId: 'sa_analyseboxen' }
+            ]
+        };
+        const links = linksByModule[context.moduleKey];
+        if (!links) {
+            return null;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'sc-proactive-links';
+        links.slice(0, 2).forEach((item) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'sc-proactive-link';
+            button.textContent = item.label;
+            button.addEventListener('click', () => {
+                this.state.currentStepId = item.nextId;
+                this.renderAndSave();
+                this.openPanel();
+                this.hideProactiveBubble();
+                this.persistProactiveShown(context);
+            });
+            wrap.appendChild(button);
+        });
+        return wrap;
     }
 
     hideProactiveBubble() {
@@ -2844,9 +2966,12 @@ class StudioBot {
         this.ui.hintSoundPlayedForThisShow = false;
     }
 
-    persistProactiveShown() {
+    persistProactiveShown(context = this.pageContext) {
+        if (this.isToolPage(context)) {
+            return;
+        }
         try {
-            sessionStorage.setItem(SC_PROACTIVE_SHOWN_KEY, '1');
+            sessionStorage.setItem(this.getProactiveSeenKey(context), '1');
         } catch (error) {
             // Ignore.
         }
