@@ -1598,6 +1598,8 @@ class StudioBot {
         const row = document.createElement('div');
         row.className = `studio-connect-message ${type}`;
         if (type === 'bot') {
+            const avatarContainer = document.createElement('div');
+            avatarContainer.className = 'sc-avatar-container sc-pulse-green';
             const avatar = document.createElement('img');
             avatar.className = 'studio-connect-avatar';
             avatar.src = this.avatarUrl;
@@ -1605,7 +1607,8 @@ class StudioBot {
             avatar.loading = 'eager';
             avatar.decoding = 'async';
             avatar.fetchPriority = 'high';
-            row.appendChild(avatar);
+            avatarContainer.appendChild(avatar);
+            row.appendChild(avatarContainer);
         }
         const bubbleWrap = document.createElement('div');
         bubbleWrap.className = type === 'user' ? 'sc-bubble-wrap sc-bubble-wrap--user' : 'sc-bubble-wrap';
@@ -2733,17 +2736,58 @@ class StudioBot {
             // Ignore.
         }
         const context = this.getPageContext();
+        const proactiveText = this.getProactiveText(context);
         const bubble = document.createElement('div');
         bubble.className = 'sc-proactive-bubble';
-        bubble.innerHTML = `<button type="button" class="sc-proactive-close" aria-label="Schließen">×</button><button type="button" class="sc-proactive-main"><span class="sc-proactive-avatar">🎙️</span><span>${this.getProactiveText(context)}</span></button>`;
-        bubble.querySelector('.sc-proactive-main').addEventListener('click', () => {
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'sc-proactive-close';
+        closeButton.setAttribute('aria-label', 'Schließen');
+        closeButton.textContent = '×';
+
+        const mainButton = document.createElement('button');
+        mainButton.type = 'button';
+        mainButton.className = 'sc-proactive-main';
+
+        const avatarContainer = document.createElement('span');
+        avatarContainer.className = 'sc-avatar-container sc-pulse-green sc-proactive-avatar-wrap';
+
+        const avatar = document.createElement('img');
+        avatar.className = 'studio-connect-avatar';
+        avatar.src = this.avatarUrl;
+        avatar.alt = 'Studio Assistenz Avatar';
+        avatar.loading = 'eager';
+        avatar.decoding = 'async';
+        avatar.fetchPriority = 'high';
+        avatarContainer.appendChild(avatar);
+
+        const content = document.createElement('span');
+        content.className = 'sc-proactive-content';
+
+        const label = document.createElement('span');
+        label.className = 'sc-proactive-label';
+        label.textContent = 'Studio Assistenz';
+
+        const text = document.createElement('span');
+        text.className = 'sc-proactive-text';
+        text.textContent = proactiveText;
+
+        content.appendChild(label);
+        content.appendChild(text);
+        mainButton.appendChild(avatarContainer);
+        mainButton.appendChild(content);
+        bubble.appendChild(closeButton);
+        bubble.appendChild(mainButton);
+
+        mainButton.addEventListener('click', () => {
             this.state.currentStepId = 'start';
             this.renderAndSave();
             this.openPanel();
             this.hideProactiveBubble();
             this.persistProactiveShown();
         });
-        bubble.querySelector('.sc-proactive-close').addEventListener('click', () => {
+        closeButton.addEventListener('click', () => {
             this.hideProactiveBubble();
             this.persistProactiveShown();
         });
