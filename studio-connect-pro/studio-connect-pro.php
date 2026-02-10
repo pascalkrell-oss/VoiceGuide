@@ -108,6 +108,12 @@ function scp_enqueue_assets(): void
         'phone' => get_option('studio_connect_contact_phone', ''),
         'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
         'avatar_url' => SCP_AVATAR_URL,
+        'callback_nonce' => wp_create_nonce('scp_callback_request'),
+        'module_links' => [
+            'studiofinder' => home_url('/extras/studio-finder/'),
+            'gagenrechner' => home_url('/extras/gagenrechner/'),
+            'skriptanalyse' => home_url('/extras/skript-analyse-fuer-sprecher-und-autoren/'),
+        ],
         'nav_links' => [
             'werbung' => home_url('/sprecher-audio-leistungen/werbesprecher/'),
             'webvideo' => home_url('/sprecher-audio-leistungen/voiceover-social-media/'),
@@ -145,6 +151,77 @@ function scp_enqueue_assets(): void
     wp_localize_script('studio-connect-pro-script', 'sc_vars', $settings);
 }
 add_action('wp_enqueue_scripts', 'scp_enqueue_assets');
+
+
+
+/**
+ * AJAX: Rückrufwunsch speichern und per Mail senden.
+ */
+function scp_handle_callback_request(): void
+{
+    check_ajax_referer('scp_callback_request', 'security');
+
+    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
+    $rate_key = 'scp_callback_rate_' . md5($ip);
+    $rate_data = get_transient($rate_key);
+    if (!is_array($rate_data)) {
+        $rate_data = ['count' => 0, 'started' => time()];
+    }
+
+    if ((int) $rate_data['count'] >= 3) {
+        wp_send_json_error(['message' => 'Du hast das Limit erreicht. Bitte versuche es in ca. 60 Minuten erneut.'], 429);
+    }
+
+    $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+    $time = isset($_POST['time']) ? sanitize_text_field(wp_unslash($_POST['time'])) : '';
+    $note = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
+    $page_url = isset($_POST['page_url']) ? esc_url_raw(wp_unslash($_POST['page_url'])) : '';
+    $page_context_key = isset($_POST['page_context_key']) ? sanitize_key(wp_unslash($_POST['page_context_key'])) : 'general';
+
+    if (!preg_match('/^[+\d\s()\-]{7,}$/', $phone)) {
+        wp_send_json_error(['message' => 'Bitte gib eine gültige Telefonnummer an.'], 400);
+    }
+
+    if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time)) {
+        wp_send_json_error(['message' => 'Bitte wähle eine gültige Wunschuhrzeit.'], 400);
+    }
+
+    if (mb_strlen($note) > 240) {
+        $note = mb_substr($note, 0, 240);
+    }
+
+    $to = get_option('studio_connect_contact_email', '');
+    if (!$to || !is_email($to)) {
+        $to = get_option('admin_email');
+    }
+
+    if (!$to || !is_email($to)) {
+        wp_send_json_error(['message' => 'Es ist aktuell keine Empfänger-E-Mail konfiguriert.'], 500);
+    }
+
+    $subject = '[Studio Assistenz] Rückruf gewünscht';
+    $body_lines = [
+        'Telefon: ' . $phone,
+        'Wunschzeit: ' . $time,
+        'Notiz: ' . ($note !== '' ? $note : '-'),
+        'URL: ' . ($page_url !== '' ? $page_url : '-'),
+        'Kontext: ' . ($page_context_key !== '' ? $page_context_key : 'general'),
+        'Zeitpunkt: ' . wp_date('Y-m-d H:i:s'),
+        'IP: ' . $ip,
+    ];
+
+    $sent = wp_mail($to, $subject, implode("\n", $body_lines));
+    if (!$sent) {
+        wp_send_json_error(['message' => 'Die Anfrage konnte nicht gesendet werden. Bitte versuche es erneut.'], 500);
+    }
+
+    $rate_data['count'] = (int) $rate_data['count'] + 1;
+    set_transient($rate_key, $rate_data, HOUR_IN_SECONDS);
+
+    wp_send_json_success(['message' => 'Danke! Dein Rückrufwunsch wurde gesendet.']);
+}
+add_action('wp_ajax_scp_callback_request', 'scp_handle_callback_request');
+add_action('wp_ajax_nopriv_scp_callback_request', 'scp_handle_callback_request');
 
 /**
  * Frontend-Markup ausgeben.
