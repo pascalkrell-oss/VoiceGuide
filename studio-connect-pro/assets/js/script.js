@@ -14,7 +14,6 @@ const SC_LAUNCHER_DEFAULTS = {
 const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
-const SC_CHECKLIST_KEY = 'sc_checklist';
 const PROACTIVE_DELAY_MS = 14000;
 
 const getDefaultState = () => ({
@@ -32,22 +31,6 @@ const getDefaultState = () => ({
             laufzeit: '',
             deadline: '',
             aussprache: ''
-        },
-        checklist: {
-            medium: [],
-            laufzeit: '',
-            gebiet: '',
-            deadline: '',
-            format: '',
-            aussprache: '',
-            spotumfang: '',
-            mediumGebiet: '',
-            deadlineFlexibel: false,
-            tonalitaet: [],
-            zielgruppe: '',
-            schnitt: '',
-            revisionen: '',
-            musikSfx: false
         },
         returnToStepId: ''
     },
@@ -77,22 +60,6 @@ const normalizeState = (state) => {
                 laufzeit: typeof state.context?.briefing?.laufzeit === 'string' ? state.context.briefing.laufzeit : '',
                 deadline: typeof state.context?.briefing?.deadline === 'string' ? state.context.briefing.deadline : '',
                 aussprache: typeof state.context?.briefing?.aussprache === 'string' ? state.context.briefing.aussprache : ''
-            },
-            checklist: {
-                medium: Array.isArray(state.context?.checklist?.medium) ? state.context.checklist.medium : [],
-                laufzeit: typeof state.context?.checklist?.laufzeit === 'string' ? state.context.checklist.laufzeit : '',
-                gebiet: typeof state.context?.checklist?.gebiet === 'string' ? state.context.checklist.gebiet : '',
-                deadline: typeof state.context?.checklist?.deadline === 'string' ? state.context.checklist.deadline : '',
-                format: typeof state.context?.checklist?.format === 'string' ? state.context.checklist.format : '',
-                aussprache: typeof state.context?.checklist?.aussprache === 'string' ? state.context.checklist.aussprache : '',
-                spotumfang: typeof state.context?.checklist?.spotumfang === 'string' ? state.context.checklist.spotumfang : '',
-                mediumGebiet: typeof state.context?.checklist?.mediumGebiet === 'string' ? state.context.checklist.mediumGebiet : '',
-                deadlineFlexibel: Boolean(state.context?.checklist?.deadlineFlexibel),
-                tonalitaet: Array.isArray(state.context?.checklist?.tonalitaet) ? state.context.checklist.tonalitaet : [],
-                zielgruppe: typeof state.context?.checklist?.zielgruppe === 'string' ? state.context.checklist.zielgruppe : '',
-                schnitt: typeof state.context?.checklist?.schnitt === 'string' ? state.context.checklist.schnitt : '',
-                revisionen: typeof state.context?.checklist?.revisionen === 'string' ? state.context.checklist.revisionen : '',
-                musikSfx: Boolean(state.context?.checklist?.musikSfx)
             }
         },
         flags: {
@@ -421,7 +388,7 @@ class StudioBot {
             typingRow: null,
             optionsDisabled: false,
             isResetting: false,
-            checklistDetailsExpanded: false
+            isClosing: false
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -456,14 +423,6 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
-        try {
-            const rawChecklist = sessionStorage.getItem(SC_CHECKLIST_KEY);
-            if (rawChecklist) {
-                this.state.context.checklist = { ...this.state.context.checklist, ...JSON.parse(rawChecklist) };
-            }
-        } catch (error) {
-            // Ignore.
-        }
         this.ensureValidStep();
         if (this.widget) {
             this.widget.classList.add('sc-widget-root');
@@ -496,8 +455,7 @@ class StudioBot {
             briefing_laenge: this.getStepConfig('briefing_laenge'),
             briefing_deadline: this.getStepConfig('briefing_deadline'),
             briefing_aussprache: this.getStepConfig('briefing_aussprache'),
-            briefing_summary: this.getStepConfig('briefing_summary'),
-            checkliste: this.getStepConfig('checkliste')
+            briefing_summary: this.getStepConfig('briefing_summary')
         };
     }
 
@@ -513,17 +471,16 @@ class StudioBot {
                             userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
                             nextId: 'briefing'
                         },
-                        { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
+                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
                         {
                             label: 'Einsatz & Rechte',
-                            userPromptText: 'Kannst Du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
                             nextId: 'rechte'
                         },
-                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' },
-                        { label: 'Projekt-Checkliste', userPromptText: 'Ich möchte die Projekt-Checkliste ausfüllen.', nextId: 'checkliste' }
+                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
                     ]
                 };
             case 'demos':
@@ -534,11 +491,11 @@ class StudioBot {
                     options: [
                         { label: 'Werbung', userPromptText: 'Ich möchte Werbung-Demos hören.', action: 'hardlink', target: navLinks.werbung },
                         { label: 'Webvideo', userPromptText: 'Gibt es Webvideo-Demos?', action: 'hardlink', target: navLinks.webvideo },
-                        { label: 'Telefonansage', userPromptText: 'Hast Du Telefonansagen als Demo?', action: 'hardlink', target: navLinks.telefonansage },
-                        { label: 'Podcast', userPromptText: 'Kann ich Podcast-Demos hören?', action: 'hardlink', target: navLinks.podcast },
+                        { label: 'Telefonansage', userPromptText: 'Telefonansage-Demos öffnen.', action: 'hardlink', target: navLinks.telefonansage },
+                        { label: 'Podcast', userPromptText: 'Podcast-Demos öffnen.', action: 'hardlink', target: navLinks.podcast },
                         { label: 'Imagefilm', userPromptText: 'Ich suche Imagefilm-Demos.', action: 'hardlink', target: navLinks.imagefilm },
                         { label: 'Erklärvideo', userPromptText: 'Gibt es Erklärvideo-Demos?', action: 'hardlink', target: navLinks.erklaervideo },
-                        { label: 'E-Learning', userPromptText: 'Kann ich E-Learning-Demos hören?', action: 'hardlink', target: navLinks.elearning }
+                        { label: 'E-Learning', userPromptText: 'E-Learning-Demos öffnen.', action: 'hardlink', target: navLinks.elearning }
                     ]
                 };
             case 'preise':
@@ -546,8 +503,8 @@ class StudioBot {
                     id: 'preise',
                     text: 'Die Kalkulation erfolgt transparent nach VDS-Standards. Du bekommst klare Buyouts, saubere Deliverables und verlässliche Timing-Zusagen. Womit soll ich starten?',
                     options: [
-                        { label: 'VDS-Gagenliste', userPromptText: 'Kannst Du mir die VDS-Gagenliste zeigen?', action: 'vdslink' },
-                        { label: 'Gagenrechner', userPromptText: 'Kannst Du den Gagenrechner öffnen?', action: 'gagenrechner' },
+                        { label: 'VDS-Gagenliste', userPromptText: 'VDS-Gagenliste anzeigen.', action: 'vdslink' },
+                        { label: 'Gagenrechner', userPromptText: 'Gagenrechner öffnen.', action: 'gagenrechner' },
                         { label: 'Wort-Rechner', userPromptText: 'Wie lange dauert mein Text ungefähr?', nextId: 'rechner' },
                         { label: 'Direkt anfragen', userPromptText: 'Ich möchte direkt anfragen.', nextId: 'kontakt' }
                     ]
@@ -558,7 +515,7 @@ class StudioBot {
                     text: 'Profi-Setup für Broadcast-Qualität: Neumann TLM 102 Mikrofon, RME Babyface Pro Interface & akustisch optimierte Studioumgebung. DAW: Logic Pro X auf Mac Studio.\n\nGeräuscharmes Recording, sauberer Noise Floor und Lieferung als WAV/MP3 – inklusive klarer Dateibenennung und kurzen Abstimmungswegen.',
                     options: [
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
-                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
+                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
                     ]
                 };
             case 'ablauf':
@@ -575,7 +532,7 @@ class StudioBot {
                     text: 'Gib die Wortanzahl ein – ich rechne live die ungefähre Dauer (mm:ss) bei moderatem Tempo.',
                     action: 'calculator',
                     options: [
-                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
+                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
                     ]
                 };
             case 'rechte':
@@ -583,17 +540,17 @@ class StudioBot {
                     id: 'rechte',
                     text: 'Kurz erklärt: Produktion ist die Aufnahme selbst – Nutzung regelt, wo und wie lange der Spot/Clip laufen darf.\n\n• Einsatzorte wie Website, Social Organic, Social Ads, YouTube PreRoll oder Radio/TV regional zählen unterschiedlich.\n• Nutzungsrechte hängen von Reichweite, Mediaspend und Zeitraum ab.\n• Je klarer der Einsatz, desto fairer kann Pascal kalkulieren.\n\nJe mehr Informationen Pascal hat, desto genauer kann er Dir ein individuelles Angebot erstellen.',
                     options: [
-                        { label: 'Beispiele sehen', userPromptText: 'Hast Du Beispiele für typische Einsätze?', nextId: 'rechte_beispiele' },
+                        { label: 'Beispiele sehen', userPromptText: 'Typische Einsätze anzeigen.', nextId: 'rechte_beispiele' },
                         { label: 'Kontakt', userPromptText: 'Ich möchte kurz Rücksprache halten.', nextId: 'kontakt' }
                     ]
                 };
             case 'rechte_beispiele':
                 return {
                     id: 'rechte_beispiele',
-                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWenn Du mir kurz den Einsatz nennst (Plattform + Zeitraum), kann Pascal Dir die passende Lizenz schnell einordnen.',
+                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWähle oben den passenden Einsatz aus oder tippe auf „Kontakt“, dann ordnet Pascal die Lizenz passend ein.',
                     options: [
                         { label: 'Beispiele', userPromptText: 'Zeig mir Beispiele.', nextId: 'rechte_beispiele' },
-                        { label: 'Kontakt', userPromptText: 'Bitte kalkuliere mir das kurz.', nextId: 'kontakt' },
+                        { label: 'Kontakt', userPromptText: 'Kontakt öffnen.', nextId: 'kontakt' },
                     ]
                 };
             case 'kontakt':
@@ -684,13 +641,6 @@ class StudioBot {
                         { label: 'Unsicher', briefingKey: 'aussprache', briefingValue: 'Unsicher', nextId: 'briefing_summary' }
                     ]
                 };
-
-            case 'checkliste':
-                return {
-                    id: 'checkliste',
-                    text: 'Projekt-Checkliste: Trage die wichtigsten Eckdaten ein. Danach erstelle ich einen Kontakt-Prefill.',
-                    options: []
-                };
             case 'briefing_summary':
                 return {
                     id: 'briefing_summary',
@@ -710,16 +660,16 @@ class StudioBot {
                             userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
                             nextId: 'briefing'
                         },
-                        { label: 'Casting & Demos', userPromptText: 'Kann ich Hörproben / Demos hören?', nextId: 'demos' },
+                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
                         { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
                         { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
                         { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
                         {
                             label: 'Einsatz & Rechte',
-                            userPromptText: 'Kannst Du mir kurz Nutzungsrechte & Einsatz erklären?',
+                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
                             nextId: 'rechte'
                         },
-                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
+                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
                     ]
                 };
         }
@@ -727,10 +677,10 @@ class StudioBot {
 
     bindEvents() {
         if (this.launcher) {
-            this.launcher.addEventListener('click', () => {
+            this.launcher.addEventListener('click', async () => {
                 this.registerInteraction();
                 if (this.isOpen) {
-                    this.closePanel();
+                    await this.closePanel();
                     return;
                 }
                 this.openPanel();
@@ -738,9 +688,9 @@ class StudioBot {
         }
 
         if (this.closeButton) {
-            this.closeButton.addEventListener('click', () => {
+            this.closeButton.addEventListener('click', async () => {
                 this.registerInteraction();
-                this.closePanel();
+                await this.closePanel();
             });
         }
 
@@ -767,7 +717,7 @@ class StudioBot {
             });
         }
 
-        document.addEventListener('keydown', (event) => {
+        document.addEventListener('keydown', async (event) => {
             if (event.key !== 'Escape') {
                 return;
             }
@@ -776,7 +726,7 @@ class StudioBot {
                 return;
             }
             if (this.isOpen) {
-                this.closePanel();
+                await this.closePanel();
             }
         });
 
@@ -827,7 +777,12 @@ class StudioBot {
             } else {
                 bubble.textContent = entry.text;
             }
+            if (!entry.ts && !entry.timestamp && !entry.createdAt) {
+                entry.ts = Date.now();
+            }
+            const meta = this.createMessageMeta(entry.role, entry.ts || entry.timestamp || entry.createdAt);
             bubble.dataset.index = String(index);
+            row.appendChild(meta);
             this.messages.appendChild(row);
         });
 
@@ -858,8 +813,6 @@ class StudioBot {
                 showToast: this.showToast.bind(this)
             });
             this.dock.appendChild(card);
-        } else if (step && step.id === 'checkliste') {
-            this.renderChecklistForm();
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
@@ -1253,6 +1206,19 @@ class StudioBot {
         return { row, bubble };
     }
 
+    formatMessageTime(timestamp) {
+        const ts = Number(timestamp) || Date.now();
+        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    createMessageMeta(role, timestamp) {
+        const meta = document.createElement('div');
+        const isUser = role === 'user';
+        meta.className = `sc-msg-meta ${isUser ? 'sc-msg-meta--user' : 'sc-msg-meta--bot'}`;
+        meta.textContent = `${isUser ? 'Du' : 'Studi'} · ${this.formatMessageTime(timestamp)}`;
+        return meta;
+    }
+
     setupHomeButtonHover() {
         if (!this.homeButton) {
             return;
@@ -1349,8 +1315,7 @@ class StudioBot {
             briefing_laenge: 'Briefing-Check',
             briefing_deadline: 'Briefing-Check',
             briefing_aussprache: 'Briefing-Check',
-            briefing_summary: 'Briefing-Check',
-            checkliste: 'Projekt-Checkliste'
+            briefing_summary: 'Briefing-Check'
         };
         return map[stepId] || 'Start';
     }
@@ -1370,8 +1335,7 @@ class StudioBot {
             { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing'] },
             { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout'] },
             { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp'] },
-            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] },
-            { stepId: 'checkliste', label: 'Projekt-Checkliste', keywords: ['checkliste', 'briefing', 'projekt', 'vorbereitung'] }
+            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] }
         ];
     }
 
@@ -1486,6 +1450,10 @@ class StudioBot {
     }
 
     async openPanel() {
+        if (this.ui.isClosing || !this.panel) {
+            return;
+        }
+        this.panel.classList.remove('sc-is-closing');
         this.state.isOpen = true;
         this.hideProactiveBubble();
         this.applyOpenState(true);
@@ -1502,13 +1470,40 @@ class StudioBot {
         }, 0);
     }
 
-    closePanel() {
+    async closePanel() {
+        if (this.ui.isClosing || !this.panel) {
+            return;
+        }
         this.hideSearchPopover();
+        this.ui.isClosing = true;
+        this.panel.classList.add('sc-is-closing');
+
+        await new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+                if (done) {
+                    return;
+                }
+                done = true;
+                this.panel.removeEventListener('transitionend', onTransitionEnd);
+                resolve();
+            };
+            const onTransitionEnd = (event) => {
+                if (event.target === this.panel) {
+                    finish();
+                }
+            };
+            this.panel.addEventListener('transitionend', onTransitionEnd);
+            window.setTimeout(finish, 240);
+        });
+
         this.state.isOpen = false;
         this.applyOpenState(false, true);
+        this.panel.classList.remove('sc-is-closing');
         if (this.hideHomeTooltip) {
             this.hideHomeTooltip();
         }
+        this.ui.isClosing = false;
         saveState(this.state);
     }
 
@@ -1983,7 +1978,7 @@ class StudioBot {
             });
             return options;
         }
-        options.push({ label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' });
+        options.push({ label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' });
         return options;
     }
 
@@ -2038,7 +2033,7 @@ class StudioBot {
         if (wordCount > 0) {
             lines.push(`- Wortanzahl/geschätzte Dauer: ${wordCount} Wörter (~${formatDuration(wordCount)} Min.)`);
         }
-        lines.push('', 'Möchtest Du mir noch etwas zum Projekt sagen?', 'Zusatzinfos: ');
+        lines.push('', 'Optional: Ergänze im Kontaktformular weitere Projektinfos.', 'Zusatzinfos: ');
         lines.push('Danke!');
         return lines.join('\n');
     }
@@ -2106,7 +2101,7 @@ class StudioBot {
 
     clearSessionEnhancements() {
         try {
-            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_CHECKLIST_KEY].forEach((key) => sessionStorage.removeItem(key));
+            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY].forEach((key) => sessionStorage.removeItem(key));
         } catch (error) {
             // Ignore.
         }
@@ -2191,12 +2186,12 @@ class StudioBot {
         contact.textContent = 'Schnellkontakt';
         contact.addEventListener('click', () => this.handleOption({ label: 'Schnellkontakt', userPromptText: 'Schnellkontakt', nextId: 'kontakt' }));
         actions.appendChild(contact);
-        const checklist = document.createElement('button');
-        checklist.type = 'button';
-        checklist.className = 'sc-chip';
-        checklist.textContent = '60-Sekunden Briefing';
-        checklist.addEventListener('click', () => this.handleOption({ label: 'Checkliste', userPromptText: 'Ich nutze die Checkliste.', nextId: 'checkliste' }));
-        actions.appendChild(checklist);
+        const briefing = document.createElement('button');
+        briefing.type = 'button';
+        briefing.className = 'sc-chip';
+        briefing.textContent = '60-Sekunden Briefing';
+        briefing.addEventListener('click', () => this.handleOption({ label: 'Briefing starten', userPromptText: 'Ich starte das Briefing.', nextId: 'briefing' }));
+        actions.appendChild(briefing);
         if (this.settings.phone) {
             const phone = document.createElement('button');
             phone.type = 'button';
@@ -2218,204 +2213,6 @@ class StudioBot {
             try { sessionStorage.setItem('sc_friction_panel_dismissed', '1'); } catch (error) {}
         });
         return panel;
-    }
-
-    buildChecklistPrefill(payload) {
-        const pick = (value) => value || 'nicht angegeben';
-        return [
-            'Projekt-Checkliste (Kurzbriefing)',
-            `Einsatz/Medium: ${(payload.medium || []).join(', ') || 'nicht angegeben'}`,
-            `Gebiet: ${pick(payload.gebiet)}`,
-            `Laufzeit: ${pick(payload.laufzeit)}`,
-            `Deadline: ${payload.deadlineFlexibel ? 'flexibel' : pick(payload.deadline)}`,
-            `Format: ${pick(payload.format)}`,
-            `Spotlänge/Umfang: ${pick(payload.spotumfang)}`,
-            `Tonalität/Stil: ${(payload.tonalitaet || []).join(', ') || 'nicht angegeben'}`,
-            `Zielgruppe: ${pick(payload.zielgruppe)}`,
-            `Schnittwünsche: ${pick(payload.schnitt)}`,
-            `Revisionen/Pickups: ${pick(payload.revisionen)}`,
-            `Musik/SFX vorhanden: ${payload.musikSfx ? 'Ja' : 'Nein'}`,
-            `Aussprache/Glossar: ${pick(payload.aussprache)}`
-        ].join('\n');
-    }
-
-    renderChecklistForm() {
-        if (!this.dock) {
-            return;
-        }
-        const checklist = this.state.context?.checklist || {};
-        const selectedMedium = Array.isArray(checklist.medium) ? checklist.medium : [];
-        const selectedTone = Array.isArray(checklist.tonalitaet) ? checklist.tonalitaet : [];
-
-        const card = document.createElement('div');
-        card.className = 'sc-checklist';
-        card.innerHTML = `
-            <div class="sc-checklist__progress">
-                <div>
-                    <strong>Projekt-Checkliste</strong>
-                    <p class="sc-checklist__progress-text">0/10 erledigt</p>
-                </div>
-                <div class="sc-checklist__progress-actions">
-                    <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="basics">Basics wählen</button>
-                    <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="reset">Zurücksetzen</button>
-                </div>
-                <div class="sc-checklist__progressbar"><span></span></div>
-            </div>
-            <div class="sc-checklist__inline-info" style="display:none;"></div>
-            <section class="sc-checklist__section is-open" data-section="basics">
-                <button type="button" class="sc-checklist__section-head" data-toggle-section="basics"><span>Basics</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                <div class="sc-checklist__section-body sc-checklist__grid">
-                    <label class="sc-checklist__field sc-checklist__field--full"><span>Einsatz/Medium</span><div class="sc-checklist-medium">
-                        ${['Web','Social','TV','Radio','Intern','Kino','Podcast','E-Learning'].map((item) => `<button type="button" class="sc-chip sc-chip--compact ${selectedMedium.includes(item) ? 'is-active' : ''}" data-medium="${this.escapeHtml(item)}">${item}</button>`).join('')}
-                    </div></label>
-                    <label class="sc-checklist__field"><span>Gebiet</span><select name="gebiet"><option value="">Bitte wählen</option><option ${checklist.gebiet === 'Lokal/Regional' ? 'selected' : ''}>Lokal/Regional</option><option ${checklist.gebiet === 'DACH' ? 'selected' : ''}>DACH</option><option ${checklist.gebiet === 'Europa' ? 'selected' : ''}>Europa</option><option ${checklist.gebiet === 'Weltweit' ? 'selected' : ''}>Weltweit</option></select></label>
-                    <label class="sc-checklist__field"><span>Laufzeit</span><select name="laufzeit"><option value="">Bitte wählen</option><option ${checklist.laufzeit === '3 Monate' ? 'selected' : ''}>3 Monate</option><option ${checklist.laufzeit === '6 Monate' ? 'selected' : ''}>6 Monate</option><option ${checklist.laufzeit === '1 Jahr' ? 'selected' : ''}>1 Jahr</option><option ${checklist.laufzeit === '2 Jahre' ? 'selected' : ''}>2 Jahre</option><option ${checklist.laufzeit === 'unbegrenzt' ? 'selected' : ''}>unbegrenzt</option></select></label>
-                    <label class="sc-checklist__field"><span>Deadline</span><input type="date" name="deadline" value="${this.escapeHtml(checklist.deadline || '')}"><label class="sc-checklist__toggle"><input type="checkbox" name="deadlineFlexibel" ${checklist.deadlineFlexibel ? 'checked' : ''}> flexibel</label></label>
-                    <label class="sc-checklist__field"><span>Format</span><select name="format"><option value="">Bitte wählen</option><option ${checklist.format === 'WAV 48kHz/24bit' ? 'selected' : ''}>WAV 48kHz/24bit</option><option ${checklist.format === 'WAV 44.1kHz/16bit' ? 'selected' : ''}>WAV 44.1kHz/16bit</option><option ${checklist.format === 'MP3 320' ? 'selected' : ''}>MP3 320</option></select></label>
-                    <label class="sc-checklist__field"><span>Spotlänge/Umfang</span><input type="text" name="spotumfang" placeholder="z.B. 30 Sek / 1200 Wörter" value="${this.escapeHtml(checklist.spotumfang || '')}"></label>
-                </div>
-            </section>
-            <section class="sc-checklist__section ${this.ui.checklistDetailsExpanded ? 'is-open' : ''}" data-section="details">
-                <button type="button" class="sc-checklist__section-head" data-toggle-section="details"><span>Details</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                <div class="sc-checklist__section-body sc-checklist__grid">
-                    <label class="sc-checklist__field sc-checklist__field--full"><span>Aussprache/Glossar</span><textarea name="aussprache" rows="2" placeholder="Namen, Marken, Begriffe">${this.escapeHtml(checklist.aussprache || '')}</textarea><small>Upload-Hinweis: Glossar/Script gern später per Mail mitschicken.</small></label>
-                    <label class="sc-checklist__field sc-checklist__field--full"><span>Tonalität/Stil</span><div class="sc-checklist-medium">
-                        ${['neutral','werblich','empathisch','energetic','seriös','humorvoll','erklärend'].map((item) => `<button type="button" class="sc-chip sc-chip--compact ${selectedTone.includes(item) ? 'is-active' : ''}" data-tone="${this.escapeHtml(item)}">${item}</button>`).join('')}
-                    </div></label>
-                    <label class="sc-checklist__field"><span>Zielgruppe</span><input type="text" name="zielgruppe" value="${this.escapeHtml(checklist.zielgruppe || '')}"></label>
-                    <label class="sc-checklist__field"><span>Schnittwünsche</span><select name="schnitt"><option value="">Bitte wählen</option><option ${checklist.schnitt === 'clean' ? 'selected' : ''}>clean</option><option ${checklist.schnitt === 'leicht bearbeitet' ? 'selected' : ''}>leicht bearbeitet</option><option ${checklist.schnitt === 'voll produziert' ? 'selected' : ''}>voll produziert</option></select></label>
-                    <label class="sc-checklist__field"><span>Revisionen/Pickups</span><select name="revisionen"><option value="">Bitte wählen</option><option ${checklist.revisionen === '1 Runde inkl.' ? 'selected' : ''}>1 Runde inkl.</option><option ${checklist.revisionen === '2 Runden' ? 'selected' : ''}>2 Runden</option><option ${checklist.revisionen === 'nach Aufwand' ? 'selected' : ''}>nach Aufwand</option></select></label>
-                    <label class="sc-checklist__field"><span>Musik/SFX vorhanden?</span><label class="sc-checklist__toggle"><input type="checkbox" name="musikSfx" ${checklist.musikSfx ? 'checked' : ''}> Ja, Material liegt vor</label><small>Hinweis: Falls nein, klären wir Optionen beim Angebot.</small></label>
-                </div>
-            </section>
-            <div class="sc-checklist__actions">
-                <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="prefill">Kontakt-Prefill erstellen</button>
-                <button type="button" class="studio-connect-option-btn" data-checklist-action="request">Jetzt anfragen</button>
-                <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="copy">In Zwischenablage kopieren</button>
-            </div>
-        `;
-
-        const syncChecklist = () => {
-            const medium = Array.from(card.querySelectorAll('[data-medium].is-active')).map((el) => el.dataset.medium);
-            const tonalitaet = Array.from(card.querySelectorAll('[data-tone].is-active')).map((el) => el.dataset.tone);
-            const payload = {
-                ...(this.state.context?.checklist || {}),
-                medium,
-                gebiet: card.querySelector('[name="gebiet"]').value.trim(),
-                laufzeit: card.querySelector('[name="laufzeit"]').value.trim(),
-                deadline: card.querySelector('[name="deadline"]').value.trim(),
-                deadlineFlexibel: card.querySelector('[name="deadlineFlexibel"]').checked,
-                format: card.querySelector('[name="format"]').value.trim(),
-                spotumfang: card.querySelector('[name="spotumfang"]').value.trim(),
-                aussprache: card.querySelector('[name="aussprache"]').value.trim(),
-                tonalitaet,
-                zielgruppe: card.querySelector('[name="zielgruppe"]').value.trim(),
-                schnitt: card.querySelector('[name="schnitt"]').value.trim(),
-                revisionen: card.querySelector('[name="revisionen"]').value.trim(),
-                musikSfx: card.querySelector('[name="musikSfx"]').checked
-            };
-            this.state.context = { ...this.state.context, checklist: payload };
-            saveState(this.state);
-            try { sessionStorage.setItem(SC_CHECKLIST_KEY, JSON.stringify(payload)); } catch (error) {}
-            const checklistPoints = [
-                payload.medium.length > 0,
-                Boolean(payload.gebiet),
-                Boolean(payload.laufzeit),
-                Boolean(payload.deadline) || payload.deadlineFlexibel,
-                Boolean(payload.format),
-                Boolean(payload.spotumfang),
-                Boolean(payload.aussprache),
-                payload.tonalitaet.length > 0,
-                Boolean(payload.zielgruppe),
-                Boolean(payload.schnitt || payload.revisionen || payload.musikSfx)
-            ].filter(Boolean).length;
-            const progressText = card.querySelector('.sc-checklist__progress-text');
-            progressText.textContent = `${checklistPoints}/10 erledigt`;
-            card.querySelector('.sc-checklist__progressbar span').style.width = `${Math.min(100, checklistPoints * 10)}%`;
-            return payload;
-        };
-
-        const showInlineInfo = (text) => {
-            const info = card.querySelector('.sc-checklist__inline-info');
-            info.textContent = text;
-            info.style.display = text ? 'block' : 'none';
-        };
-
-        card.querySelectorAll('[data-medium],[data-tone]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                btn.classList.toggle('is-active');
-                syncChecklist();
-            });
-        });
-        card.querySelectorAll('input,textarea,select').forEach((el) => {
-            el.addEventListener('input', syncChecklist);
-            el.addEventListener('change', syncChecklist);
-        });
-        card.querySelectorAll('[data-toggle-section]').forEach((toggle) => {
-            toggle.addEventListener('click', () => {
-                const section = card.querySelector(`[data-section="${toggle.dataset.toggleSection}"]`);
-                section.classList.toggle('is-open');
-                if (toggle.dataset.toggleSection === 'details') {
-                    this.ui.checklistDetailsExpanded = section.classList.contains('is-open');
-                }
-            });
-        });
-
-        card.querySelector('[data-checklist-action="basics"]').addEventListener('click', () => {
-            ['Web', 'Social', 'TV'].forEach((value) => {
-                const chip = card.querySelector(`[data-medium="${value}"]`);
-                if (chip) {
-                    chip.classList.add('is-active');
-                }
-            });
-            showInlineInfo('Basics vorausgewählt – passe die Angaben bei Bedarf an.');
-            syncChecklist();
-        });
-
-        card.querySelector('[data-checklist-action="reset"]').addEventListener('click', () => {
-            card.querySelectorAll('[data-medium],[data-tone]').forEach((chip) => chip.classList.remove('is-active'));
-            card.querySelectorAll('input[type="text"],input[type="date"],textarea').forEach((el) => { el.value = ''; });
-            card.querySelectorAll('select').forEach((el) => { el.value = ''; });
-            card.querySelectorAll('input[type="checkbox"]').forEach((el) => { el.checked = false; });
-            showInlineInfo('Checkliste zurückgesetzt.');
-            syncChecklist();
-        });
-
-        const savePrefill = (payload) => {
-            const text = this.buildChecklistPrefill(payload);
-            try {
-                localStorage.setItem(SC_CONTACT_PREFILL_KEY, JSON.stringify({ text, ts: Date.now(), source: 'checklist' }));
-            } catch (error) {
-                // Ignore.
-            }
-            return text;
-        };
-
-        card.querySelector('[data-checklist-action="prefill"]').addEventListener('click', () => {
-            const payload = syncChecklist();
-            savePrefill(payload);
-            showInlineInfo('Kontakt-Prefill erstellt.');
-        });
-
-        card.querySelector('[data-checklist-action="copy"]').addEventListener('click', () => {
-            const payload = syncChecklist();
-            const text = savePrefill(payload);
-            this.copyToClipboard(text, 'Prefill kopiert');
-        });
-
-        card.querySelector('[data-checklist-action="request"]').addEventListener('click', () => {
-            const payload = syncChecklist();
-            if (!payload.medium.length && !payload.gebiet && !payload.laufzeit) {
-                showInlineInfo('Trage kurz 2–3 Punkte ein (Einsatz, Gebiet, Laufzeit), dann wird’s ein perfektes Briefing.');
-                return;
-            }
-            savePrefill(payload);
-            showInlineInfo('');
-            this.handleOption({ label: 'Anfrage aus Checkliste', userPromptText: 'Alles vollständig – jetzt anfragen.', nextId: 'kontakt' });
-        });
-
-        syncChecklist();
-        this.dock.insertBefore(card, this.dock.firstChild);
     }
 
     getProactiveText(context) {
