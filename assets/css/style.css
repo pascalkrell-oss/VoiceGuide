@@ -1048,6 +1048,28 @@
     min-height: 36px;
 }
 
+.sc-callback-input[type="time"] {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(28, 87, 137, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.sc-callback-input[type="time"]:focus {
+    border-color: rgba(26, 147, 238, 0.55);
+    box-shadow: 0 0 0 3px rgba(26, 147, 238, 0.12);
+    background: rgba(255, 255, 255, 0.96);
+    outline: none;
+}
+
+.sc-callback-input[type="time"]::-webkit-calendar-picker-indicator {
+    opacity: 0.7;
+    cursor: pointer;
+}
+
 .sc-callback-textarea {
     min-height: 74px;
     resize: vertical;
