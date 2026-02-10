@@ -1565,12 +1565,15 @@ class StudioBot {
             const typeText = fullText.slice(0, maxTypeChars);
             const remainingText = fullText.slice(maxTypeChars);
             let position = 0;
+            const punctuationPausePattern = /[.,?!]/;
             const step = () => {
                 position += 1;
                 bubble.textContent = typeText.slice(0, position);
                 this.scheduleScrollIntoView(row);
                 if (position < typeText.length) {
-                    const delay = 12 + Math.floor(Math.random() * 15);
+                    const typedChar = typeText.charAt(position - 1);
+                    const baseDelay = 12 + Math.floor(Math.random() * 15);
+                    const delay = punctuationPausePattern.test(typedChar) ? baseDelay + 200 : baseDelay;
                     this.activeTypewriter.timer = window.setTimeout(step, delay);
                     return;
                 }
@@ -1598,8 +1601,8 @@ class StudioBot {
         const row = document.createElement('div');
         row.className = `studio-connect-message ${type}`;
         if (type === 'bot') {
-            const avatarContainer = document.createElement('div');
-            avatarContainer.className = 'sc-avatar-container sc-pulse-green';
+            const avatarWrapper = document.createElement('div');
+            avatarWrapper.className = 'sc-avatar-wrapper sc-glow-pulse';
             const avatar = document.createElement('img');
             avatar.className = 'studio-connect-avatar';
             avatar.src = this.avatarUrl;
@@ -1607,8 +1610,8 @@ class StudioBot {
             avatar.loading = 'eager';
             avatar.decoding = 'async';
             avatar.fetchPriority = 'high';
-            avatarContainer.appendChild(avatar);
-            row.appendChild(avatarContainer);
+            avatarWrapper.appendChild(avatar);
+            row.appendChild(avatarWrapper);
         }
         const bubbleWrap = document.createElement('div');
         bubbleWrap.className = type === 'user' ? 'sc-bubble-wrap sc-bubble-wrap--user' : 'sc-bubble-wrap';
@@ -2670,16 +2673,47 @@ class StudioBot {
     }
 
     getProactiveText(context) {
-        if (context.moduleKey === 'gagenrechner') {
-            return 'Fragen zum Gagenrechner?';
+        const textByContext = {
+            general: [
+                'Brauchst Du Hilfe bei Deinem Projekt?',
+                'Möchtest Du den passenden Sprecher schneller finden?',
+                'Soll ich Dir direkt die nächsten Schritte zeigen?'
+            ],
+            gagenrechner: [
+                'Soll ich Dir beim Kalkulieren helfen?',
+                'Fragen zum Gagenrechner?',
+                'Willst Du Deine Sprecherkosten direkt abschätzen?'
+            ],
+            studiofinder: [
+                'Suchst Du ein passendes Studio?',
+                'Soll ich Dir beim Studio-Finder helfen?',
+                'Möchtest Du schnell das richtige Studio entdecken?'
+            ],
+            skriptanalyse: [
+                'Soll ich Dein Skript kurz analysieren?',
+                'Fragen zur Skript-Analyse?',
+                'Willst Du ein schnelles Feedback zu Deinem Text?'
+            ]
+        };
+        const contextKey = textByContext[context.moduleKey] ? context.moduleKey : 'general';
+        const variants = textByContext[contextKey];
+        const selectedText = variants[Math.floor(Math.random() * variants.length)] || textByContext.general[0];
+        return `${this.getGreeting()} ${selectedText}`;
+    }
+
+    getGreeting() {
+        const hour = new Date().getHours();
+
+        if (hour >= 5 && hour < 11) {
+            return 'Guten Morgen!';
         }
-        if (context.moduleKey === 'studiofinder') {
-            return 'Fragen zum Studio-Finder?';
+        if (hour >= 11 && hour < 18) {
+            return Math.random() < 0.5 ? 'Hallo!' : 'Schönen Tag!';
         }
-        if (context.moduleKey === 'skriptanalyse') {
-            return 'Fragen zur Skript-Analyse?';
+        if (hour >= 18 && hour < 22) {
+            return 'Guten Abend!';
         }
-        return 'Brauchst Du Hilfe bei Deinem Projekt?';
+        return Math.random() < 0.5 ? 'Noch wach?' : 'Nachtschicht?';
     }
 
     scheduleProactiveBubble() {
@@ -2750,8 +2784,8 @@ class StudioBot {
         mainButton.type = 'button';
         mainButton.className = 'sc-proactive-main';
 
-        const avatarContainer = document.createElement('span');
-        avatarContainer.className = 'sc-avatar-container sc-pulse-green sc-proactive-avatar-wrap';
+        const avatarWrapper = document.createElement('span');
+        avatarWrapper.className = 'sc-avatar-wrapper sc-glow-pulse sc-proactive-avatar-wrap';
 
         const avatar = document.createElement('img');
         avatar.className = 'studio-connect-avatar';
@@ -2760,7 +2794,7 @@ class StudioBot {
         avatar.loading = 'eager';
         avatar.decoding = 'async';
         avatar.fetchPriority = 'high';
-        avatarContainer.appendChild(avatar);
+        avatarWrapper.appendChild(avatar);
 
         const content = document.createElement('span');
         content.className = 'sc-proactive-content';
@@ -2775,7 +2809,7 @@ class StudioBot {
 
         content.appendChild(label);
         content.appendChild(text);
-        mainButton.appendChild(avatarContainer);
+        mainButton.appendChild(avatarWrapper);
         mainButton.appendChild(content);
         bubble.appendChild(closeButton);
         bubble.appendChild(mainButton);
@@ -2788,7 +2822,8 @@ class StudioBot {
             this.persistProactiveShown();
         });
         closeButton.addEventListener('click', () => {
-            this.hideProactiveBubble();
+            bubble.classList.add('sc-fade-out');
+            window.setTimeout(() => this.hideProactiveBubble(), 300);
             this.persistProactiveShown();
         });
         document.body.appendChild(bubble);
