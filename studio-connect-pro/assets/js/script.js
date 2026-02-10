@@ -16,6 +16,19 @@ const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
 const PROACTIVE_DELAY_MS = 14000;
 
+const DEFAULT_START_TOPICS = [
+    { label: 'Briefing-Check (30 Sek.)', userPromptText: 'Ich möchte kurz ein Briefing durchgehen.', preferredId: 'briefing', fallbackIds: [] },
+    { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', preferredId: 'demos', fallbackIds: [] },
+    { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', preferredId: 'preise', fallbackIds: ['gr_nutzungsrechte'] },
+    { label: 'Einsatz & Rechte', userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.', preferredId: 'rechte', fallbackIds: ['gr_nutzungsrechte'] },
+    { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', preferredId: 'ablauf', fallbackIds: [] },
+    { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', preferredId: 'technik', fallbackIds: [] },
+    { label: 'Teleprompter', userPromptText: 'Teleprompter anzeigen.', preferredId: 'sa_teleprompter', fallbackIds: ['rechner'] },
+    { label: 'PDF Export', userPromptText: 'PDF Export anzeigen.', preferredId: 'sa_pdf_export', fallbackIds: ['gr_pdf_export'] },
+    { label: 'Rückruf gewünscht', userPromptText: 'Ich möchte einen Rückruf anfordern.', preferredId: 'callback', fallbackIds: ['kontakt'] },
+    { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', preferredId: 'kontakt', fallbackIds: [] }
+];
+
 const getDefaultState = () => ({
     isOpen: false,
     currentStepId: 'start',
@@ -448,6 +461,7 @@ class StudioBot {
             rechte: this.getStepConfig('rechte'),
             rechte_beispiele: this.getStepConfig('rechte_beispiele'),
             kontakt: this.getStepConfig('kontakt'),
+            callback: this.getStepConfig('callback'),
             briefing: this.getStepConfig('briefing'),
             briefing_einsatz: this.getStepConfig('briefing_einsatz'),
             briefing_laufzeit: this.getStepConfig('briefing_laufzeit'),
@@ -465,23 +479,7 @@ class StudioBot {
                 return {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
-                    options: [
-                        {
-                            label: 'Briefing-Check (30 Sek.)',
-                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
-                            nextId: 'briefing'
-                        },
-                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
-                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
-                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
-                        {
-                            label: 'Einsatz & Rechte',
-                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
-                            nextId: 'rechte'
-                        },
-                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
-                    ]
+                    options: this.getDefaultStartOptions()
                 };
             case 'demos':
                 const navLinks = this.settings.nav_links || {};
@@ -650,27 +648,19 @@ class StudioBot {
                         { label: 'Einsatz & Rechte', userPromptText: 'Einsatz & Rechte.', nextId: 'rechte' },
                     ]
                 };
+            case 'callback':
+                return {
+                    id: 'callback',
+                    text: 'Rückruf gewünscht? Teile Telefonnummer und Wunschzeit mit – ich gebe es direkt weiter.',
+                    options: [
+                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
+                    ]
+                };
             default:
                 return {
                     id: 'start',
                     text: 'Hi! Ich bin Pascals Studio-Assistent 🎙️ – bereit für Dein Projekt. Womit darf ich Dir helfen?',
-                    options: [
-                        {
-                            label: 'Briefing-Check (30 Sek.)',
-                            userPromptText: 'Ich möchte kurz ein Briefing durchgehen.',
-                            nextId: 'briefing'
-                        },
-                        { label: 'Casting & Demos', userPromptText: 'Demos öffnen.', nextId: 'demos' },
-                        { label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', nextId: 'preise' },
-                        { label: 'Technik-Setup', userPromptText: 'Wie ist das Studio von Pascal ausgestattet?', nextId: 'technik' },
-                        { label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?', nextId: 'ablauf' },
-                        {
-                            label: 'Einsatz & Rechte',
-                            userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.',
-                            nextId: 'rechte'
-                        },
-                        { label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.', nextId: 'kontakt' }
-                    ]
+                    options: this.getDefaultStartOptions()
                 };
         }
     }
@@ -813,6 +803,57 @@ class StudioBot {
                 showToast: this.showToast.bind(this)
             });
             this.dock.appendChild(card);
+        } else if (step && step.id === 'callback') {
+            const form = document.createElement('form');
+            form.className = 'sc-callback-form';
+            form.innerHTML = '<div class="sc-callback-grid"><label>Telefonnummer<input type="tel" name="phone" placeholder="+49 …" required></label><label>Wunschuhrzeit<input type="time" name="time" required></label></div><button type="submit" class="studio-connect-option-btn">Rückruf anfordern</button><div class="sc-callback-feedback" aria-live="polite"></div>';
+            const feedback = form.querySelector('.sc-callback-feedback');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const phone = String(formData.get('phone') || '').trim();
+                const time = String(formData.get('time') || '').trim();
+                if (!/^[+\d\s()\-]{7,}$/.test(phone)) {
+                    feedback.textContent = 'Bitte eine gültige Telefonnummer angeben.';
+                    feedback.className = 'sc-callback-feedback is-error';
+                    return;
+                }
+                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+                    feedback.textContent = 'Bitte eine gültige Uhrzeit wählen.';
+                    feedback.className = 'sc-callback-feedback is-error';
+                    return;
+                }
+                feedback.textContent = 'Sende Anfrage...';
+                feedback.className = 'sc-callback-feedback is-loading';
+                try {
+                    const body = new URLSearchParams({
+                        action: 'scp_callback_request',
+                        security: (window.sc_vars && window.sc_vars.callback_nonce) || '',
+                        phone,
+                        time,
+                        page_url: window.location.href,
+                        page_context_key: this.getPageContext().key || 'allgemein'
+                    });
+                    const response = await fetch((window.sc_vars && window.sc_vars.ajax_url) || '/wp-admin/admin-ajax.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                        body: body.toString()
+                    });
+                    const data = await response.json();
+                    if (data && data.success) {
+                        feedback.textContent = (data.data && data.data.message) || 'Anfrage gesendet.';
+                        feedback.className = 'sc-callback-feedback is-success';
+                        form.reset();
+                    } else {
+                        feedback.textContent = (data && data.data && data.data.message) || 'Senden fehlgeschlagen.';
+                        feedback.className = 'sc-callback-feedback is-error';
+                    }
+                } catch (error) {
+                    feedback.textContent = 'Senden fehlgeschlagen.';
+                    feedback.className = 'sc-callback-feedback is-error';
+                }
+            });
+            this.dock.appendChild(form);
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
@@ -1306,7 +1347,12 @@ class StudioBot {
             rechte: 'Einsatz & Rechte',
             rechte_beispiele: 'Einsatz-Beispiele',
             kontakt: 'Kontakt',
+            callback: 'Rückruf gewünscht',
             rechner: 'Wort-Rechner',
+            sa_teleprompter: 'Teleprompter',
+            sa_pdf_export: 'Skript-Analyse PDF Export',
+            gr_pdf_export: 'Gagenrechner PDF Export',
+            gr_nutzungsrechte: 'Nutzungsrechte & Buyouts',
             ablauf: 'Ablauf der Zusammenarbeit',
             briefing: 'Briefing-Check',
             briefing_einsatz: 'Briefing-Check',
@@ -1326,17 +1372,64 @@ class StudioBot {
         }
     }
 
+    resolveStepId(preferredId, fallbackIds = []) {
+        if (preferredId && this.logicTree[preferredId]) {
+            return preferredId;
+        }
+        for (const fallbackId of fallbackIds) {
+            if (fallbackId && this.logicTree[fallbackId]) {
+                return fallbackId;
+            }
+        }
+        return '';
+    }
+
+    getDefaultStartOptions() {
+        return DEFAULT_START_TOPICS
+            .map((topic) => {
+                const resolvedStepId = this.resolveStepId(topic.preferredId, topic.fallbackIds || []);
+                if (!resolvedStepId) {
+                    return null;
+                }
+                return {
+                    label: topic.label,
+                    userPromptText: topic.userPromptText,
+                    nextId: resolvedStepId
+                };
+            })
+            .filter(Boolean);
+    }
+
     getSearchIndex() {
-        return [
-            { stepId: 'briefing', label: 'Briefing-Check', keywords: ['briefing', 'checkliste', 'fragebogen', 'projektstart'] },
-            { stepId: 'demos', label: 'Casting & Demos', keywords: ['demos', 'casting', 'hoerprobe', 'hörprobe', 'samples'] },
-            { stepId: 'preise', label: 'Preise & Buyouts', keywords: ['preise', 'buyout', 'kosten', 'budget', 'gage'] },
-            { stepId: 'technik', label: 'Technik-Setup', keywords: ['technik', 'studio', 'equipment', 'setup', 'aufnahme'] },
-            { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing'] },
-            { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout'] },
-            { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp'] },
-            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] }
-        ];
+        const entries = [];
+        const seen = new Set();
+        const addEntry = (stepId, label, keywords = [], priority = 0) => {
+            if (!stepId || !this.logicTree[stepId] || seen.has(stepId)) {
+                return;
+            }
+            seen.add(stepId);
+            entries.push({ stepId, label, keywords, priority });
+        };
+
+        DEFAULT_START_TOPICS.forEach((topic, index) => {
+            const stepId = this.resolveStepId(topic.preferredId, topic.fallbackIds || []);
+            if (!stepId) {
+                return;
+            }
+            addEntry(stepId, topic.label, [topic.label, topic.userPromptText || ''], 100 - index);
+        });
+
+        Object.keys(this.logicTree).forEach((stepId) => {
+            const step = this.logicTree[stepId];
+            const label = this.getStepLabel(stepId);
+            const keywords = [label, step?.text || ''];
+            (step?.options || []).forEach((option) => {
+                keywords.push(option.label || '', option.userPromptText || '');
+            });
+            addEntry(stepId, label, keywords, 10);
+        });
+
+        return entries;
     }
 
     setupHeaderSearch() {
@@ -1413,28 +1506,68 @@ class StudioBot {
         this.searchPopoverOpen = false;
         this.searchPopover.classList.remove('is-open');
         this.searchPopover.setAttribute('aria-hidden', 'true');
+        if (this.searchInput) {
+            this.searchInput.value = '';
+        }
+        this.renderSearchResults('');
     }
 
     renderSearchResults(query) {
         if (!this.searchResults) {
             return;
         }
-        const value = (query || '').trim().toLowerCase();
-        if (!value) {
-            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Tippe ein Stichwort…</div>';
+
+        const normalize = (value) => (value || '')
+            .toLowerCase()
+            .replace(/[ä]/g, 'ae')
+            .replace(/[ö]/g, 'oe')
+            .replace(/[ü]/g, 'ue')
+            .replace(/[ß]/g, 'ss');
+        const levenshtein = (a, b) => {
+            const matrix = Array.from({ length: b.length + 1 }, () => Array(a.length + 1).fill(0));
+            for (let i = 0; i <= b.length; i += 1) matrix[i][0] = i;
+            for (let j = 0; j <= a.length; j += 1) matrix[0][j] = j;
+            for (let i = 1; i <= b.length; i += 1) {
+                for (let j = 1; j <= a.length; j += 1) {
+                    matrix[i][j] = b[i - 1] === a[j - 1]
+                        ? matrix[i - 1][j - 1]
+                        : Math.min(matrix[i - 1][j - 1], matrix[i - 1][j], matrix[i][j - 1]) + 1;
+                }
+            }
+            return matrix[b.length][a.length];
+        };
+
+        const normalizedQuery = normalize((query || '').trim());
+        const index = this.getSearchIndex();
+        if (!normalizedQuery) {
+            const topThemes = index.slice(0, 8);
+            this.searchResults.innerHTML = topThemes
+                .map((item) => `<button type="button" class="sc-search-popover__result" data-step-id="${item.stepId}">${this.escapeHtml(item.label)}</button>`)
+                .join('');
             return;
         }
-        const tokens = value.split(/\s+/).filter(Boolean);
-        const items = this.getSearchIndex().filter((item) => {
-            const haystack = [item.label, ...(item.keywords || [])].join(' ').toLowerCase();
-            return tokens.every((token) => haystack.includes(token));
-        });
-        if (!items.length) {
-            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Keine Treffer</div>';
+
+        const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+        const ranked = index.map((item) => {
+            const bag = [normalize(item.label), ...(item.keywords || []).map(normalize)];
+            let score = item.priority || 0;
+            tokens.forEach((token) => {
+                if (bag.some((word) => word.includes(token))) score += 5;
+                if (bag.some((word) => word.startsWith(token))) score += 3;
+                if (token.length >= 4 && bag.some((word) => levenshtein(token, word.split(' ')[0]) <= 2)) score += 2;
+            });
+            return { item, score };
+        }).filter((entry) => entry.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 8);
+
+        if (!ranked.length) {
+            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Keine passenden Themen gefunden.</div>';
             return;
         }
-        this.searchResults.innerHTML = items
-            .map((item) => `<button type="button" class="sc-search-popover__result" data-step-id="${item.stepId}">${this.escapeHtml(item.label)}</button>`)
+
+        this.searchResults.innerHTML = ranked
+            .map(({ item }) => `<button type="button" class="sc-search-popover__result" data-step-id="${item.stepId}">${this.escapeHtml(item.label)}</button>`)
             .join('');
     }
 
@@ -1589,14 +1722,9 @@ class StudioBot {
             markup += `${this.escapeHtml(line)}${index < lines.length - 1 ? '<br>' : ''}`;
         });
         closeList();
-        let withEmails = markup;
-        withEmails = withEmails.replace(emailRegex, (match) => {
-            return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
-        });
-        withEmails = withEmails.replace(phoneRegex, (match) => {
-            return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
-        });
-        return withEmails;
+        return markup
+            .replace(emailRegex, (match) => this.escapeHtml(match))
+            .replace(phoneRegex, (match) => this.escapeHtml(match));
     }
 
     escapeHtml(text) {
@@ -2522,43 +2650,6 @@ const initContactPrefill = () => {
     applyContactPrefill();
 };
 
-
-
-(function extendStudioBotForModules() {
-    if (typeof StudioBot === 'undefined') return;
-    const text = {
-        module_skriptanalyse: 'Skript-Analyse Tool: Schnellstart, Teleprompter, PDF Export, Analyseboxen.',
-        module_gagenrechner: 'Gagenrechner: Projektart, Nutzungsrechte, Preisdetails, PDF Export.',
-        module_studiofinder: 'Studio-Finder: Suche/Filter, Karte/Standort, Premium-Studios, Problemlösung.'
-    };
-    const topicConfigFactory = function () {
-        const links = (this.settings && this.settings.module_links) || {};
-        const lnk = { skriptanalyse: links.skriptanalyse || '/extras/skript-analyse-fuer-sprecher-und-autoren/', gagenrechner: links.gagenrechner || '/extras/gagenrechner/', studiofinder: links.studiofinder || '/extras/studio-finder/' };
-        const nav = (overview, nextId, tool) => [{ label: 'Zum Tool', action: 'hardlink', target: tool }, { label: 'Nächstes Thema', nextId }, { label: 'Zur Übersicht', nextId: overview }, { label: 'Kontakt & Support', nextId: 'kontakt' }];
-        return {
-            module_skriptanalyse: { id: 'module_skriptanalyse', text: text.module_skriptanalyse, options: [{ label: 'Übersicht', nextId: 'sa_start' }, { label: 'Schnellstart', nextId: 'sa_schnellstart' }, { label: 'Teleprompter', nextId: 'sa_teleprompter' }, { label: 'PDF Export', nextId: 'sa_pdf_export' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.skriptanalyse }] },
-            module_gagenrechner: { id: 'module_gagenrechner', text: text.module_gagenrechner, options: [{ label: 'Übersicht', nextId: 'gr_start' }, { label: 'Projektart', nextId: 'gr_projektart' }, { label: 'Nutzungsrechte & Buyouts', nextId: 'gr_nutzungsrechte' }, { label: 'PDF Export', nextId: 'gr_pdf_export' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.gagenrechner }] },
-            module_studiofinder: { id: 'module_studiofinder', text: text.module_studiofinder, options: [{ label: 'Übersicht', nextId: 'sf_start' }, { label: 'Suche & Filter', nextId: 'sf_suche_filter' }, { label: 'Karte & Standort', nextId: 'sf_karte_standort_datenschutz' }, { label: 'Häufige Probleme', nextId: 'sf_haeufige_probleme' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.studiofinder }] },
-            callback: { id: 'callback', text: 'Rückruf gewünscht? Bitte Telefonnummer und Wunschuhrzeit eintragen.', options: [{ label: 'Zurück zu Kontakt & Support', nextId: 'kontakt' }] },
-            sa_start: { id: 'sa_start', text: 'Skript-Analyse Übersicht.', options: [{ label: 'Schnellstart', nextId: 'sa_schnellstart' }, { label: 'Teleprompter', nextId: 'sa_teleprompter' }, { label: 'PDF Export', nextId: 'sa_pdf_export' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.skriptanalyse }] },
-            sa_schnellstart: { id: 'sa_schnellstart', text: 'Schnellstart: Text einfügen, Analyse starten, Fokus setzen.', options: nav('module_skriptanalyse', 'sa_teleprompter', lnk.skriptanalyse) }, sa_teleprompter: { id: 'sa_teleprompter', text: 'Teleprompter: Tempo und Lesefluss feinjustieren.', options: nav('module_skriptanalyse', 'sa_pdf_export', lnk.skriptanalyse) }, sa_pdf_export: { id: 'sa_pdf_export', text: 'PDF Export für Doku und Review.', options: nav('module_skriptanalyse', 'sa_analyseboxen', lnk.skriptanalyse) }, sa_analyseboxen: { id: 'sa_analyseboxen', text: 'Analyseboxen für Struktur, Verständlichkeit und Timing.', options: nav('module_skriptanalyse', 'sa_schreib_sprint_fokus', lnk.skriptanalyse) }, sa_schreib_sprint_fokus: { id: 'sa_schreib_sprint_fokus', text: 'Schreib-Sprint & Fokus.', options: nav('module_skriptanalyse', 'sa_sprechdauer_tempo', lnk.skriptanalyse) }, sa_sprechdauer_tempo: { id: 'sa_sprechdauer_tempo', text: 'Sprechdauer & Tempo.', options: nav('module_skriptanalyse', 'sa_projekte_speichern_laden', lnk.skriptanalyse) }, sa_projekte_speichern_laden: { id: 'sa_projekte_speichern_laden', text: 'Projekte speichern und laden.', options: nav('module_skriptanalyse', 'sa_premium_uebersicht', lnk.skriptanalyse) }, sa_premium_uebersicht: { id: 'sa_premium_uebersicht', text: 'Premium-Übersicht sachlich.', options: nav('module_skriptanalyse', 'sa_start', lnk.skriptanalyse) },
-            gr_start: { id: 'gr_start', text: 'Gagenrechner Übersicht.', options: [{ label: 'Projektart', nextId: 'gr_projektart' }, { label: 'Nutzungsrechte', nextId: 'gr_nutzungsrechte' }, { label: 'Preisdetails', nextId: 'gr_preisdetails' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.gagenrechner }] }, gr_projektart: { id: 'gr_projektart', text: 'Projektart korrekt wählen.', options: nav('module_gagenrechner', 'gr_nutzungsrechte', lnk.gagenrechner) }, gr_nutzungsrechte: { id: 'gr_nutzungsrechte', text: 'Nutzungsrechte & Buyouts: Laufzeit, Gebiet, Medien.', options: nav('module_gagenrechner', 'gr_optionen_addons', lnk.gagenrechner) }, gr_optionen_addons: { id: 'gr_optionen_addons', text: 'Optionen/Add-ons.', options: nav('module_gagenrechner', 'gr_preisdetails', lnk.gagenrechner) }, gr_preisdetails: { id: 'gr_preisdetails', text: 'Preisdetails transparent prüfen.', options: nav('module_gagenrechner', 'gr_pdf_export', lnk.gagenrechner) }, gr_pdf_export: { id: 'gr_pdf_export', text: 'PDF Export für Angebot.', options: nav('module_gagenrechner', 'gr_system_clear', lnk.gagenrechner) }, gr_system_clear: { id: 'gr_system_clear', text: 'System clear: neu starten.', options: nav('module_gagenrechner', 'gr_haeufige_fehler', lnk.gagenrechner) }, gr_haeufige_fehler: { id: 'gr_haeufige_fehler', text: 'Häufige Fehler und Lösungen.', options: nav('module_gagenrechner', 'gr_vds_info', lnk.gagenrechner) }, gr_vds_info: { id: 'gr_vds_info', text: 'VDS-Info neutral.', options: nav('module_gagenrechner', 'gr_start', lnk.gagenrechner) },
-            sf_start: { id: 'sf_start', text: 'Studio-Finder Übersicht.', options: [{ label: 'Suche & Filter', nextId: 'sf_suche_filter' }, { label: 'Karte & Standort', nextId: 'sf_karte_standort_datenschutz' }, { label: 'Premium-Studios', nextId: 'sf_premium_studios' }, { label: 'Zum Tool', action: 'hardlink', target: lnk.studiofinder }] }, sf_suche_filter: { id: 'sf_suche_filter', text: 'Suche & Filter.', options: nav('module_studiofinder', 'sf_karte_standort_datenschutz', lnk.studiofinder) }, sf_karte_standort_datenschutz: { id: 'sf_karte_standort_datenschutz', text: 'Karte, Standort, Datenschutz.', options: nav('module_studiofinder', 'sf_premium_studios', lnk.studiofinder) }, sf_premium_studios: { id: 'sf_premium_studios', text: 'Premium-Studios einordnen.', options: nav('module_studiofinder', 'sf_feedback', lnk.studiofinder) }, sf_feedback: { id: 'sf_feedback', text: 'Feedback.', options: nav('module_studiofinder', 'sf_import_export', lnk.studiofinder) }, sf_import_export: { id: 'sf_import_export', text: 'Import/Export.', options: nav('module_studiofinder', 'sf_geocoding_kurz', lnk.studiofinder) }, sf_geocoding_kurz: { id: 'sf_geocoding_kurz', text: 'Geocoding kurz.', options: nav('module_studiofinder', 'sf_haeufige_probleme', lnk.studiofinder) }, sf_haeufige_probleme: { id: 'sf_haeufige_probleme', text: 'Häufige Probleme.', options: nav('module_studiofinder', 'sf_start', lnk.studiofinder) }
-        };
-    };
-    const origBuild = StudioBot.prototype.buildLogicTree; StudioBot.prototype.buildLogicTree = function () { return { ...origBuild.call(this), ...topicConfigFactory.call(this) }; };
-    const origCfg = StudioBot.prototype.getStepConfig; StudioBot.prototype.getStepConfig = function (stepId) { const ext = topicConfigFactory.call(this); if (ext[stepId]) return ext[stepId]; if (stepId === 'start') return { id: 'start', text: 'Womit brauchst Du Hilfe?', options: [{ label: 'Skript-Analyse Tool', nextId: 'module_skriptanalyse' }, { label: 'Gagenrechner', nextId: 'module_gagenrechner' }, { label: 'Studio-Finder', nextId: 'module_studiofinder' }, { label: 'Kontakt & Support', nextId: 'kontakt' }, { label: 'Rückruf gewünscht', nextId: 'callback' }] }; return origCfg.call(this, stepId); };
-    const origLabel = StudioBot.prototype.getStepLabel; StudioBot.prototype.getStepLabel = function (id) { const map = { module_skriptanalyse: 'Skript-Analyse Tool', module_gagenrechner: 'Gagenrechner', module_studiofinder: 'Studio-Finder', callback: 'Rückruf gewünscht', sa_start: 'Skript-Analyse Übersicht', sa_schnellstart: 'Schnellstart', sa_teleprompter: 'Teleprompter', sa_pdf_export: 'PDF Export', sa_analyseboxen: 'Analyseboxen', sa_schreib_sprint_fokus: 'Schreib-Sprint & Fokus', sa_sprechdauer_tempo: 'Sprechdauer & Tempo', sa_projekte_speichern_laden: 'Projekte speichern/laden', sa_premium_uebersicht: 'Premium-Übersicht', gr_start: 'Gagenrechner Übersicht', gr_projektart: 'Projektart', gr_nutzungsrechte: 'Nutzungsrechte & Buyouts', gr_optionen_addons: 'Optionen/Add-ons', gr_preisdetails: 'Preisdetails', gr_pdf_export: 'PDF Export', gr_system_clear: 'System clear', gr_haeufige_fehler: 'Häufige Fehler', gr_vds_info: 'VDS Info', sf_start: 'Studio-Finder Übersicht', sf_suche_filter: 'Suche & Filter', sf_karte_standort_datenschutz: 'Karte/Standort/Datenschutz', sf_premium_studios: 'Premium-Studios', sf_feedback: 'Feedback', sf_import_export: 'Import/Export', sf_geocoding_kurz: 'Geocoding', sf_haeufige_probleme: 'Häufige Probleme' }; return map[id] || origLabel.call(this, id); };
-    const origOpen = StudioBot.prototype.openPanel; StudioBot.prototype.openPanel = async function () { await origOpen.call(this); const c = this.getPageContext(); if (c.moduleKey === 'general' || sessionStorage.getItem('sc_auto_module_done') === '1') return; sessionStorage.setItem('sc_auto_module_done', '1'); const target = `module_${c.moduleKey}`; if (this.logicTree[target]) await this.advanceToStep(target); };
-    StudioBot.prototype.getPageContext = function () { const p = (window.location.pathname || '/').toLowerCase().replace(/\/+$/, ''); const map = [{ moduleKey: 'studiofinder', basePath: '/extras/studio-finder' }, { moduleKey: 'gagenrechner', basePath: '/extras/gagenrechner' }, { moduleKey: 'skriptanalyse', basePath: '/extras/skript-analyse-fuer-sprecher-und-autoren' }]; return map.find((x) => p === x.basePath || p.startsWith(`${x.basePath}/`)) || { moduleKey: 'general', basePath: '/' }; };
-    const origTrack = StudioBot.prototype.trackRecentStep; StudioBot.prototype.trackRecentStep = function (id) { origTrack.call(this, id); const m = id.startsWith('sa_') ? 'skriptanalyse' : (id.startsWith('gr_') ? 'gagenrechner' : (id.startsWith('sf_') ? 'studiofinder' : '')); if (!m || id.endsWith('_start')) return; const key = `sc_recent_topics_${m}`; const cur = JSON.parse(sessionStorage.getItem(key) || '[]'); sessionStorage.setItem(key, JSON.stringify([id, ...cur.filter((x) => x !== id)].slice(0, 3))); };
-    const origClear = StudioBot.prototype.clearSessionEnhancements; StudioBot.prototype.clearSessionEnhancements = function () { origClear.call(this); sessionStorage.removeItem('sc_auto_module_done'); ['skriptanalyse', 'gagenrechner', 'studiofinder'].forEach((m) => sessionStorage.removeItem(`sc_recent_topics_${m}`)); };
-    const origEnh = StudioBot.prototype.renderStartEnhancements; StudioBot.prototype.renderStartEnhancements = function () { origEnh.call(this); const sid = this.state.currentStepId || ''; if (!sid.startsWith('module_') || !this.dock) return; const m = sid.replace('module_', ''); const list = JSON.parse(sessionStorage.getItem(`sc_recent_topics_${m}`) || '[]'); if (!list.length) return; const row = document.createElement('div'); row.className = 'sc-module-recent'; row.innerHTML = '<span class="sc-module-recent__label">Zuletzt:</span>'; list.slice(0, 3).forEach((id) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sc-chip sc-chip--compact'; b.textContent = this.getStepLabel(id); b.addEventListener('click', () => this.handleOption({ label: this.getStepLabel(id), nextId: id })); row.appendChild(b); }); this.dock.insertBefore(row, this.dock.firstChild); };
-    const origHide = StudioBot.prototype.hideSearchPopover; StudioBot.prototype.hideSearchPopover = function () { origHide.call(this); if (this.searchInput) this.searchInput.value = ''; };
-    StudioBot.prototype.getSearchIndex = function () { return [{ stepId: 'gr_nutzungsrechte', label: 'Nutzungsrechte & Buyouts', moduleKey: 'gagenrechner', keywords: ['buyout', 'rechte', 'nutzung', 'lizenz', 'laufzeit', 'gebiet'] }, { stepId: 'gr_pdf_export', label: 'Gagenrechner PDF Export', moduleKey: 'gagenrechner', keywords: ['pdf', 'export', 'angebot'] }, { stepId: 'sa_teleprompter', label: 'Teleprompter', moduleKey: 'skriptanalyse', keywords: ['teleprompter', 'speed', 'tempo'] }, { stepId: 'sa_pdf_export', label: 'Skript-Analyse PDF Export', moduleKey: 'skriptanalyse', keywords: ['pdf', 'export'] }, { stepId: 'sf_suche_filter', label: 'Suche & Filter', moduleKey: 'studiofinder', keywords: ['filter', 'karte', 'standort', 'geolocation'] }, { stepId: 'sf_karte_standort_datenschutz', label: 'Karte Standort Datenschutz', moduleKey: 'studiofinder', keywords: ['karte', 'standort', 'datenschutz', 'geolocation'] }]; };
-    StudioBot.prototype.renderSearchResults = function (query) { if (!this.searchResults) return; const n = (v) => (v || '').toLowerCase().replace(/[ä]/g, 'ae').replace(/[ö]/g, 'oe').replace(/[ü]/g, 'ue').replace(/[ß]/g, 'ss'); const lv = (a, b) => { const d = Array.from({ length: b.length + 1 }, () => Array(a.length + 1).fill(0)); for (let i = 0; i <= b.length; i += 1) d[i][0] = i; for (let j = 0; j <= a.length; j += 1) d[0][j] = j; for (let i = 1; i <= b.length; i += 1) for (let j = 1; j <= a.length; j += 1) d[i][j] = b[i - 1] === a[j - 1] ? d[i - 1][j - 1] : Math.min(d[i - 1][j - 1], d[i - 1][j], d[i][j - 1]) + 1; return d[b.length][a.length]; }; const v = n((query || '').trim()); const ctx = this.getPageContext().moduleKey; const it = this.getSearchIndex(); if (!v) { const defs = ctx !== 'general' ? it.filter((x) => x.moduleKey === ctx).slice(0, 4) : it.slice(0, 4); this.searchResults.innerHTML = defs.map((x) => `<button type="button" class="sc-search-popover__result" data-step-id="${x.stepId}">${this.escapeHtml(x.label)}</button>`).join(''); return; } const tk = v.split(/\s+/).filter(Boolean); const rs = it.map((x) => { const bag = [n(x.label), ...(x.keywords || []).map(n)]; let score = x.moduleKey === ctx ? 1 : 0; tk.forEach((t) => { if (bag.some((w) => w.includes(t))) score += 4; if (bag.some((w) => w.startsWith(t))) score += 3; if (t.length >= 4 && bag.some((w) => lv(t, w.split(' ')[0]) <= 2)) score += 2; }); return { x, score }; }).filter((r) => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8); if (!rs.length) { this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Meintest du: Nutzungsrechte & Buyouts oder Teleprompter?</div>'; return; } this.searchResults.innerHTML = rs.map(({ x }) => `<button type="button" class="sc-search-popover__result" data-step-id="${x.stepId}">${this.escapeHtml(x.label)}</button>`).join(''); };
-    const origRender = StudioBot.prototype.renderApp; StudioBot.prototype.renderApp = function () { origRender.call(this); if (!this.dock || this.state.currentStepId !== 'callback') return; const form = document.createElement('form'); form.className = 'sc-callback-form'; form.innerHTML = '<div class="sc-callback-grid"><label>Telefonnummer<input type="tel" name="phone" placeholder="+49 …" required></label><label>Wunschuhrzeit<input type="time" name="time" required></label><label class="sc-callback-note">Notiz (optional)<textarea name="note" maxlength="240" rows="2"></textarea></label></div><button type="submit" class="studio-connect-option-btn">Rückruf anfordern</button><div class="sc-callback-feedback" aria-live="polite"></div>'; const feedback = form.querySelector('.sc-callback-feedback'); form.addEventListener('submit', async (e) => { e.preventDefault(); const fd = new FormData(form); const phone = String(fd.get('phone') || '').trim(); const time = String(fd.get('time') || '').trim(); const note = String(fd.get('note') || '').trim(); if (!/^[+\d\s()\-]{7,}$/.test(phone)) { feedback.textContent = 'Bitte eine gültige Telefonnummer angeben.'; feedback.className = 'sc-callback-feedback is-error'; return; } if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { feedback.textContent = 'Bitte eine gültige Uhrzeit wählen.'; feedback.className = 'sc-callback-feedback is-error'; return; } feedback.textContent = 'Sende Anfrage...'; feedback.className = 'sc-callback-feedback is-loading'; const body = new URLSearchParams({ action: 'scp_callback_request', security: (window.sc_vars && window.sc_vars.callback_nonce) || '', phone, time, note, page_url: window.location.href, page_context_key: this.getPageContext().moduleKey }); const resp = await fetch((window.sc_vars && window.sc_vars.ajax_url) || '/wp-admin/admin-ajax.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() }); const data = await resp.json(); if (data && data.success) { feedback.textContent = (data.data && data.data.message) || 'Anfrage gesendet.'; feedback.className = 'sc-callback-feedback is-success'; form.reset(); } else { feedback.textContent = (data && data.data && data.data.message) || 'Senden fehlgeschlagen.'; feedback.className = 'sc-callback-feedback is-error'; } }); this.dock.appendChild(form); };
-})();
 
 document.addEventListener('DOMContentLoaded', () => {
     let studioConnectBot = null;
