@@ -16,6 +16,7 @@ const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
 const SC_QUICKACTIONS_CONTEXT_KEY = 'sc_quickactions_context';
 const SC_CHECKLIST_KEY = 'sc_checklist';
+const SC_ASSIST_STRIP_EXPANDED_KEY = 'sc_assist_strip_expanded';
 const RESPONSE_TIME_TEXT = 'Antwort i.d.R. innerhalb von 24h';
 const PROACTIVE_DELAY_MS = 14000;
 
@@ -41,7 +42,15 @@ const getDefaultState = () => ({
             gebiet: '',
             deadline: '',
             format: '',
-            aussprache: ''
+            aussprache: '',
+            spotumfang: '',
+            mediumGebiet: '',
+            deadlineFlexibel: false,
+            tonalitaet: [],
+            zielgruppe: '',
+            schnitt: '',
+            revisionen: '',
+            musikSfx: false
         },
         returnToStepId: ''
     },
@@ -78,7 +87,15 @@ const normalizeState = (state) => {
                 gebiet: typeof state.context?.checklist?.gebiet === 'string' ? state.context.checklist.gebiet : '',
                 deadline: typeof state.context?.checklist?.deadline === 'string' ? state.context.checklist.deadline : '',
                 format: typeof state.context?.checklist?.format === 'string' ? state.context.checklist.format : '',
-                aussprache: typeof state.context?.checklist?.aussprache === 'string' ? state.context.checklist.aussprache : ''
+                aussprache: typeof state.context?.checklist?.aussprache === 'string' ? state.context.checklist.aussprache : '',
+                spotumfang: typeof state.context?.checklist?.spotumfang === 'string' ? state.context.checklist.spotumfang : '',
+                mediumGebiet: typeof state.context?.checklist?.mediumGebiet === 'string' ? state.context.checklist.mediumGebiet : '',
+                deadlineFlexibel: Boolean(state.context?.checklist?.deadlineFlexibel),
+                tonalitaet: Array.isArray(state.context?.checklist?.tonalitaet) ? state.context.checklist.tonalitaet : [],
+                zielgruppe: typeof state.context?.checklist?.zielgruppe === 'string' ? state.context.checklist.zielgruppe : '',
+                schnitt: typeof state.context?.checklist?.schnitt === 'string' ? state.context.checklist.schnitt : '',
+                revisionen: typeof state.context?.checklist?.revisionen === 'string' ? state.context.checklist.revisionen : '',
+                musikSfx: Boolean(state.context?.checklist?.musikSfx)
             }
         },
         flags: {
@@ -405,7 +422,9 @@ class StudioBot {
             typingTimer: null,
             typingRow: null,
             optionsDisabled: false,
-            isResetting: false
+            isResetting: false,
+            assistStripExpanded: false,
+            checklistDetailsExpanded: false
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -436,6 +455,11 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
+        try {
+            this.ui.assistStripExpanded = sessionStorage.getItem(SC_ASSIST_STRIP_EXPANDED_KEY) === '1';
+        } catch (error) {
+            this.ui.assistStripExpanded = false;
+        }
         try {
             const rawChecklist = sessionStorage.getItem(SC_CHECKLIST_KEY);
             if (rawChecklist) {
@@ -1977,7 +2001,7 @@ class StudioBot {
 
     clearSessionEnhancements() {
         try {
-            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_QUICKACTIONS_CONTEXT_KEY, SC_CHECKLIST_KEY].forEach((key) => sessionStorage.removeItem(key));
+            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_QUICKACTIONS_CONTEXT_KEY, SC_CHECKLIST_KEY, SC_ASSIST_STRIP_EXPANDED_KEY].forEach((key) => sessionStorage.removeItem(key));
         } catch (error) {
             // Ignore.
         }
@@ -2016,6 +2040,109 @@ class StudioBot {
         return day >= 1 && day <= 5 && hour >= 9 && hour < 18;
     }
 
+    setAssistStripExpanded(expanded) {
+        this.ui.assistStripExpanded = Boolean(expanded);
+        try {
+            sessionStorage.setItem(SC_ASSIST_STRIP_EXPANDED_KEY, this.ui.assistStripExpanded ? '1' : '0');
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    createAssistChip(action, className = 'sc-chip') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = className;
+        btn.textContent = action.title;
+        btn.dataset.stepId = action.stepId;
+        btn.dataset.assistItem = '1';
+        btn.addEventListener('click', () => this.handleOption({ label: action.title, userPromptText: action.title, nextId: action.stepId }));
+        return btn;
+    }
+
+    createRecentChip(stepId, className = 'sc-chip') {
+        if (!this.logicTree[stepId]) {
+            return null;
+        }
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = className;
+        btn.textContent = this.logicTree[stepId].id;
+        btn.dataset.assistItem = '1';
+        btn.addEventListener('click', () => this.handleOption({ label: `Zuletzt: ${stepId}`, userPromptText: `Zurück zu ${stepId}`, nextId: stepId }));
+        return btn;
+    }
+
+    renderAssistStrip(context, wrap) {
+        const strip = document.createElement('div');
+        strip.className = `sc-assist-strip${this.ui.assistStripExpanded ? ' is-expanded' : ''}`;
+        const headRow = document.createElement('div');
+        headRow.className = 'sc-assist-strip__row';
+
+        const helpLabel = document.createElement('span');
+        helpLabel.className = 'sc-assist-strip__label';
+        helpLabel.textContent = 'Schnellhilfe';
+        headRow.appendChild(helpLabel);
+
+        const quickChips = document.createElement('div');
+        quickChips.className = 'sc-assist-strip__chips';
+        context.actions.slice(0, 3).forEach((action) => quickChips.appendChild(this.createAssistChip(action)));
+        headRow.appendChild(quickChips);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'sc-assist-strip__toggle';
+        toggle.setAttribute('aria-expanded', this.ui.assistStripExpanded ? 'true' : 'false');
+        toggle.innerHTML = `<span>Mehr</span><i class="fa-solid fa-chevron-${this.ui.assistStripExpanded ? 'up' : 'down'}" aria-hidden="true"></i>`;
+        toggle.addEventListener('click', () => {
+            const next = !this.ui.assistStripExpanded;
+            this.setAssistStripExpanded(next);
+            this.renderApp();
+        });
+        headRow.appendChild(toggle);
+        strip.appendChild(headRow);
+
+        const recentVisible = this.recentSteps.slice(0, 2).map((id) => this.createRecentChip(id)).filter(Boolean);
+        if (recentVisible.length) {
+            const recentRow = document.createElement('div');
+            recentRow.className = 'sc-assist-strip__row sc-assist-strip__row--recent';
+            recentRow.innerHTML = '<span class="sc-assist-strip__label"><i class="fa-regular fa-clock" aria-hidden="true"></i>Zuletzt</span>';
+            const chips = document.createElement('div');
+            chips.className = 'sc-assist-strip__chips';
+            recentVisible.forEach((chip) => chips.appendChild(chip));
+            recentRow.appendChild(chips);
+            strip.appendChild(recentRow);
+        }
+
+        const panel = document.createElement('div');
+        panel.className = 'sc-assist-strip__panel';
+
+        const fullHelp = document.createElement('div');
+        fullHelp.className = 'sc-assist-strip__expand-row';
+        fullHelp.innerHTML = `<span class="sc-assist-strip__label">Alle Schnellhilfen (${context.label})</span>`;
+        const fullHelpChips = document.createElement('div');
+        fullHelpChips.className = 'sc-assist-strip__chips';
+        context.actions.slice(0, 8).forEach((action) => fullHelpChips.appendChild(this.createAssistChip(action, 'sc-chip sc-chip--compact')));
+        fullHelp.appendChild(fullHelpChips);
+        panel.appendChild(fullHelp);
+
+        const fullRecent = this.recentSteps.slice(0, 3).map((id) => this.createRecentChip(id, 'sc-chip sc-chip--compact')).filter(Boolean);
+        if (fullRecent.length) {
+            const recentExpand = document.createElement('div');
+            recentExpand.className = 'sc-assist-strip__expand-row';
+            recentExpand.innerHTML = '<span class="sc-assist-strip__label">Zuletzt genutzt</span>';
+            const fullRecentChips = document.createElement('div');
+            fullRecentChips.className = 'sc-assist-strip__chips';
+            fullRecent.forEach((chip) => fullRecentChips.appendChild(chip));
+            recentExpand.appendChild(fullRecentChips);
+            panel.appendChild(recentExpand);
+        }
+
+        strip.appendChild(panel);
+        wrap.appendChild(strip);
+        return strip;
+    }
+
     renderStartEnhancements() {
         if (!this.dock) {
             return;
@@ -2029,59 +2156,25 @@ class StudioBot {
 
         const context = this.getPageContext();
         this.quickActions = context.actions;
-        const qa = document.createElement('div');
-        qa.className = 'sc-quickactions';
-        qa.innerHTML = `<div class="sc-quickactions-title">Schnellhilfe (${context.label})</div>`;
-        const chipWrap = document.createElement('div');
-        chipWrap.className = 'sc-chip-wrap';
-        context.actions.forEach((action) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'sc-chip';
-            btn.textContent = action.title;
-            btn.dataset.stepId = action.stepId;
-            btn.addEventListener('click', () => this.handleOption({ label: action.title, userPromptText: action.title, nextId: action.stepId }));
-            chipWrap.appendChild(btn);
-        });
-        qa.appendChild(chipWrap);
-        wrap.appendChild(qa);
+        const assistStrip = this.renderAssistStrip(context, wrap);
 
         const search = document.createElement('div');
         search.className = 'sc-searchbar';
         search.innerHTML = '<input class="sc-search" type="search" placeholder="Stichwort suchen…" aria-label="Stichwort suchen" />';
         const noResult = document.createElement('div');
         noResult.className = 'sc-no-results';
-        noResult.innerHTML = '<span>Keine Treffer.</span><button type="button" class="sc-chip sc-quick-contact">Schnellkontakt</button>';
+        noResult.innerHTML = '<span>Keine Treffer.</span><button type="button" class="sc-chip sc-chip--compact sc-quick-contact">Schnellkontakt</button>';
         noResult.style.display = 'none';
         noResult.querySelector('.sc-quick-contact').addEventListener('click', () => this.handleOption({ label: 'Schnellkontakt', userPromptText: 'Schnellkontakt.', nextId: 'kontakt' }));
         search.appendChild(noResult);
         wrap.appendChild(search);
-
-        const recent = document.createElement('div');
-        recent.className = 'sc-recent';
-        recent.innerHTML = '<div class="sc-quickactions-title">Zuletzt genutzt</div>';
-        const recentWrap = document.createElement('div');
-        recentWrap.className = 'sc-chip-wrap';
-        this.recentSteps.forEach((id) => {
-            if (!this.logicTree[id]) {
-                return;
-            }
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'sc-chip';
-            btn.textContent = this.logicTree[id].id;
-            btn.addEventListener('click', () => this.handleOption({ label: `Zuletzt: ${id}`, userPromptText: `Zurück zu ${id}`, nextId: id }));
-            recentWrap.appendChild(btn);
-        });
-        recent.appendChild(recentWrap);
-        wrap.appendChild(recent);
 
         if (this.frictionCount >= 3 && !sessionStorage.getItem('sc_friction_panel_dismissed')) {
             const panel = this.renderFrictionPanel();
             wrap.appendChild(panel);
         }
 
-        const filterTargets = () => Array.from(this.dock.querySelectorAll('.studio-connect-option-btn, .sc-chip'));
+        const filterTargets = () => Array.from(this.dock.querySelectorAll('.studio-connect-option-btn, [data-assist-item="1"]'));
         const input = search.querySelector('.sc-search');
         input.addEventListener('input', () => {
             const q = (input.value || '').trim().toLowerCase();
@@ -2099,8 +2192,16 @@ class StudioBot {
                 }
             });
             noResult.style.display = hits ? 'none' : 'flex';
+            if (hits > 0 && !this.ui.assistStripExpanded) {
+                this.setAssistStripExpanded(true);
+                assistStrip.classList.add('is-expanded');
+            }
             if (!hits) {
                 this.incrementFriction('search_no_results');
+                if (this.ui.assistStripExpanded) {
+                    this.setAssistStripExpanded(false);
+                    assistStrip.classList.remove('is-expanded');
+                }
             }
         });
 
@@ -2147,62 +2248,201 @@ class StudioBot {
         return panel;
     }
 
+    buildChecklistPrefill(payload) {
+        const pick = (value) => value || 'nicht angegeben';
+        return [
+            'Projekt-Checkliste (Kurzbriefing)',
+            `Einsatz/Medium: ${(payload.medium || []).join(', ') || 'nicht angegeben'}`,
+            `Gebiet: ${pick(payload.gebiet)}`,
+            `Laufzeit: ${pick(payload.laufzeit)}`,
+            `Deadline: ${payload.deadlineFlexibel ? 'flexibel' : pick(payload.deadline)}`,
+            `Format: ${pick(payload.format)}`,
+            `Spotlänge/Umfang: ${pick(payload.spotumfang)}`,
+            `Tonalität/Stil: ${(payload.tonalitaet || []).join(', ') || 'nicht angegeben'}`,
+            `Zielgruppe: ${pick(payload.zielgruppe)}`,
+            `Schnittwünsche: ${pick(payload.schnitt)}`,
+            `Revisionen/Pickups: ${pick(payload.revisionen)}`,
+            `Musik/SFX vorhanden: ${payload.musikSfx ? 'Ja' : 'Nein'}`,
+            `Aussprache/Glossar: ${pick(payload.aussprache)}`
+        ].join('\n');
+    }
+
     renderChecklistForm() {
         if (!this.dock) {
             return;
         }
         const checklist = this.state.context?.checklist || {};
+        const selectedMedium = Array.isArray(checklist.medium) ? checklist.medium : [];
+        const selectedTone = Array.isArray(checklist.tonalitaet) ? checklist.tonalitaet : [];
+
         const card = document.createElement('div');
         card.className = 'sc-checklist';
         card.innerHTML = `
-            <label><span>Einsatz/Medium</span><div class="sc-checklist-medium"><label><input type="checkbox" value="Social"> Social</label><label><input type="checkbox" value="Web"> Web</label><label><input type="checkbox" value="Radio"> Radio</label><label><input type="checkbox" value="TV"> TV</label><label><input type="checkbox" value="Intern"> Intern</label></div></label>
-            <label>Laufzeit<input type="text" name="laufzeit" placeholder="z.B. 6 Monate" value="${this.escapeHtml(checklist.laufzeit || '')}"></label>
-            <label>Gebiet<input type="text" name="gebiet" placeholder="z.B. DACH" value="${this.escapeHtml(checklist.gebiet || '')}"></label>
-            <label>Deadline<input type="text" name="deadline" placeholder="z.B. 24h" value="${this.escapeHtml(checklist.deadline || '')}"></label>
-            <label>Format<input type="text" name="format" placeholder="WAV/MP3, 48kHz" value="${this.escapeHtml(checklist.format || '')}"></label>
-            <label>Aussprache/Glossar<textarea name="aussprache" rows="2">${this.escapeHtml(checklist.aussprache || '')}</textarea></label>
-            <button type="button" class="studio-connect-option-btn">Alles vollständig – jetzt anfragen</button>
+            <div class="sc-checklist__progress">
+                <div>
+                    <strong>Projekt-Checkliste</strong>
+                    <p class="sc-checklist__progress-text">0/10 erledigt</p>
+                </div>
+                <div class="sc-checklist__progress-actions">
+                    <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="basics">Basics wählen</button>
+                    <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="reset">Zurücksetzen</button>
+                </div>
+                <div class="sc-checklist__progressbar"><span></span></div>
+            </div>
+            <div class="sc-checklist__inline-info" style="display:none;"></div>
+            <section class="sc-checklist__section is-open" data-section="basics">
+                <button type="button" class="sc-checklist__section-head" data-toggle-section="basics"><span>Basics</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                <div class="sc-checklist__section-body sc-checklist__grid">
+                    <label class="sc-checklist__field sc-checklist__field--full"><span>Einsatz/Medium</span><div class="sc-checklist-medium">
+                        ${['Web','Social','TV','Radio','Intern','Kino','Podcast','E-Learning'].map((item) => `<button type="button" class="sc-chip sc-chip--compact ${selectedMedium.includes(item) ? 'is-active' : ''}" data-medium="${this.escapeHtml(item)}">${item}</button>`).join('')}
+                    </div></label>
+                    <label class="sc-checklist__field"><span>Gebiet</span><select name="gebiet"><option value="">Bitte wählen</option><option ${checklist.gebiet === 'Lokal/Regional' ? 'selected' : ''}>Lokal/Regional</option><option ${checklist.gebiet === 'DACH' ? 'selected' : ''}>DACH</option><option ${checklist.gebiet === 'Europa' ? 'selected' : ''}>Europa</option><option ${checklist.gebiet === 'Weltweit' ? 'selected' : ''}>Weltweit</option></select></label>
+                    <label class="sc-checklist__field"><span>Laufzeit</span><select name="laufzeit"><option value="">Bitte wählen</option><option ${checklist.laufzeit === '3 Monate' ? 'selected' : ''}>3 Monate</option><option ${checklist.laufzeit === '6 Monate' ? 'selected' : ''}>6 Monate</option><option ${checklist.laufzeit === '1 Jahr' ? 'selected' : ''}>1 Jahr</option><option ${checklist.laufzeit === '2 Jahre' ? 'selected' : ''}>2 Jahre</option><option ${checklist.laufzeit === 'unbegrenzt' ? 'selected' : ''}>unbegrenzt</option></select></label>
+                    <label class="sc-checklist__field"><span>Deadline</span><input type="date" name="deadline" value="${this.escapeHtml(checklist.deadline || '')}"><label class="sc-checklist__toggle"><input type="checkbox" name="deadlineFlexibel" ${checklist.deadlineFlexibel ? 'checked' : ''}> flexibel</label></label>
+                    <label class="sc-checklist__field"><span>Format</span><select name="format"><option value="">Bitte wählen</option><option ${checklist.format === 'WAV 48kHz/24bit' ? 'selected' : ''}>WAV 48kHz/24bit</option><option ${checklist.format === 'WAV 44.1kHz/16bit' ? 'selected' : ''}>WAV 44.1kHz/16bit</option><option ${checklist.format === 'MP3 320' ? 'selected' : ''}>MP3 320</option></select></label>
+                    <label class="sc-checklist__field"><span>Spotlänge/Umfang</span><input type="text" name="spotumfang" placeholder="z.B. 30 Sek / 1200 Wörter" value="${this.escapeHtml(checklist.spotumfang || '')}"></label>
+                </div>
+            </section>
+            <section class="sc-checklist__section ${this.ui.checklistDetailsExpanded ? 'is-open' : ''}" data-section="details">
+                <button type="button" class="sc-checklist__section-head" data-toggle-section="details"><span>Details</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                <div class="sc-checklist__section-body sc-checklist__grid">
+                    <label class="sc-checklist__field sc-checklist__field--full"><span>Aussprache/Glossar</span><textarea name="aussprache" rows="2" placeholder="Namen, Marken, Begriffe">${this.escapeHtml(checklist.aussprache || '')}</textarea><small>Upload-Hinweis: Glossar/Script gern später per Mail mitschicken.</small></label>
+                    <label class="sc-checklist__field sc-checklist__field--full"><span>Tonalität/Stil</span><div class="sc-checklist-medium">
+                        ${['neutral','werblich','empathisch','energetic','seriös','humorvoll','erklärend'].map((item) => `<button type="button" class="sc-chip sc-chip--compact ${selectedTone.includes(item) ? 'is-active' : ''}" data-tone="${this.escapeHtml(item)}">${item}</button>`).join('')}
+                    </div></label>
+                    <label class="sc-checklist__field"><span>Zielgruppe</span><input type="text" name="zielgruppe" value="${this.escapeHtml(checklist.zielgruppe || '')}"></label>
+                    <label class="sc-checklist__field"><span>Schnittwünsche</span><select name="schnitt"><option value="">Bitte wählen</option><option ${checklist.schnitt === 'clean' ? 'selected' : ''}>clean</option><option ${checklist.schnitt === 'leicht bearbeitet' ? 'selected' : ''}>leicht bearbeitet</option><option ${checklist.schnitt === 'voll produziert' ? 'selected' : ''}>voll produziert</option></select></label>
+                    <label class="sc-checklist__field"><span>Revisionen/Pickups</span><select name="revisionen"><option value="">Bitte wählen</option><option ${checklist.revisionen === '1 Runde inkl.' ? 'selected' : ''}>1 Runde inkl.</option><option ${checklist.revisionen === '2 Runden' ? 'selected' : ''}>2 Runden</option><option ${checklist.revisionen === 'nach Aufwand' ? 'selected' : ''}>nach Aufwand</option></select></label>
+                    <label class="sc-checklist__field"><span>Musik/SFX vorhanden?</span><label class="sc-checklist__toggle"><input type="checkbox" name="musikSfx" ${checklist.musikSfx ? 'checked' : ''}> Ja, Material liegt vor</label><small>Hinweis: Falls nein, klären wir Optionen beim Angebot.</small></label>
+                </div>
+            </section>
+            <div class="sc-checklist__actions">
+                <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="prefill">Kontakt-Prefill erstellen</button>
+                <button type="button" class="studio-connect-option-btn" data-checklist-action="request">Jetzt anfragen</button>
+                <button type="button" class="sc-chip sc-chip--compact" data-checklist-action="copy">In Zwischenablage kopieren</button>
+            </div>
         `;
+
         const syncChecklist = () => {
-            const medium = Array.from(card.querySelectorAll('.sc-checklist-medium input:checked')).map((el) => el.value);
+            const medium = Array.from(card.querySelectorAll('[data-medium].is-active')).map((el) => el.dataset.medium);
+            const tonalitaet = Array.from(card.querySelectorAll('[data-tone].is-active')).map((el) => el.dataset.tone);
             const payload = {
+                ...(this.state.context?.checklist || {}),
                 medium,
-                laufzeit: card.querySelector('[name="laufzeit"]').value.trim(),
                 gebiet: card.querySelector('[name="gebiet"]').value.trim(),
+                laufzeit: card.querySelector('[name="laufzeit"]').value.trim(),
                 deadline: card.querySelector('[name="deadline"]').value.trim(),
+                deadlineFlexibel: card.querySelector('[name="deadlineFlexibel"]').checked,
                 format: card.querySelector('[name="format"]').value.trim(),
-                aussprache: card.querySelector('[name="aussprache"]').value.trim()
+                spotumfang: card.querySelector('[name="spotumfang"]').value.trim(),
+                aussprache: card.querySelector('[name="aussprache"]').value.trim(),
+                tonalitaet,
+                zielgruppe: card.querySelector('[name="zielgruppe"]').value.trim(),
+                schnitt: card.querySelector('[name="schnitt"]').value.trim(),
+                revisionen: card.querySelector('[name="revisionen"]').value.trim(),
+                musikSfx: card.querySelector('[name="musikSfx"]').checked
             };
             this.state.context = { ...this.state.context, checklist: payload };
             saveState(this.state);
             try { sessionStorage.setItem(SC_CHECKLIST_KEY, JSON.stringify(payload)); } catch (error) {}
+            const checklistPoints = [
+                payload.medium.length > 0,
+                Boolean(payload.gebiet),
+                Boolean(payload.laufzeit),
+                Boolean(payload.deadline) || payload.deadlineFlexibel,
+                Boolean(payload.format),
+                Boolean(payload.spotumfang),
+                Boolean(payload.aussprache),
+                payload.tonalitaet.length > 0,
+                Boolean(payload.zielgruppe),
+                Boolean(payload.schnitt || payload.revisionen || payload.musikSfx)
+            ].filter(Boolean).length;
+            const progressText = card.querySelector('.sc-checklist__progress-text');
+            progressText.textContent = `${checklistPoints}/10 erledigt`;
+            card.querySelector('.sc-checklist__progressbar span').style.width = `${Math.min(100, checklistPoints * 10)}%`;
             return payload;
         };
-        card.querySelectorAll('input,textarea').forEach((el) => {
-            if (el.type === 'checkbox' && (checklist.medium || []).includes(el.value)) {
-                el.checked = true;
-            }
+
+        const showInlineInfo = (text) => {
+            const info = card.querySelector('.sc-checklist__inline-info');
+            info.textContent = text;
+            info.style.display = text ? 'block' : 'none';
+        };
+
+        card.querySelectorAll('[data-medium],[data-tone]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('is-active');
+                syncChecklist();
+            });
+        });
+        card.querySelectorAll('input,textarea,select').forEach((el) => {
             el.addEventListener('input', syncChecklist);
             el.addEventListener('change', syncChecklist);
         });
-        card.querySelector('.studio-connect-option-btn').addEventListener('click', () => {
-            const payload = syncChecklist();
-            const lines = [
-                'Projekt-Checkliste:',
-                `- Einsatz: ${(payload.medium || []).join(', ') || 'Keine Angabe'}`,
-                `- Gebiet: ${payload.gebiet || 'Keine Angabe'}`,
-                `- Laufzeit: ${payload.laufzeit || 'Keine Angabe'}`,
-                `- Deadline: ${payload.deadline || 'Keine Angabe'}`,
-                `- Format: ${payload.format || 'Keine Angabe'}`,
-                `- Aussprache: ${payload.aussprache || 'Keine Angabe'}`
-            ];
+        card.querySelectorAll('[data-toggle-section]').forEach((toggle) => {
+            toggle.addEventListener('click', () => {
+                const section = card.querySelector(`[data-section="${toggle.dataset.toggleSection}"]`);
+                section.classList.toggle('is-open');
+                if (toggle.dataset.toggleSection === 'details') {
+                    this.ui.checklistDetailsExpanded = section.classList.contains('is-open');
+                }
+            });
+        });
+
+        card.querySelector('[data-checklist-action="basics"]').addEventListener('click', () => {
+            ['Web', 'Social', 'TV'].forEach((value) => {
+                const chip = card.querySelector(`[data-medium="${value}"]`);
+                if (chip) {
+                    chip.classList.add('is-active');
+                }
+            });
+            showInlineInfo('Basics vorausgewählt – passe die Angaben bei Bedarf an.');
+            syncChecklist();
+        });
+
+        card.querySelector('[data-checklist-action="reset"]').addEventListener('click', () => {
+            card.querySelectorAll('[data-medium],[data-tone]').forEach((chip) => chip.classList.remove('is-active'));
+            card.querySelectorAll('input[type="text"],input[type="date"],textarea').forEach((el) => { el.value = ''; });
+            card.querySelectorAll('select').forEach((el) => { el.value = ''; });
+            card.querySelectorAll('input[type="checkbox"]').forEach((el) => { el.checked = false; });
+            showInlineInfo('Checkliste zurückgesetzt.');
+            syncChecklist();
+        });
+
+        const savePrefill = (payload) => {
+            const text = this.buildChecklistPrefill(payload);
             try {
-                localStorage.setItem(SC_CONTACT_PREFILL_KEY, JSON.stringify({ text: lines.join('\n'), ts: Date.now(), source: 'checklist' }));
+                localStorage.setItem(SC_CONTACT_PREFILL_KEY, JSON.stringify({ text, ts: Date.now(), source: 'checklist' }));
             } catch (error) {
                 // Ignore.
             }
+            return text;
+        };
+
+        card.querySelector('[data-checklist-action="prefill"]').addEventListener('click', () => {
+            const payload = syncChecklist();
+            savePrefill(payload);
+            showInlineInfo('Kontakt-Prefill erstellt.');
+        });
+
+        card.querySelector('[data-checklist-action="copy"]').addEventListener('click', () => {
+            const payload = syncChecklist();
+            const text = savePrefill(payload);
+            this.copyToClipboard(text, 'Prefill kopiert');
+        });
+
+        card.querySelector('[data-checklist-action="request"]').addEventListener('click', () => {
+            const payload = syncChecklist();
+            if (!payload.medium.length && !payload.gebiet && !payload.laufzeit) {
+                showInlineInfo('Trage kurz 2–3 Punkte ein (Einsatz, Gebiet, Laufzeit), dann wird’s ein perfektes Briefing.');
+                return;
+            }
+            savePrefill(payload);
+            showInlineInfo('');
             this.handleOption({ label: 'Anfrage aus Checkliste', userPromptText: 'Alles vollständig – jetzt anfragen.', nextId: 'kontakt' });
         });
+
+        syncChecklist();
         this.dock.insertBefore(card, this.dock.firstChild);
     }
 
@@ -2468,10 +2708,13 @@ function attemptContactPrefill(payload) {
     }
     const existing = (textarea.value || '').trim();
     if (existing.length > 10) {
-        localStorage.removeItem(SC_CONTACT_PREFILL_KEY);
-        return true;
+        textarea.value = `${existing}
+
+---
+${payload.text}`;
+    } else {
+        textarea.value = payload.text;
     }
-    textarea.value = payload.text;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
     if (typeof textarea.focus === 'function') {
