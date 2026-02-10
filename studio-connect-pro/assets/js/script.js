@@ -1372,16 +1372,30 @@ class StudioBot {
         }
     }
 
+    stepExists(stepId) {
+        try {
+            if (typeof stepId !== 'string' || !stepId) {
+                return false;
+            }
+            if (this.logicTree && this.logicTree[stepId]) {
+                return true;
+            }
+            return !!this.getStepConfig(stepId);
+        } catch (error) {
+            return false;
+        }
+    }
+
     resolveStepId(preferredId, fallbackIds = []) {
-        if (preferredId && this.logicTree[preferredId]) {
+        if (typeof preferredId === 'string' && this.stepExists(preferredId)) {
             return preferredId;
         }
         for (const fallbackId of fallbackIds) {
-            if (fallbackId && this.logicTree[fallbackId]) {
+            if (typeof fallbackId === 'string' && this.stepExists(fallbackId)) {
                 return fallbackId;
             }
         }
-        return '';
+        return null;
     }
 
     getDefaultStartOptions() {
