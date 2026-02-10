@@ -15,6 +15,7 @@ const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
 const PROACTIVE_DELAY_MS = 14000;
+const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
 
 const getDefaultState = () => ({
     isOpen: false,
@@ -503,7 +504,11 @@ class StudioBot {
             typingRow: null,
             optionsDisabled: false,
             isResetting: false,
-            isClosing: false
+            isClosing: false,
+            launchSound: null,
+            soundBlocked: false,
+            hintSoundPlayedForThisShow: false,
+            launchSoundRetryDone: false
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -807,7 +812,7 @@ class StudioBot {
             case 'callback':
                 return {
                     id: 'callback',
-                    text: 'Trag Deine Daten ein – wir melden uns zuverlässig zurück.',
+                    text: 'Trag Deine Daten ein - ich melde mich schnellstmöglich zurück.',
                     action: 'callback_form',
                     options: [
                         { label: 'Kontakt', userPromptText: 'Kontakt anzeigen.', nextId: 'kontakt' }
@@ -1044,6 +1049,9 @@ class StudioBot {
         if (this.launcher) {
             this.launcher.addEventListener('click', async () => {
                 this.registerInteraction();
+                if (this.ui.soundBlocked && !this.ui.launchSoundRetryDone) {
+                    this.playLauncherHintSound(true);
+                }
                 if (this.isOpen) {
                     await this.closePanel();
                     return;
@@ -2675,6 +2683,44 @@ class StudioBot {
         this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), PROACTIVE_DELAY_MS);
     }
 
+    ensureLauncherHintSound() {
+        if (this.ui.launchSound) {
+            return this.ui.launchSound;
+        }
+        try {
+            this.ui.launchSound = new Audio(SC_LAUNCHER_HINT_SOUND_URL);
+            this.ui.launchSound.preload = 'auto';
+            this.ui.launchSound.volume = 0.22;
+            this.ui.launchSound.currentTime = 0;
+        } catch (error) {
+            this.ui.launchSound = null;
+        }
+        return this.ui.launchSound;
+    }
+
+    playLauncherHintSound(isUserTriggered = false) {
+        try {
+            const sound = this.ensureLauncherHintSound();
+            if (!sound) {
+                return;
+            }
+            sound.volume = 0.22;
+            sound.currentTime = 0;
+            const playback = sound.play();
+            if (playback && typeof playback.catch === 'function') {
+                playback.catch(() => {
+                    this.ui.soundBlocked = true;
+                });
+            }
+            if (isUserTriggered) {
+                this.ui.soundBlocked = false;
+                this.ui.launchSoundRetryDone = true;
+            }
+        } catch (error) {
+            // Ignore autoplay/runtime failures.
+        }
+    }
+
     showProactiveBubble() {
         if (this.isOpen) {
             return;
@@ -2704,6 +2750,11 @@ class StudioBot {
         document.body.appendChild(bubble);
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
         this.proactiveBubble = bubble;
+        this.ui.hintSoundPlayedForThisShow = false;
+        if (!this.ui.hintSoundPlayedForThisShow) {
+            this.playLauncherHintSound();
+            this.ui.hintSoundPlayedForThisShow = true;
+        }
     }
 
     hideProactiveBubble() {
@@ -2711,6 +2762,7 @@ class StudioBot {
             this.proactiveBubble.parentNode.removeChild(this.proactiveBubble);
         }
         this.proactiveBubble = null;
+        this.ui.hintSoundPlayedForThisShow = false;
     }
 
     persistProactiveShown() {
