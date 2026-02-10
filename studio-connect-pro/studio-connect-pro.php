@@ -164,8 +164,8 @@ function scp_render_widget(): void
                     <i class="fa-solid fa-life-ring"></i>
                 </div>
                 <div class="studio-connect-header-text">
-                    <div class="studio-connect-title">Support Portal</div>
-                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Hilfe-System und Tipps</div>
+                    <div class="studio-connect-title">Studio Assistenz</div>
+                    <div class="studio-connect-subtitle" id="studio-connect-subtext">Du bist hier: Start</div>
                 </div>
                 <div class="studio-connect-header-actions">
                     <button class="studio-connect-close" id="studio-connect-close" type="button" aria-label="Chat schließen">
