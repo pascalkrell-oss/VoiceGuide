@@ -14,10 +14,7 @@ const SC_LAUNCHER_DEFAULTS = {
 const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
-const SC_QUICKACTIONS_CONTEXT_KEY = 'sc_quickactions_context';
 const SC_CHECKLIST_KEY = 'sc_checklist';
-const SC_ASSIST_STRIP_EXPANDED_KEY = 'sc_assist_strip_expanded';
-const RESPONSE_TIME_TEXT = 'Antwort i.d.R. innerhalb von 24h';
 const PROACTIVE_DELAY_MS = 14000;
 
 const getDefaultState = () => ({
@@ -412,6 +409,7 @@ class StudioBot {
         this.toast = document.getElementById('studio-connect-toast');
         this.homeButton = document.getElementById('sc-reset');
         this.closeButton = document.getElementById('studio-connect-close');
+        this.headerActions = this.panel ? this.panel.querySelector('.studio-connect-header-actions') : null;
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
         this.avatarUrl = this.settings.avatar_url || defaults.avatar_url;
         this.isOpen = false;
@@ -423,7 +421,6 @@ class StudioBot {
             typingRow: null,
             optionsDisabled: false,
             isResetting: false,
-            assistStripExpanded: false,
             checklistDetailsExpanded: false
         };
         this.activeTypewriter = null;
@@ -434,12 +431,16 @@ class StudioBot {
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
         this.isAutoProceeding = false;
-        this.quickActionsFocused = false;
-        this.quickActions = [];
         this.recentSteps = this.loadRecentSteps();
         this.frictionCount = this.loadSessionNumber(SC_FRICTION_COUNTER_KEY);
         this.frictionPanelShown = false;
         this.proactiveTimeout = null;
+        this.searchPopoverOpen = false;
+        this.searchPopover = null;
+        this.searchInput = null;
+        this.searchResults = null;
+        this.searchTrigger = null;
+        this.handleDocumentMouseDown = null;
 
         if (this.resetRequested) {
             clearState();
@@ -456,11 +457,6 @@ class StudioBot {
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
         try {
-            this.ui.assistStripExpanded = sessionStorage.getItem(SC_ASSIST_STRIP_EXPANDED_KEY) === '1';
-        } catch (error) {
-            this.ui.assistStripExpanded = false;
-        }
-        try {
             const rawChecklist = sessionStorage.getItem(SC_CHECKLIST_KEY);
             if (rawChecklist) {
                 this.state.context.checklist = { ...this.state.context.checklist, ...JSON.parse(rawChecklist) };
@@ -474,6 +470,7 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
+        this.setupHeaderSearch();
         this.bindEvents();
         this.applyOpenState(this.state.isOpen, true);
         this.renderApp();
@@ -768,35 +765,34 @@ class StudioBot {
                 }
                 this.copyToClipboard(value, 'Kopiert');
             });
-
-            this.messages.addEventListener('click', (event) => {
-                const actionBtn = event.target.closest('[data-msg-action]');
-                if (!actionBtn) {
-                    return;
-                }
-                const messageText = actionBtn.dataset.messageText || '';
-                if (!messageText) {
-                    return;
-                }
-                this.registerInteraction();
-                const action = actionBtn.dataset.msgAction;
-                if (action === 'copy') {
-                    this.copyToClipboard(messageText, 'Kopiert ✓');
-                    return;
-                }
-                if (action === 'email') {
-                    const subject = encodeURIComponent('Studio Assistenz – Info');
-                    const body = encodeURIComponent(`Hallo,\n\nhier ist die Info aus der Studio Assistenz:\n\n${messageText}\n\nSeite: ${window.location.href}`);
-                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                }
-            });
         }
 
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && this.isOpen) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            if (this.searchPopoverOpen) {
+                this.hideSearchPopover();
+                return;
+            }
+            if (this.isOpen) {
                 this.closePanel();
             }
         });
+
+        this.handleDocumentMouseDown = (event) => {
+            if (!this.searchPopoverOpen) {
+                return;
+            }
+            if (this.searchPopover && this.searchPopover.contains(event.target)) {
+                return;
+            }
+            if (this.searchTrigger && this.searchTrigger.contains(event.target)) {
+                return;
+            }
+            this.hideSearchPopover();
+        };
+        document.addEventListener('mousedown', this.handleDocumentMouseDown);
 
         window.addEventListener('beforeunload', () => saveState(this.state));
         document.addEventListener('visibilitychange', () => {
@@ -1335,7 +1331,7 @@ class StudioBot {
         window.location.hash = target;
     }
 
-    updateHeaderSubtext(stepId) {
+    getStepLabel(stepId) {
         const map = {
             start: 'Start',
             demos: 'Casting & Demos',
@@ -1356,10 +1352,126 @@ class StudioBot {
             briefing_summary: 'Briefing-Check',
             checkliste: 'Projekt-Checkliste'
         };
+        return map[stepId] || 'Start';
+    }
+
+    updateHeaderSubtext(stepId) {
         if (this.headerSubtext) {
-            const label = map[stepId] || 'Start';
-            this.headerSubtext.textContent = `Du bist hier: ${label}`;
+            this.headerSubtext.textContent = `Du bist hier: ${this.getStepLabel(stepId)}`;
         }
+    }
+
+    getSearchIndex() {
+        return [
+            { stepId: 'briefing', label: 'Briefing-Check', keywords: ['briefing', 'checkliste', 'fragebogen', 'projektstart'] },
+            { stepId: 'demos', label: 'Casting & Demos', keywords: ['demos', 'casting', 'hoerprobe', 'hörprobe', 'samples'] },
+            { stepId: 'preise', label: 'Preise & Buyouts', keywords: ['preise', 'buyout', 'kosten', 'budget', 'gage'] },
+            { stepId: 'technik', label: 'Technik-Setup', keywords: ['technik', 'studio', 'equipment', 'setup', 'aufnahme'] },
+            { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing'] },
+            { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout'] },
+            { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp'] },
+            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] },
+            { stepId: 'checkliste', label: 'Projekt-Checkliste', keywords: ['checkliste', 'briefing', 'projekt', 'vorbereitung'] }
+        ];
+    }
+
+    setupHeaderSearch() {
+        if (!this.headerActions || this.searchTrigger) {
+            return;
+        }
+        const searchButton = document.createElement('button');
+        searchButton.type = 'button';
+        searchButton.className = 'studio-connect-close sc-header-icon';
+        searchButton.setAttribute('aria-label', 'Stichwortsuche öffnen');
+        searchButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M16.2 16.2L21 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>';
+        searchButton.addEventListener('click', () => {
+            this.registerInteraction();
+            this.toggleSearchPopover();
+        });
+        this.headerActions.insertBefore(searchButton, this.closeButton || null);
+        this.searchTrigger = searchButton;
+
+        const popover = document.createElement('div');
+        popover.className = 'sc-search-popover';
+        popover.setAttribute('aria-hidden', 'true');
+        popover.innerHTML = '<input type="search" class="sc-search-popover__input" placeholder="Stichwort eingeben…" aria-label="Stichwortsuche" /><div class="sc-search-popover__results"></div>';
+        this.headerActions.appendChild(popover);
+        this.searchPopover = popover;
+        this.searchInput = popover.querySelector('.sc-search-popover__input');
+        this.searchResults = popover.querySelector('.sc-search-popover__results');
+
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', () => {
+                this.renderSearchResults(this.searchInput.value || '');
+            });
+        }
+
+        if (this.searchResults) {
+            this.searchResults.addEventListener('click', async (event) => {
+                const target = event.target.closest('[data-step-id]');
+                if (!target) {
+                    return;
+                }
+                const stepId = target.dataset.stepId;
+                if (!stepId || !this.logicTree[stepId]) {
+                    return;
+                }
+                this.registerInteraction();
+                await this.advanceToStep(stepId);
+                this.hideSearchPopover();
+            });
+        }
+    }
+
+    toggleSearchPopover() {
+        if (this.searchPopoverOpen) {
+            this.hideSearchPopover();
+            return;
+        }
+        this.showSearchPopover();
+    }
+
+    showSearchPopover() {
+        if (!this.searchPopover || !this.searchInput) {
+            return;
+        }
+        this.searchPopoverOpen = true;
+        this.searchPopover.classList.add('is-open');
+        this.searchPopover.setAttribute('aria-hidden', 'false');
+        this.renderSearchResults(this.searchInput.value || '');
+        window.setTimeout(() => this.searchInput.focus(), 0);
+    }
+
+    hideSearchPopover() {
+        if (!this.searchPopover) {
+            return;
+        }
+        this.searchPopoverOpen = false;
+        this.searchPopover.classList.remove('is-open');
+        this.searchPopover.setAttribute('aria-hidden', 'true');
+    }
+
+    renderSearchResults(query) {
+        if (!this.searchResults) {
+            return;
+        }
+        const value = (query || '').trim().toLowerCase();
+        if (!value) {
+            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Tippe ein Stichwort…</div>';
+            return;
+        }
+        const tokens = value.split(/\s+/).filter(Boolean);
+        const items = this.getSearchIndex().filter((item) => {
+            const haystack = [item.label, ...(item.keywords || [])].join(' ').toLowerCase();
+            return tokens.every((token) => haystack.includes(token));
+        });
+        if (!items.length) {
+            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Keine Treffer</div>';
+            return;
+        }
+        this.searchResults.innerHTML = items
+            .map((item) => `<button type="button" class="sc-search-popover__result" data-step-id="${item.stepId}">${this.escapeHtml(item.label)}</button>`)
+            .join('');
     }
 
     positionHomeTooltip() {
@@ -1391,6 +1503,7 @@ class StudioBot {
     }
 
     closePanel() {
+        this.hideSearchPopover();
         this.state.isOpen = false;
         this.applyOpenState(false, true);
         if (this.hideHomeTooltip) {
@@ -1488,8 +1601,7 @@ class StudioBot {
         withEmails = withEmails.replace(phoneRegex, (match) => {
             return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
         });
-        const plainText = this.stripHtmlToText(withEmails);
-        return `${withEmails}<div class="sc-msg-actions"><button type="button" class="sc-msg-action" data-msg-action="copy" data-message-text="${this.escapeHtml(plainText)}">Kopieren</button><button type="button" class="sc-msg-action" data-msg-action="email" data-message-text="${this.escapeHtml(plainText)}">E-Mail</button></div>`;
+        return withEmails;
     }
 
     escapeHtml(text) {
@@ -1855,8 +1967,6 @@ class StudioBot {
         this.clearReturnToStepId();
         await this.advanceToStep(returnToStepId);
         this.isAutoProceeding = false;
-        this.quickActionsFocused = false;
-        this.quickActions = [];
         this.recentSteps = this.loadRecentSteps();
         this.frictionCount = this.loadSessionNumber(SC_FRICTION_COUNTER_KEY);
         this.frictionPanelShown = false;
@@ -1952,11 +2062,6 @@ class StudioBot {
     }
 
 
-
-    stripHtmlToText(text) {
-        return (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    }
-
     loadSessionNumber(key) {
         try {
             return Number.parseInt(sessionStorage.getItem(key) || '0', 10) || 0;
@@ -2001,7 +2106,7 @@ class StudioBot {
 
     clearSessionEnhancements() {
         try {
-            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_QUICKACTIONS_CONTEXT_KEY, SC_CHECKLIST_KEY, SC_ASSIST_STRIP_EXPANDED_KEY].forEach((key) => sessionStorage.removeItem(key));
+            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_CHECKLIST_KEY].forEach((key) => sessionStorage.removeItem(key));
         } catch (error) {
             // Ignore.
         }
@@ -2033,33 +2138,6 @@ class StudioBot {
         return { key: 'allgemein', label: 'Allgemein', actions: [{ id: 'preise', title: 'Preisfragen', stepId: 'preise' }, { id: 'kontakt', title: 'Kontakt', stepId: 'kontakt' }, { id: 'ablauf', title: 'Ablauf', stepId: 'ablauf' }] };
     }
 
-    isBusinessHours() {
-        const now = new Date();
-        const day = now.getDay();
-        const hour = now.getHours();
-        return day >= 1 && day <= 5 && hour >= 9 && hour < 18;
-    }
-
-    setAssistStripExpanded(expanded) {
-        this.ui.assistStripExpanded = Boolean(expanded);
-        try {
-            sessionStorage.setItem(SC_ASSIST_STRIP_EXPANDED_KEY, this.ui.assistStripExpanded ? '1' : '0');
-        } catch (error) {
-            // Ignore.
-        }
-    }
-
-    createAssistChip(action, className = 'sc-chip') {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = className;
-        btn.textContent = action.title;
-        btn.dataset.stepId = action.stepId;
-        btn.dataset.assistItem = '1';
-        btn.addEventListener('click', () => this.handleOption({ label: action.title, userPromptText: action.title, nextId: action.stepId }));
-        return btn;
-    }
-
     createRecentChip(stepId, className = 'sc-chip') {
         if (!this.logicTree[stepId]) {
             return null;
@@ -2067,143 +2145,37 @@ class StudioBot {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = className;
-        btn.textContent = this.logicTree[stepId].id;
-        btn.dataset.assistItem = '1';
-        btn.addEventListener('click', () => this.handleOption({ label: `Zuletzt: ${stepId}`, userPromptText: `Zurück zu ${stepId}`, nextId: stepId }));
+        btn.textContent = this.getStepLabel(stepId);
+        btn.addEventListener('click', () => this.handleOption({ label: `Zuletzt: ${this.getStepLabel(stepId)}`, userPromptText: `Zurück zu ${this.getStepLabel(stepId)}`, nextId: stepId }));
         return btn;
-    }
-
-    renderAssistStrip(context, wrap) {
-        const strip = document.createElement('div');
-        strip.className = `sc-assist-strip${this.ui.assistStripExpanded ? ' is-expanded' : ''}`;
-        const headRow = document.createElement('div');
-        headRow.className = 'sc-assist-strip__row';
-
-        const helpLabel = document.createElement('span');
-        helpLabel.className = 'sc-assist-strip__label';
-        helpLabel.textContent = 'Schnellhilfe';
-        headRow.appendChild(helpLabel);
-
-        const quickChips = document.createElement('div');
-        quickChips.className = 'sc-assist-strip__chips';
-        context.actions.slice(0, 3).forEach((action) => quickChips.appendChild(this.createAssistChip(action)));
-        headRow.appendChild(quickChips);
-
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'sc-assist-strip__toggle';
-        toggle.setAttribute('aria-expanded', this.ui.assistStripExpanded ? 'true' : 'false');
-        toggle.innerHTML = `<span>Mehr</span><i class="fa-solid fa-chevron-${this.ui.assistStripExpanded ? 'up' : 'down'}" aria-hidden="true"></i>`;
-        toggle.addEventListener('click', () => {
-            const next = !this.ui.assistStripExpanded;
-            this.setAssistStripExpanded(next);
-            this.renderApp();
-        });
-        headRow.appendChild(toggle);
-        strip.appendChild(headRow);
-
-        const recentVisible = this.recentSteps.slice(0, 2).map((id) => this.createRecentChip(id)).filter(Boolean);
-        if (recentVisible.length) {
-            const recentRow = document.createElement('div');
-            recentRow.className = 'sc-assist-strip__row sc-assist-strip__row--recent';
-            recentRow.innerHTML = '<span class="sc-assist-strip__label"><i class="fa-regular fa-clock" aria-hidden="true"></i>Zuletzt</span>';
-            const chips = document.createElement('div');
-            chips.className = 'sc-assist-strip__chips';
-            recentVisible.forEach((chip) => chips.appendChild(chip));
-            recentRow.appendChild(chips);
-            strip.appendChild(recentRow);
-        }
-
-        const panel = document.createElement('div');
-        panel.className = 'sc-assist-strip__panel';
-
-        const fullHelp = document.createElement('div');
-        fullHelp.className = 'sc-assist-strip__expand-row';
-        fullHelp.innerHTML = `<span class="sc-assist-strip__label">Alle Schnellhilfen (${context.label})</span>`;
-        const fullHelpChips = document.createElement('div');
-        fullHelpChips.className = 'sc-assist-strip__chips';
-        context.actions.slice(0, 8).forEach((action) => fullHelpChips.appendChild(this.createAssistChip(action, 'sc-chip sc-chip--compact')));
-        fullHelp.appendChild(fullHelpChips);
-        panel.appendChild(fullHelp);
-
-        const fullRecent = this.recentSteps.slice(0, 3).map((id) => this.createRecentChip(id, 'sc-chip sc-chip--compact')).filter(Boolean);
-        if (fullRecent.length) {
-            const recentExpand = document.createElement('div');
-            recentExpand.className = 'sc-assist-strip__expand-row';
-            recentExpand.innerHTML = '<span class="sc-assist-strip__label">Zuletzt genutzt</span>';
-            const fullRecentChips = document.createElement('div');
-            fullRecentChips.className = 'sc-assist-strip__chips';
-            fullRecent.forEach((chip) => fullRecentChips.appendChild(chip));
-            recentExpand.appendChild(fullRecentChips);
-            panel.appendChild(recentExpand);
-        }
-
-        strip.appendChild(panel);
-        wrap.appendChild(strip);
-        return strip;
     }
 
     renderStartEnhancements() {
         if (!this.dock) {
             return;
         }
-        const wrap = document.createElement('div');
-        wrap.className = 'sc-start-tools';
-        const status = document.createElement('div');
-        status.className = 'sc-status-line';
-        status.textContent = `${RESPONSE_TIME_TEXT} · ${this.isBusinessHours() ? 'Heute verfügbar' : 'Melde mich bald'}`;
-        wrap.appendChild(status);
+        const recentVisible = this.recentSteps
+            .slice(0, 3)
+            .map((id) => this.createRecentChip(id, 'sc-chip sc-chip--compact'))
+            .filter(Boolean);
 
-        const context = this.getPageContext();
-        this.quickActions = context.actions;
-        const assistStrip = this.renderAssistStrip(context, wrap);
-
-        const search = document.createElement('div');
-        search.className = 'sc-searchbar';
-        search.innerHTML = '<input class="sc-search" type="search" placeholder="Stichwort suchen…" aria-label="Stichwort suchen" />';
-        const noResult = document.createElement('div');
-        noResult.className = 'sc-no-results';
-        noResult.innerHTML = '<span>Keine Treffer.</span><button type="button" class="sc-chip sc-chip--compact sc-quick-contact">Schnellkontakt</button>';
-        noResult.style.display = 'none';
-        noResult.querySelector('.sc-quick-contact').addEventListener('click', () => this.handleOption({ label: 'Schnellkontakt', userPromptText: 'Schnellkontakt.', nextId: 'kontakt' }));
-        search.appendChild(noResult);
-        wrap.appendChild(search);
-
-        if (this.frictionCount >= 3 && !sessionStorage.getItem('sc_friction_panel_dismissed')) {
-            const panel = this.renderFrictionPanel();
-            wrap.appendChild(panel);
+        if (!recentVisible.length) {
+            return;
         }
 
-        const filterTargets = () => Array.from(this.dock.querySelectorAll('.studio-connect-option-btn, [data-assist-item="1"]'));
-        const input = search.querySelector('.sc-search');
-        input.addEventListener('input', () => {
-            const q = (input.value || '').trim().toLowerCase();
-            if (!q) {
-                filterTargets().forEach((el) => { el.style.display = ''; });
-                noResult.style.display = 'none';
-                return;
-            }
-            let hits = 0;
-            filterTargets().forEach((el) => {
-                const visible = (el.textContent || '').toLowerCase().includes(q);
-                el.style.display = visible ? '' : 'none';
-                if (visible) {
-                    hits += 1;
-                }
-            });
-            noResult.style.display = hits ? 'none' : 'flex';
-            if (hits > 0 && !this.ui.assistStripExpanded) {
-                this.setAssistStripExpanded(true);
-                assistStrip.classList.add('is-expanded');
-            }
-            if (!hits) {
-                this.incrementFriction('search_no_results');
-                if (this.ui.assistStripExpanded) {
-                    this.setAssistStripExpanded(false);
-                    assistStrip.classList.remove('is-expanded');
-                }
-            }
-        });
+        const wrap = document.createElement('div');
+        wrap.className = 'sc-start-tools';
+
+        const recentRow = document.createElement('div');
+        recentRow.className = 'sc-recent-row';
+        recentRow.innerHTML = '<span class="sc-recent-label"><i class="fa-regular fa-clock" aria-hidden="true"></i>Zuletzt genutzt</span>';
+
+        const chips = document.createElement('div');
+        chips.className = 'sc-chip-wrap';
+        recentVisible.forEach((chip) => chips.appendChild(chip));
+
+        recentRow.appendChild(chips);
+        wrap.appendChild(recentRow);
 
         this.dock.insertBefore(wrap, this.dock.firstChild);
     }
@@ -2479,7 +2451,6 @@ class StudioBot {
         bubble.className = 'sc-proactive-bubble';
         bubble.innerHTML = `<button type="button" class="sc-proactive-close" aria-label="Schließen">×</button><button type="button" class="sc-proactive-main"><span class="sc-proactive-avatar">🎙️</span><span>${this.getProactiveText(context)}</span></button>`;
         bubble.querySelector('.sc-proactive-main').addEventListener('click', () => {
-            this.quickActionsFocused = true;
             this.state.currentStepId = 'start';
             this.renderAndSave();
             this.openPanel();
