@@ -394,7 +394,7 @@ const renderCallbackForm = (helpers) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'studio-connect-option-btn';
-    button.textContent = 'Rückruf anfordern';
+    button.textContent = 'Rückruf wünschen';
 
     const setStatus = (message, type) => {
         status.className = `sc-callback-status ${type ? `is-${type}` : ''}`.trim();
@@ -2722,32 +2722,25 @@ class StudioBot {
     }
 
     getProactiveText(context) {
+        const sharedHelpVariants = [
+            'Wie kann ich Dir helfen?',
+            'Brauchst Du bei einem bestimmten Thema Hilfe?',
+            'Soll ich Dir bei Deinem Projekt behilflich sein?',
+            'Hast Du eine Frage zu Pascals Leistungen?'
+        ];
+        const busyVariant = 'Pascal ist gerade im Studio am Mikrofon – soll ich schon mal alles für ihn vorbereiten?';
         const textByContext = {
-            general: [
-                'Brauchst Du Hilfe bei Deinem Projekt?',
-                'Soll ich Pascal kurz für Deine Aufnahme anfragen?',
-                'Möchtest Du direkt mit Pascal für Dein Projekt planen?',
-                'Pascal ist gerade im Studio am Mikrofon – soll ich schon mal alles für ihn vorbereiten?'
-            ],
-            gagenrechner: [
-                'Soll ich Dir beim Kalkulieren helfen?',
-                'Fragen zum Gagenrechner?',
-                'Willst Du Deine Sprecherkosten direkt abschätzen?'
-            ],
-            studiofinder: [
-                'Suchst Du ein passendes Studio?',
-                'Soll ich Dir beim Studio-Finder helfen?',
-                'Möchtest Du schnell das richtige Studio entdecken?'
-            ],
-            skriptanalyse: [
-                'Soll ich Dein Skript kurz analysieren?',
-                'Fragen zur Skript-Analyse?',
-                'Willst Du ein schnelles Feedback zu Deinem Text?'
-            ]
+            general: [...sharedHelpVariants],
+            gagenrechner: [...sharedHelpVariants, 'Soll ich Dir beim Gagenrechner und bei Buyouts helfen?'],
+            studiofinder: [...sharedHelpVariants, 'Soll ich Dir beim Studio-Finder das beste Setup zeigen?'],
+            skriptanalyse: [...sharedHelpVariants, 'Soll ich Deine Skript-Analyse kurz mit Dir durchgehen?']
         };
         const contextKey = textByContext[context.moduleKey] ? context.moduleKey : 'general';
         const variants = textByContext[contextKey];
-        const selectedText = variants[Math.floor(Math.random() * variants.length)] || textByContext.general[0];
+        const shouldUseBusyVariant = Math.random() < 0.35;
+        const selectedText = shouldUseBusyVariant
+            ? busyVariant
+            : (variants[Math.floor(Math.random() * variants.length)] || sharedHelpVariants[0]);
         return `${this.getGreeting()} ${selectedText}`;
     }
 
@@ -2823,7 +2816,7 @@ class StudioBot {
             } catch (error) {
                 // Ignore autoplay/runtime failures.
             }
-        }, 500);
+        }, 80);
     }
 
     showProactiveBubble() {
@@ -2894,8 +2887,10 @@ class StudioBot {
         mainButton.addEventListener('click', () => {
             this.state.currentStepId = 'start';
             this.renderAndSave();
-            this.openPanel();
-            this.hideProactiveBubble();
+            window.requestAnimationFrame(() => {
+                this.openPanel();
+                this.hideProactiveBubble();
+            });
             this.persistProactiveShown(context);
         });
         closeButton.addEventListener('click', () => {
@@ -2906,6 +2901,7 @@ class StudioBot {
         document.body.appendChild(bubble);
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
         this.proactiveBubble = bubble;
+        this.persistProactiveShown(context);
         if (window.scrollY > 400) {
             bubble.classList.add('is-scrolled-out');
         }
