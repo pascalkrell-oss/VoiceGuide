@@ -2531,6 +2531,49 @@ const initContactPrefill = () => {
         module_gagenrechner: 'Gagenrechner: Projektart, Nutzungsrechte, Preisdetails, PDF Export.',
         module_studiofinder: 'Studio-Finder: Suche/Filter, Karte/Standort, Premium-Studios, Problemlösung.'
     };
+    const START_MODULE_IDS = ['module_skriptanalyse', 'module_gagenrechner', 'module_studiofinder', 'kontakt', 'callback'];
+    const GENERAL_TOPICS = [
+        { id: 'preise', label: 'Preise & Buyouts', userPromptText: 'Womit muss ich preislich rechnen?', moduleFallbacks: { gagenrechner: 'gr_nutzungsrechte' }, fallbackIds: ['gr_nutzungsrechte', 'gr_start'] },
+        { id: 'rechte', label: 'Einsatz & Rechte', userPromptText: 'Ich möchte Nutzungsrechte und Einsätze sehen.', moduleFallbacks: { gagenrechner: 'gr_nutzungsrechte' }, fallbackIds: ['gr_nutzungsrechte', 'rechte_beispiele'] },
+        { id: 'ablauf', label: 'Ablauf der Zusammenarbeit', userPromptText: 'Wie läuft die Zusammenarbeit ab?' },
+        { id: 'kontakt', label: 'Kontakt', userPromptText: 'Kontaktwege anzeigen.' },
+        { id: 'demos', label: 'Casting & Demos', userPromptText: 'Demos öffnen.' },
+        { id: 'technik', label: 'Technik-Setup', userPromptText: 'Wie ist das Studio ausgestattet?' },
+        { id: 'briefing', label: 'Briefing-Check', userPromptText: 'Ich möchte kurz ein Briefing durchgehen.' }
+    ];
+
+    const resolveGeneralTopicStepId = (bot, topic) => {
+        if (!bot || !topic) {
+            return '';
+        }
+        const context = typeof bot.getPageContext === 'function' ? bot.getPageContext() : { moduleKey: 'general' };
+        const moduleKey = context && context.moduleKey ? context.moduleKey : '';
+        if (topic.moduleFallbacks && topic.moduleFallbacks[moduleKey] && bot.logicTree[topic.moduleFallbacks[moduleKey]]) {
+            return topic.moduleFallbacks[moduleKey];
+        }
+        if (bot.logicTree[topic.id]) {
+            return topic.id;
+        }
+        if (Array.isArray(topic.fallbackIds)) {
+            const fallbackId = topic.fallbackIds.find((candidate) => bot.logicTree[candidate]);
+            if (fallbackId) {
+                return fallbackId;
+            }
+        }
+        return '';
+    };
+
+    const getVisibleGeneralTopics = (bot) => {
+        return GENERAL_TOPICS
+            .map((topic) => {
+                const stepId = resolveGeneralTopicStepId(bot, topic);
+                if (!stepId) {
+                    return null;
+                }
+                return { ...topic, stepId };
+            })
+            .filter(Boolean);
+    };
     const topicConfigFactory = function () {
         const links = (this.settings && this.settings.module_links) || {};
         const lnk = { skriptanalyse: links.skriptanalyse || '/extras/skript-analyse-fuer-sprecher-und-autoren/', gagenrechner: links.gagenrechner || '/extras/gagenrechner/', studiofinder: links.studiofinder || '/extras/studio-finder/' };
@@ -2557,7 +2600,60 @@ const initContactPrefill = () => {
     const origHide = StudioBot.prototype.hideSearchPopover; StudioBot.prototype.hideSearchPopover = function () { origHide.call(this); if (this.searchInput) this.searchInput.value = ''; };
     StudioBot.prototype.getSearchIndex = function () { return [{ stepId: 'gr_nutzungsrechte', label: 'Nutzungsrechte & Buyouts', moduleKey: 'gagenrechner', keywords: ['buyout', 'rechte', 'nutzung', 'lizenz', 'laufzeit', 'gebiet'] }, { stepId: 'gr_pdf_export', label: 'Gagenrechner PDF Export', moduleKey: 'gagenrechner', keywords: ['pdf', 'export', 'angebot'] }, { stepId: 'sa_teleprompter', label: 'Teleprompter', moduleKey: 'skriptanalyse', keywords: ['teleprompter', 'speed', 'tempo'] }, { stepId: 'sa_pdf_export', label: 'Skript-Analyse PDF Export', moduleKey: 'skriptanalyse', keywords: ['pdf', 'export'] }, { stepId: 'sf_suche_filter', label: 'Suche & Filter', moduleKey: 'studiofinder', keywords: ['filter', 'karte', 'standort', 'geolocation'] }, { stepId: 'sf_karte_standort_datenschutz', label: 'Karte Standort Datenschutz', moduleKey: 'studiofinder', keywords: ['karte', 'standort', 'datenschutz', 'geolocation'] }]; };
     StudioBot.prototype.renderSearchResults = function (query) { if (!this.searchResults) return; const n = (v) => (v || '').toLowerCase().replace(/[ä]/g, 'ae').replace(/[ö]/g, 'oe').replace(/[ü]/g, 'ue').replace(/[ß]/g, 'ss'); const lv = (a, b) => { const d = Array.from({ length: b.length + 1 }, () => Array(a.length + 1).fill(0)); for (let i = 0; i <= b.length; i += 1) d[i][0] = i; for (let j = 0; j <= a.length; j += 1) d[0][j] = j; for (let i = 1; i <= b.length; i += 1) for (let j = 1; j <= a.length; j += 1) d[i][j] = b[i - 1] === a[j - 1] ? d[i - 1][j - 1] : Math.min(d[i - 1][j - 1], d[i - 1][j], d[i][j - 1]) + 1; return d[b.length][a.length]; }; const v = n((query || '').trim()); const ctx = this.getPageContext().moduleKey; const it = this.getSearchIndex(); if (!v) { const defs = ctx !== 'general' ? it.filter((x) => x.moduleKey === ctx).slice(0, 4) : it.slice(0, 4); this.searchResults.innerHTML = defs.map((x) => `<button type="button" class="sc-search-popover__result" data-step-id="${x.stepId}">${this.escapeHtml(x.label)}</button>`).join(''); return; } const tk = v.split(/\s+/).filter(Boolean); const rs = it.map((x) => { const bag = [n(x.label), ...(x.keywords || []).map(n)]; let score = x.moduleKey === ctx ? 1 : 0; tk.forEach((t) => { if (bag.some((w) => w.includes(t))) score += 4; if (bag.some((w) => w.startsWith(t))) score += 3; if (t.length >= 4 && bag.some((w) => lv(t, w.split(' ')[0]) <= 2)) score += 2; }); return { x, score }; }).filter((r) => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8); if (!rs.length) { this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Meintest du: Nutzungsrechte & Buyouts oder Teleprompter?</div>'; return; } this.searchResults.innerHTML = rs.map(({ x }) => `<button type="button" class="sc-search-popover__result" data-step-id="${x.stepId}">${this.escapeHtml(x.label)}</button>`).join(''); };
-    const origRender = StudioBot.prototype.renderApp; StudioBot.prototype.renderApp = function () { origRender.call(this); if (!this.dock || this.state.currentStepId !== 'callback') return; const form = document.createElement('form'); form.className = 'sc-callback-form'; form.innerHTML = '<div class="sc-callback-grid"><label>Telefonnummer<input type="tel" name="phone" placeholder="+49 …" required></label><label>Wunschuhrzeit<input type="time" name="time" required></label><label class="sc-callback-note">Notiz (optional)<textarea name="note" maxlength="240" rows="2"></textarea></label></div><button type="submit" class="studio-connect-option-btn">Rückruf anfordern</button><div class="sc-callback-feedback" aria-live="polite"></div>'; const feedback = form.querySelector('.sc-callback-feedback'); form.addEventListener('submit', async (e) => { e.preventDefault(); const fd = new FormData(form); const phone = String(fd.get('phone') || '').trim(); const time = String(fd.get('time') || '').trim(); const note = String(fd.get('note') || '').trim(); if (!/^[+\d\s()\-]{7,}$/.test(phone)) { feedback.textContent = 'Bitte eine gültige Telefonnummer angeben.'; feedback.className = 'sc-callback-feedback is-error'; return; } if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { feedback.textContent = 'Bitte eine gültige Uhrzeit wählen.'; feedback.className = 'sc-callback-feedback is-error'; return; } feedback.textContent = 'Sende Anfrage...'; feedback.className = 'sc-callback-feedback is-loading'; const body = new URLSearchParams({ action: 'scp_callback_request', security: (window.sc_vars && window.sc_vars.callback_nonce) || '', phone, time, note, page_url: window.location.href, page_context_key: this.getPageContext().moduleKey }); const resp = await fetch((window.sc_vars && window.sc_vars.ajax_url) || '/wp-admin/admin-ajax.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() }); const data = await resp.json(); if (data && data.success) { feedback.textContent = (data.data && data.data.message) || 'Anfrage gesendet.'; feedback.className = 'sc-callback-feedback is-success'; form.reset(); } else { feedback.textContent = (data && data.data && data.data.message) || 'Senden fehlgeschlagen.'; feedback.className = 'sc-callback-feedback is-error'; } }); this.dock.appendChild(form); };
+    const origRender = StudioBot.prototype.renderApp; StudioBot.prototype.renderApp = function () {
+        origRender.call(this);
+        if (!this.dock) return;
+
+        if (this.state.currentStepId === 'start') {
+            const optionsContainer = this.dock.querySelector('#studio-connect-options');
+            if (optionsContainer) {
+                const optionButtons = Array.from(optionsContainer.querySelectorAll('.studio-connect-option-btn'));
+                const hasModuleButtons = optionButtons.some((button) => START_MODULE_IDS.includes(button.dataset.nextId || ''));
+                if (hasModuleButtons) {
+                    const toolsTitle = document.createElement('div');
+                    toolsTitle.className = 'sc-section-title';
+                    toolsTitle.textContent = 'Tools & Module';
+                    this.dock.insertBefore(toolsTitle, optionsContainer);
+                }
+
+                const visibleTopics = getVisibleGeneralTopics(this);
+                if (visibleTopics.length) {
+                    const generalWrap = document.createElement('div');
+                    generalWrap.className = 'sc-general-topics-wrap';
+
+                    const generalTitle = document.createElement('div');
+                    generalTitle.className = 'sc-section-title';
+                    generalTitle.textContent = 'Schnelle Themen';
+                    generalWrap.appendChild(generalTitle);
+
+                    const generalGrid = document.createElement('div');
+                    generalGrid.className = 'sc-general-topics';
+                    visibleTopics.forEach((topic) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'studio-connect-option-btn sc-general-topic-btn';
+                        button.textContent = topic.label;
+                        button.addEventListener('click', () => {
+                            this.handleOption({
+                                label: topic.label,
+                                userPromptText: topic.userPromptText || topic.label,
+                                nextId: topic.stepId
+                            });
+                        });
+                        generalGrid.appendChild(button);
+                    });
+
+                    if (generalGrid.childElementCount > 0) {
+                        generalWrap.appendChild(generalGrid);
+                        this.dock.appendChild(generalWrap);
+                    }
+                }
+            }
+        }
+
+        if (this.state.currentStepId !== 'callback') return;
+        const form = document.createElement('form'); form.className = 'sc-callback-form'; form.innerHTML = '<div class="sc-callback-grid"><label>Telefonnummer<input type="tel" name="phone" placeholder="+49 …" required></label><label>Wunschuhrzeit<input type="time" name="time" required></label><label class="sc-callback-note">Notiz (optional)<textarea name="note" maxlength="240" rows="2"></textarea></label></div><button type="submit" class="studio-connect-option-btn">Rückruf anfordern</button><div class="sc-callback-feedback" aria-live="polite"></div>'; const feedback = form.querySelector('.sc-callback-feedback'); form.addEventListener('submit', async (e) => { e.preventDefault(); const fd = new FormData(form); const phone = String(fd.get('phone') || '').trim(); const time = String(fd.get('time') || '').trim(); const note = String(fd.get('note') || '').trim(); if (!/^[+\d\s()\-]{7,}$/.test(phone)) { feedback.textContent = 'Bitte eine gültige Telefonnummer angeben.'; feedback.className = 'sc-callback-feedback is-error'; return; } if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) { feedback.textContent = 'Bitte eine gültige Uhrzeit wählen.'; feedback.className = 'sc-callback-feedback is-error'; return; } feedback.textContent = 'Sende Anfrage...'; feedback.className = 'sc-callback-feedback is-loading'; const body = new URLSearchParams({ action: 'scp_callback_request', security: (window.sc_vars && window.sc_vars.callback_nonce) || '', phone, time, note, page_url: window.location.href, page_context_key: this.getPageContext().moduleKey }); const resp = await fetch((window.sc_vars && window.sc_vars.ajax_url) || '/wp-admin/admin-ajax.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: body.toString() }); const data = await resp.json(); if (data && data.success) { feedback.textContent = (data.data && data.data.message) || 'Anfrage gesendet.'; feedback.className = 'sc-callback-feedback is-success'; form.reset(); } else { feedback.textContent = (data && data.data && data.data.message) || 'Senden fehlgeschlagen.'; feedback.className = 'sc-callback-feedback is-error'; } }); this.dock.appendChild(form);
+    };
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
