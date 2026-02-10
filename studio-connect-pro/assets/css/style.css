@@ -195,6 +195,14 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    opacity: 1;
+    transform: none;
+}
+
+.studio-connect-chat-area.sc-is-resetting {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 220ms ease, transform 220ms ease;
 }
 
 .studio-connect-chat-area::-webkit-scrollbar {
@@ -457,10 +465,15 @@
 }
 
 .studio-connect-copy.is-primary {
-    background: linear-gradient(135deg, #1a93ee, #0f6cc6);
+    background: #1a93ee;
     border: none;
     color: #ffffff;
-    box-shadow: 0 16px 24px rgba(26, 147, 238, 0.25);
+    box-shadow: none;
+}
+
+.studio-connect-copy.is-primary:hover {
+    background: #136db5;
+    box-shadow: none;
 }
 
 .studio-connect-copy.is-primary i {

@@ -380,7 +380,8 @@ class StudioBot {
             isTyping: false,
             typingTimer: null,
             typingRow: null,
-            optionsDisabled: false
+            optionsDisabled: false,
+            isResetting: false
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -674,10 +675,9 @@ class StudioBot {
         }
 
         if (this.homeButton) {
-            this.homeButton.addEventListener('click', (event) => {
+            this.homeButton.addEventListener('click', async (event) => {
                 event.preventDefault();
-                this.resetConversation();
-                this.applyOpenState(true, true);
+                await this.resetConversationSmooth();
             });
             this.setupHomeButtonHover();
         }
@@ -1233,7 +1233,7 @@ class StudioBot {
 
     updateHeaderSubtext(stepId) {
         const map = {
-            start: 'Studio-Assistenz',
+            start: 'Start',
             demos: 'Casting & Demos',
             preise: 'Preise & Buyouts',
             technik: 'Technik-Setup',
@@ -1251,8 +1251,9 @@ class StudioBot {
             briefing_aussprache: 'Briefing-Check',
             briefing_summary: 'Briefing-Check'
         };
-        if (this.headerSubtext && map[stepId]) {
-            this.headerSubtext.textContent = map[stepId];
+        if (this.headerSubtext) {
+            const label = map[stepId] || 'Start';
+            this.headerSubtext.textContent = `Du bist hier: ${label}`;
         }
     }
 
@@ -1514,6 +1515,71 @@ class StudioBot {
                 this.renderAndSave();
             }
         });
+    }
+
+    async waitForResetAnimation(target, duration = 240) {
+        if (!target) {
+            await this.delay(duration);
+            return;
+        }
+        await new Promise((resolve) => {
+            let finished = false;
+            const finish = () => {
+                if (finished) {
+                    return;
+                }
+                finished = true;
+                target.removeEventListener('transitionend', onTransitionEnd);
+                resolve();
+            };
+            const onTransitionEnd = (event) => {
+                if (event.target === target) {
+                    finish();
+                }
+            };
+            target.addEventListener('transitionend', onTransitionEnd);
+            window.setTimeout(finish, duration + 40);
+        });
+    }
+
+    async resetConversationSmooth() {
+        if (this.ui?.isResetting) {
+            return;
+        }
+        this.ui.isResetting = true;
+        const resetTarget = this.chatArea || this.messages;
+        try {
+            if (resetTarget) {
+                resetTarget.classList.add('sc-is-resetting');
+            }
+            await this.waitForResetAnimation(resetTarget, 240);
+
+            clearState();
+            clearLegacyState();
+            this.state = getDefaultState();
+            this.state.isOpen = true;
+            this.clearTypingState();
+            this.clearTypewriter();
+            this.lastRenderedHistoryLength = 0;
+            if (this.messages) {
+                this.messages.innerHTML = '';
+            }
+
+            if (resetTarget) {
+                resetTarget.classList.remove('sc-is-resetting');
+            }
+
+            this.applyOpenState(true, true);
+            const greeted = await this.maybeShowGreeting();
+            if (!greeted) {
+                this.renderAndSave();
+            }
+        } finally {
+            if (resetTarget) {
+                resetTarget.classList.remove('sc-is-resetting');
+            }
+            this.ui.isResetting = false;
+        }
     }
 
     refreshDomReferences() {
