@@ -11,6 +11,14 @@ const SC_LAUNCHER_DEFAULTS = {
     left: 'auto'
 };
 
+const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
+const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
+const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
+const SC_QUICKACTIONS_CONTEXT_KEY = 'sc_quickactions_context';
+const SC_CHECKLIST_KEY = 'sc_checklist';
+const RESPONSE_TIME_TEXT = 'Antwort i.d.R. innerhalb von 24h';
+const PROACTIVE_DELAY_MS = 14000;
+
 const getDefaultState = () => ({
     isOpen: false,
     currentStepId: 'start',
@@ -25,6 +33,14 @@ const getDefaultState = () => ({
             laenge: '',
             laufzeit: '',
             deadline: '',
+            aussprache: ''
+        },
+        checklist: {
+            medium: [],
+            laufzeit: '',
+            gebiet: '',
+            deadline: '',
+            format: '',
             aussprache: ''
         },
         returnToStepId: ''
@@ -55,6 +71,14 @@ const normalizeState = (state) => {
                 laufzeit: typeof state.context?.briefing?.laufzeit === 'string' ? state.context.briefing.laufzeit : '',
                 deadline: typeof state.context?.briefing?.deadline === 'string' ? state.context.briefing.deadline : '',
                 aussprache: typeof state.context?.briefing?.aussprache === 'string' ? state.context.briefing.aussprache : ''
+            },
+            checklist: {
+                medium: Array.isArray(state.context?.checklist?.medium) ? state.context.checklist.medium : [],
+                laufzeit: typeof state.context?.checklist?.laufzeit === 'string' ? state.context.checklist.laufzeit : '',
+                gebiet: typeof state.context?.checklist?.gebiet === 'string' ? state.context.checklist.gebiet : '',
+                deadline: typeof state.context?.checklist?.deadline === 'string' ? state.context.checklist.deadline : '',
+                format: typeof state.context?.checklist?.format === 'string' ? state.context.checklist.format : '',
+                aussprache: typeof state.context?.checklist?.aussprache === 'string' ? state.context.checklist.aussprache : ''
             }
         },
         flags: {
@@ -391,10 +415,17 @@ class StudioBot {
         this.logicTree = this.buildLogicTree();
         this.resetRequested = new URLSearchParams(window.location.search).has(SC_RESET_PARAM);
         this.isAutoProceeding = false;
+        this.quickActionsFocused = false;
+        this.quickActions = [];
+        this.recentSteps = this.loadRecentSteps();
+        this.frictionCount = this.loadSessionNumber(SC_FRICTION_COUNTER_KEY);
+        this.frictionPanelShown = false;
+        this.proactiveTimeout = null;
 
         if (this.resetRequested) {
             clearState();
             clearLegacyState();
+            this.clearSessionEnhancements();
             this.removeResetParam();
         } else {
             const migratedState = migrateLegacyState();
@@ -405,6 +436,14 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
+        try {
+            const rawChecklist = sessionStorage.getItem(SC_CHECKLIST_KEY);
+            if (rawChecklist) {
+                this.state.context.checklist = { ...this.state.context.checklist, ...JSON.parse(rawChecklist) };
+            }
+        } catch (error) {
+            // Ignore.
+        }
         this.ensureValidStep();
         if (this.widget) {
             this.widget.classList.add('sc-widget-root');
@@ -415,6 +454,7 @@ class StudioBot {
         this.applyOpenState(this.state.isOpen, true);
         this.renderApp();
         this.startPulseCycle();
+        this.scheduleProactiveBubble();
     }
 
     buildLogicTree() {
@@ -435,7 +475,8 @@ class StudioBot {
             briefing_laenge: this.getStepConfig('briefing_laenge'),
             briefing_deadline: this.getStepConfig('briefing_deadline'),
             briefing_aussprache: this.getStepConfig('briefing_aussprache'),
-            briefing_summary: this.getStepConfig('briefing_summary')
+            briefing_summary: this.getStepConfig('briefing_summary'),
+            checkliste: this.getStepConfig('checkliste')
         };
     }
 
@@ -460,7 +501,8 @@ class StudioBot {
                             userPromptText: 'Kannst Du mir kurz Nutzungsrechte & Einsatz erklären?',
                             nextId: 'rechte'
                         },
-                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' }
+                        { label: 'Kontakt', userPromptText: 'Wie erreiche ich Pascal am schnellsten?', nextId: 'kontakt' },
+                        { label: 'Projekt-Checkliste', userPromptText: 'Ich möchte die Projekt-Checkliste ausfüllen.', nextId: 'checkliste' }
                     ]
                 };
             case 'demos':
@@ -621,6 +663,13 @@ class StudioBot {
                         { label: 'Unsicher', briefingKey: 'aussprache', briefingValue: 'Unsicher', nextId: 'briefing_summary' }
                     ]
                 };
+
+            case 'checkliste':
+                return {
+                    id: 'checkliste',
+                    text: 'Projekt-Checkliste: Trage die wichtigsten Eckdaten ein. Danach erstelle ich einen Kontakt-Prefill.',
+                    options: []
+                };
             case 'briefing_summary':
                 return {
                     id: 'briefing_summary',
@@ -695,6 +744,28 @@ class StudioBot {
                 }
                 this.copyToClipboard(value, 'Kopiert');
             });
+
+            this.messages.addEventListener('click', (event) => {
+                const actionBtn = event.target.closest('[data-msg-action]');
+                if (!actionBtn) {
+                    return;
+                }
+                const messageText = actionBtn.dataset.messageText || '';
+                if (!messageText) {
+                    return;
+                }
+                this.registerInteraction();
+                const action = actionBtn.dataset.msgAction;
+                if (action === 'copy') {
+                    this.copyToClipboard(messageText, 'Kopiert ✓');
+                    return;
+                }
+                if (action === 'email') {
+                    const subject = encodeURIComponent('Studio Assistenz – Info');
+                    const body = encodeURIComponent(`Hallo,\n\nhier ist die Info aus der Studio Assistenz:\n\n${messageText}\n\nSeite: ${window.location.href}`);
+                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                }
+            });
         }
 
         document.addEventListener('keydown', (event) => {
@@ -706,7 +777,8 @@ class StudioBot {
         window.addEventListener('beforeunload', () => saveState(this.state));
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
-                saveState(this.state);
+                this.hideProactiveBubble();
+        saveState(this.state);
             }
         });
     }
@@ -755,6 +827,10 @@ class StudioBot {
             this.dock.appendChild(backButton);
         }
 
+        if (step && step.id === 'start') {
+            this.renderStartEnhancements();
+        }
+
         if (step && step.id === 'kontakt') {
             const card = renderContactCard(this.state, this.settings, {
                 copyToClipboard: this.copyToClipboard.bind(this),
@@ -762,6 +838,8 @@ class StudioBot {
                 showToast: this.showToast.bind(this)
             });
             this.dock.appendChild(card);
+        } else if (step && step.id === 'checkliste') {
+            this.renderChecklistForm();
         } else if (step && step.id === 'rechner') {
             const calculator = renderWordCalculator(
                 this.state,
@@ -946,6 +1024,7 @@ class StudioBot {
             this.state.navStack = [...this.state.navStack, this.state.currentStepId];
         }
         this.state.currentStepId = nextStep.id;
+        this.trackRecentStep(nextStep.id);
         if (suppressBotMessage) {
             this.renderAndSave();
             return;
@@ -997,6 +1076,7 @@ class StudioBot {
         const previousStep = nextStack.pop();
         this.state.navStack = nextStack;
         this.state.currentStepId = previousStep || 'start';
+        this.incrementFriction('back');
         saveState(this.state);
         this.renderApp();
     }
@@ -1249,7 +1329,8 @@ class StudioBot {
             briefing_laenge: 'Briefing-Check',
             briefing_deadline: 'Briefing-Check',
             briefing_aussprache: 'Briefing-Check',
-            briefing_summary: 'Briefing-Check'
+            briefing_summary: 'Briefing-Check',
+            checkliste: 'Projekt-Checkliste'
         };
         if (this.headerSubtext) {
             const label = map[stepId] || 'Start';
@@ -1270,6 +1351,7 @@ class StudioBot {
 
     async openPanel() {
         this.state.isOpen = true;
+        this.hideProactiveBubble();
         this.applyOpenState(true);
         const greeted = await this.maybeShowGreeting();
         if (!greeted) {
@@ -1382,7 +1464,8 @@ class StudioBot {
         withEmails = withEmails.replace(phoneRegex, (match) => {
             return `<button type="button" class="studio-connect-copy inline" data-copy="${match}">${match}</button>`;
         });
-        return withEmails;
+        const plainText = this.stripHtmlToText(withEmails);
+        return `${withEmails}<div class="sc-msg-actions"><button type="button" class="sc-msg-action" data-msg-action="copy" data-message-text="${this.escapeHtml(plainText)}">Kopieren</button><button type="button" class="sc-msg-action" data-msg-action="email" data-message-text="${this.escapeHtml(plainText)}">E-Mail</button></div>`;
     }
 
     escapeHtml(text) {
@@ -1506,6 +1589,7 @@ class StudioBot {
     resetConversation() {
         clearState();
         clearLegacyState();
+        this.clearSessionEnhancements();
         this.state = getDefaultState();
         this.state.isOpen = true;
         this.clearTypingState();
@@ -1556,6 +1640,7 @@ class StudioBot {
 
             clearState();
             clearLegacyState();
+            this.clearSessionEnhancements();
             this.state = getDefaultState();
             this.state.isOpen = true;
             this.clearTypingState();
@@ -1746,6 +1831,12 @@ class StudioBot {
         this.clearReturnToStepId();
         await this.advanceToStep(returnToStepId);
         this.isAutoProceeding = false;
+        this.quickActionsFocused = false;
+        this.quickActions = [];
+        this.recentSteps = this.loadRecentSteps();
+        this.frictionCount = this.loadSessionNumber(SC_FRICTION_COUNTER_KEY);
+        this.frictionPanelShown = false;
+        this.proactiveTimeout = null;
     }
 
     getRechnerOptions() {
@@ -1834,6 +1925,349 @@ class StudioBot {
 
     getFilteredOptions(options = []) {
         return options.filter((option) => option.action !== 'back');
+    }
+
+
+
+    stripHtmlToText(text) {
+        return (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    loadSessionNumber(key) {
+        try {
+            return Number.parseInt(sessionStorage.getItem(key) || '0', 10) || 0;
+        } catch (error) {
+            return 0;
+        }
+    }
+
+    persistSessionNumber(key, value) {
+        try {
+            sessionStorage.setItem(key, String(value));
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    loadRecentSteps() {
+        try {
+            const raw = sessionStorage.getItem(SC_RECENT_STEPS_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    saveRecentSteps() {
+        try {
+            sessionStorage.setItem(SC_RECENT_STEPS_KEY, JSON.stringify(this.recentSteps.slice(0, 3)));
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    trackRecentStep(stepId) {
+        if (!stepId || stepId === 'start') {
+            return;
+        }
+        this.recentSteps = [stepId, ...this.recentSteps.filter((id) => id !== stepId)].slice(0, 3);
+        this.saveRecentSteps();
+    }
+
+    clearSessionEnhancements() {
+        try {
+            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY, SC_QUICKACTIONS_CONTEXT_KEY, SC_CHECKLIST_KEY].forEach((key) => sessionStorage.removeItem(key));
+        } catch (error) {
+            // Ignore.
+        }
+        this.recentSteps = [];
+        this.frictionCount = 0;
+    }
+
+    incrementFriction(reason) {
+        this.frictionCount += 1;
+        this.persistSessionNumber(SC_FRICTION_COUNTER_KEY, this.frictionCount);
+        if (this.frictionCount >= 3 && !this.frictionPanelShown) {
+            this.frictionPanelShown = true;
+            this.renderApp();
+        }
+    }
+
+    getPageContext() {
+        const path = (window.location.pathname || '').toLowerCase();
+        const map = [
+            { match: ['/gagenrechner'], key: 'gagenrechner', label: 'Gagenrechner', actions: [{ id: 'rechner_help', title: 'So funktioniert der Rechner', stepId: 'rechner' }, { id: 'rechte', title: 'Nutzungsrechte & Buyouts', stepId: 'rechte' }, { id: 'kontakt', title: 'Angebot erstellen lassen', stepId: 'kontakt' }] },
+            { match: ['/kontakt'], key: 'kontakt', label: 'Kontakt', actions: [{ id: 'briefing', title: 'Was brauche ich fürs Briefing?', stepId: 'briefing' }, { id: 'ablauf', title: 'Antwortzeiten & Ablauf', stepId: 'ablauf' }] },
+            { match: ['/sprecher-leistungen', '/leistungen'], key: 'leistungen', label: 'Leistungen', actions: [{ id: 'demos', title: 'Leistung auswählen', stepId: 'demos' }, { id: 'preise', title: 'Preisfragen', stepId: 'preise' }] },
+            { match: ['/studio', '/equipment'], key: 'technik', label: 'Studio/Technik', actions: [{ id: 'technik', title: 'Technik-Setup', stepId: 'technik' }, { id: 'ablauf', title: 'Formate & Lieferung', stepId: 'ablauf' }] }
+        ];
+        const hit = map.find((entry) => entry.match.some((part) => path.includes(part)));
+        if (hit) {
+            return hit;
+        }
+        return { key: 'allgemein', label: 'Allgemein', actions: [{ id: 'preise', title: 'Preisfragen', stepId: 'preise' }, { id: 'kontakt', title: 'Kontakt', stepId: 'kontakt' }, { id: 'ablauf', title: 'Ablauf', stepId: 'ablauf' }] };
+    }
+
+    isBusinessHours() {
+        const now = new Date();
+        const day = now.getDay();
+        const hour = now.getHours();
+        return day >= 1 && day <= 5 && hour >= 9 && hour < 18;
+    }
+
+    renderStartEnhancements() {
+        if (!this.dock) {
+            return;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'sc-start-tools';
+        const status = document.createElement('div');
+        status.className = 'sc-status-line';
+        status.textContent = `${RESPONSE_TIME_TEXT} · ${this.isBusinessHours() ? 'Heute verfügbar' : 'Melde mich bald'}`;
+        wrap.appendChild(status);
+
+        const context = this.getPageContext();
+        this.quickActions = context.actions;
+        const qa = document.createElement('div');
+        qa.className = 'sc-quickactions';
+        qa.innerHTML = `<div class="sc-quickactions-title">Schnellhilfe (${context.label})</div>`;
+        const chipWrap = document.createElement('div');
+        chipWrap.className = 'sc-chip-wrap';
+        context.actions.forEach((action) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sc-chip';
+            btn.textContent = action.title;
+            btn.dataset.stepId = action.stepId;
+            btn.addEventListener('click', () => this.handleOption({ label: action.title, userPromptText: action.title, nextId: action.stepId }));
+            chipWrap.appendChild(btn);
+        });
+        qa.appendChild(chipWrap);
+        wrap.appendChild(qa);
+
+        const search = document.createElement('div');
+        search.className = 'sc-searchbar';
+        search.innerHTML = '<input class="sc-search" type="search" placeholder="Stichwort suchen…" aria-label="Stichwort suchen" />';
+        const noResult = document.createElement('div');
+        noResult.className = 'sc-no-results';
+        noResult.innerHTML = '<span>Keine Treffer.</span><button type="button" class="sc-chip sc-quick-contact">Schnellkontakt</button>';
+        noResult.style.display = 'none';
+        noResult.querySelector('.sc-quick-contact').addEventListener('click', () => this.handleOption({ label: 'Schnellkontakt', userPromptText: 'Schnellkontakt.', nextId: 'kontakt' }));
+        search.appendChild(noResult);
+        wrap.appendChild(search);
+
+        const recent = document.createElement('div');
+        recent.className = 'sc-recent';
+        recent.innerHTML = '<div class="sc-quickactions-title">Zuletzt genutzt</div>';
+        const recentWrap = document.createElement('div');
+        recentWrap.className = 'sc-chip-wrap';
+        this.recentSteps.forEach((id) => {
+            if (!this.logicTree[id]) {
+                return;
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sc-chip';
+            btn.textContent = this.logicTree[id].id;
+            btn.addEventListener('click', () => this.handleOption({ label: `Zuletzt: ${id}`, userPromptText: `Zurück zu ${id}`, nextId: id }));
+            recentWrap.appendChild(btn);
+        });
+        recent.appendChild(recentWrap);
+        wrap.appendChild(recent);
+
+        if (this.frictionCount >= 3 && !sessionStorage.getItem('sc_friction_panel_dismissed')) {
+            const panel = this.renderFrictionPanel();
+            wrap.appendChild(panel);
+        }
+
+        const filterTargets = () => Array.from(this.dock.querySelectorAll('.studio-connect-option-btn, .sc-chip'));
+        const input = search.querySelector('.sc-search');
+        input.addEventListener('input', () => {
+            const q = (input.value || '').trim().toLowerCase();
+            if (!q) {
+                filterTargets().forEach((el) => { el.style.display = ''; });
+                noResult.style.display = 'none';
+                return;
+            }
+            let hits = 0;
+            filterTargets().forEach((el) => {
+                const visible = (el.textContent || '').toLowerCase().includes(q);
+                el.style.display = visible ? '' : 'none';
+                if (visible) {
+                    hits += 1;
+                }
+            });
+            noResult.style.display = hits ? 'none' : 'flex';
+            if (!hits) {
+                this.incrementFriction('search_no_results');
+            }
+        });
+
+        this.dock.insertBefore(wrap, this.dock.firstChild);
+    }
+
+    renderFrictionPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'sc-friction-panel';
+        panel.innerHTML = '<button type="button" class="sc-friction-close" aria-label="Schließen">×</button><strong>Ich finde nichts</strong><div class="sc-friction-actions"></div>';
+        const actions = panel.querySelector('.sc-friction-actions');
+        const contact = document.createElement('button');
+        contact.type = 'button';
+        contact.className = 'sc-chip';
+        contact.textContent = 'Schnellkontakt';
+        contact.addEventListener('click', () => this.handleOption({ label: 'Schnellkontakt', userPromptText: 'Schnellkontakt', nextId: 'kontakt' }));
+        actions.appendChild(contact);
+        const checklist = document.createElement('button');
+        checklist.type = 'button';
+        checklist.className = 'sc-chip';
+        checklist.textContent = '60-Sekunden Briefing';
+        checklist.addEventListener('click', () => this.handleOption({ label: 'Checkliste', userPromptText: 'Ich nutze die Checkliste.', nextId: 'checkliste' }));
+        actions.appendChild(checklist);
+        if (this.settings.phone) {
+            const phone = document.createElement('button');
+            phone.type = 'button';
+            phone.className = 'sc-chip';
+            phone.textContent = `Telefon: ${this.settings.phone}`;
+            phone.addEventListener('click', () => this.copyToClipboard(this.settings.phone, 'Telefonnummer kopiert'));
+            actions.appendChild(phone);
+        }
+        if (this.settings.whatsapp) {
+            const wa = document.createElement('button');
+            wa.type = 'button';
+            wa.className = 'sc-chip';
+            wa.textContent = 'WhatsApp';
+            wa.addEventListener('click', () => window.open(`https://wa.me/${this.settings.whatsapp.replace(/\D/g, '')}`, '_blank', 'noopener'));
+            actions.appendChild(wa);
+        }
+        panel.querySelector('.sc-friction-close').addEventListener('click', () => {
+            panel.remove();
+            try { sessionStorage.setItem('sc_friction_panel_dismissed', '1'); } catch (error) {}
+        });
+        return panel;
+    }
+
+    renderChecklistForm() {
+        if (!this.dock) {
+            return;
+        }
+        const checklist = this.state.context?.checklist || {};
+        const card = document.createElement('div');
+        card.className = 'sc-checklist';
+        card.innerHTML = `
+            <label><span>Einsatz/Medium</span><div class="sc-checklist-medium"><label><input type="checkbox" value="Social"> Social</label><label><input type="checkbox" value="Web"> Web</label><label><input type="checkbox" value="Radio"> Radio</label><label><input type="checkbox" value="TV"> TV</label><label><input type="checkbox" value="Intern"> Intern</label></div></label>
+            <label>Laufzeit<input type="text" name="laufzeit" placeholder="z.B. 6 Monate" value="${this.escapeHtml(checklist.laufzeit || '')}"></label>
+            <label>Gebiet<input type="text" name="gebiet" placeholder="z.B. DACH" value="${this.escapeHtml(checklist.gebiet || '')}"></label>
+            <label>Deadline<input type="text" name="deadline" placeholder="z.B. 24h" value="${this.escapeHtml(checklist.deadline || '')}"></label>
+            <label>Format<input type="text" name="format" placeholder="WAV/MP3, 48kHz" value="${this.escapeHtml(checklist.format || '')}"></label>
+            <label>Aussprache/Glossar<textarea name="aussprache" rows="2">${this.escapeHtml(checklist.aussprache || '')}</textarea></label>
+            <button type="button" class="studio-connect-option-btn">Alles vollständig – jetzt anfragen</button>
+        `;
+        const syncChecklist = () => {
+            const medium = Array.from(card.querySelectorAll('.sc-checklist-medium input:checked')).map((el) => el.value);
+            const payload = {
+                medium,
+                laufzeit: card.querySelector('[name="laufzeit"]').value.trim(),
+                gebiet: card.querySelector('[name="gebiet"]').value.trim(),
+                deadline: card.querySelector('[name="deadline"]').value.trim(),
+                format: card.querySelector('[name="format"]').value.trim(),
+                aussprache: card.querySelector('[name="aussprache"]').value.trim()
+            };
+            this.state.context = { ...this.state.context, checklist: payload };
+            saveState(this.state);
+            try { sessionStorage.setItem(SC_CHECKLIST_KEY, JSON.stringify(payload)); } catch (error) {}
+            return payload;
+        };
+        card.querySelectorAll('input,textarea').forEach((el) => {
+            if (el.type === 'checkbox' && (checklist.medium || []).includes(el.value)) {
+                el.checked = true;
+            }
+            el.addEventListener('input', syncChecklist);
+            el.addEventListener('change', syncChecklist);
+        });
+        card.querySelector('.studio-connect-option-btn').addEventListener('click', () => {
+            const payload = syncChecklist();
+            const lines = [
+                'Projekt-Checkliste:',
+                `- Einsatz: ${(payload.medium || []).join(', ') || 'Keine Angabe'}`,
+                `- Gebiet: ${payload.gebiet || 'Keine Angabe'}`,
+                `- Laufzeit: ${payload.laufzeit || 'Keine Angabe'}`,
+                `- Deadline: ${payload.deadline || 'Keine Angabe'}`,
+                `- Format: ${payload.format || 'Keine Angabe'}`,
+                `- Aussprache: ${payload.aussprache || 'Keine Angabe'}`
+            ];
+            try {
+                localStorage.setItem(SC_CONTACT_PREFILL_KEY, JSON.stringify({ text: lines.join('\n'), ts: Date.now(), source: 'checklist' }));
+            } catch (error) {
+                // Ignore.
+            }
+            this.handleOption({ label: 'Anfrage aus Checkliste', userPromptText: 'Alles vollständig – jetzt anfragen.', nextId: 'kontakt' });
+        });
+        this.dock.insertBefore(card, this.dock.firstChild);
+    }
+
+    getProactiveText(context) {
+        if (context.key === 'gagenrechner') {
+            return 'Fragen zum Gagenrechner?';
+        }
+        if (context.key === 'kontakt') {
+            return 'Soll ich beim Briefing helfen?';
+        }
+        if (context.key === 'leistungen') {
+            return 'Unsicher, welche Leistung passt?';
+        }
+        return 'Brauchst Du Hilfe bei Deinem Projekt?';
+    }
+
+    scheduleProactiveBubble() {
+        this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), PROACTIVE_DELAY_MS);
+    }
+
+    showProactiveBubble() {
+        if (this.isOpen) {
+            return;
+        }
+        try {
+            if (sessionStorage.getItem(SC_PROACTIVE_SHOWN_KEY) === '1') {
+                return;
+            }
+        } catch (error) {
+            // Ignore.
+        }
+        const context = this.getPageContext();
+        const bubble = document.createElement('div');
+        bubble.className = 'sc-proactive-bubble';
+        bubble.innerHTML = `<button type="button" class="sc-proactive-close" aria-label="Schließen">×</button><button type="button" class="sc-proactive-main"><span class="sc-proactive-avatar">🎙️</span><span>${this.getProactiveText(context)}</span></button>`;
+        bubble.querySelector('.sc-proactive-main').addEventListener('click', () => {
+            this.quickActionsFocused = true;
+            this.state.currentStepId = 'start';
+            this.renderAndSave();
+            this.openPanel();
+            this.hideProactiveBubble();
+            this.persistProactiveShown();
+        });
+        bubble.querySelector('.sc-proactive-close').addEventListener('click', () => {
+            this.hideProactiveBubble();
+            this.persistProactiveShown();
+        });
+        document.body.appendChild(bubble);
+        requestAnimationFrame(() => bubble.classList.add('is-visible'));
+        this.proactiveBubble = bubble;
+    }
+
+    hideProactiveBubble() {
+        if (this.proactiveBubble && this.proactiveBubble.parentNode) {
+            this.proactiveBubble.parentNode.removeChild(this.proactiveBubble);
+        }
+        this.proactiveBubble = null;
+    }
+
+    persistProactiveShown() {
+        try {
+            sessionStorage.setItem(SC_PROACTIVE_SHOWN_KEY, '1');
+        } catch (error) {
+            // Ignore.
+        }
     }
 
     delay(ms) {
