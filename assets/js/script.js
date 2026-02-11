@@ -520,6 +520,7 @@ class StudioBot {
             launchSoundUnlocked: false,
             launchSoundTimer: null,
             skipGreetingOnce: false,
+            pendingDeepLinkStepId: null,
             didYouKnow: {
                 openSince: 0,
                 lastHintAt: 0,
@@ -1929,15 +1930,17 @@ class StudioBot {
         if (this.ui.isClosing || !this.panel) {
             return;
         }
+        const hasPendingDeepLink = Boolean(this.ui.pendingDeepLinkStepId);
         this.panel.classList.remove('sc-is-closing');
         this.state.isOpen = true;
         this.hideProactiveBubble();
         this.applyOpenState(true);
-        const greeted = await this.maybeShowGreeting();
+        const greeted = hasPendingDeepLink ? false : await this.maybeShowGreeting();
         if (!greeted) {
             saveState(this.state);
             this.renderApp();
         }
+        this.applyDeepLinkIfAny();
         window.setTimeout(() => {
             const firstButton = this.panel ? this.panel.querySelector('button') : null;
             if (firstButton) {
@@ -2396,6 +2399,9 @@ class StudioBot {
     }
 
     async maybeShowGreeting() {
+        if (this.ui.pendingDeepLinkStepId) {
+            return false;
+        }
         if (this.ui.skipGreetingOnce) {
             this.ui.skipGreetingOnce = false;
             this.state.flags = { ...this.state.flags, welcomed: true };
@@ -3126,16 +3132,16 @@ class StudioBot {
         const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
         const linksByModule = {
             gagenrechner: [
-                { label: 'Nutzungsrechte', nextId: 'gr_rechte' },
-                { label: 'Preisdetails', nextId: 'gr_preisdetails' }
+                { label: 'Nutzungsrechte', nextId: 'gr_rechte', fallbackIds: ['gr_nutzungsrechte', 'gr_start'] },
+                { label: 'Preisdetails', nextId: 'gr_preisdetails', fallbackIds: ['gr_preis_details', 'gr_start'] }
             ],
             studiofinder: [
-                { label: 'Suche & Filter', nextId: 'sf_suche' },
-                { label: 'Karte & Standort', nextId: 'sf_karte' }
+                { label: 'Suche & Filter', nextId: 'sf_suche', fallbackIds: ['sf_suche_filter', 'sf_start'] },
+                { label: 'Karte & Standort', nextId: 'sf_karte', fallbackIds: ['sf_karte_standort_datenschutz', 'sf_start'] }
             ],
             skriptanalyse: [
-                { label: 'Schnellstart', nextId: 'sa_quickstart' },
-                { label: 'Analyseboxen', nextId: 'sa_analyseboxen' }
+                { label: 'Schnellstart', nextId: 'sa_quickstart', fallbackIds: ['sa_schnellstart', 'sa_start'] },
+                { label: 'Analyseboxen', nextId: 'sa_analyseboxen', fallbackIds: ['analyseboxen', 'sa_boxes'] }
             ]
         };
         const links = linksByModule[context.moduleKey];
@@ -3156,7 +3162,7 @@ class StudioBot {
                     // Ignore.
                 }
                 this.hideProactiveBubble();
-                this.openPortalToStep(item.nextId);
+                this.openPortalToStep(item.nextId, item.fallbackIds || []);
                 this.persistProactiveShown(context);
             });
             wrap.appendChild(button);
@@ -3164,16 +3170,37 @@ class StudioBot {
         return wrap;
     }
 
-    async openPortalToStep(stepId) {
-        const targetStepId = this.logicTree[stepId] ? stepId : 'start';
-        this.ui.skipGreetingOnce = true;
-        await this.openPanel();
-        if (!this.logicTree[targetStepId]) {
-            return;
+    stepExists(stepId) {
+        return Boolean(stepId && this.logicTree[stepId]);
+    }
+
+    resolveStepId(preferredStepId, fallbackStepIds = []) {
+        const candidates = [preferredStepId, ...fallbackStepIds, 'start'];
+        return candidates.find((candidate) => this.stepExists(candidate)) || 'start';
+    }
+
+    applyDeepLinkIfAny() {
+        if (!this.ui.pendingDeepLinkStepId) {
+            return false;
         }
+        const targetStepId = this.ui.pendingDeepLinkStepId;
+        this.ui.pendingDeepLinkStepId = null;
         this.state.currentStepId = targetStepId;
         this.state.flags = { ...this.state.flags, welcomed: true };
         this.renderAndSave();
+        return true;
+    }
+
+    async openPortalToStep(stepId, fallbackStepIds = []) {
+        const targetStepId = this.resolveStepId(stepId, fallbackStepIds);
+        this.ui.pendingDeepLinkStepId = targetStepId;
+        this.ui.skipGreetingOnce = true;
+        if (this.isOpen) {
+            this.applyDeepLinkIfAny();
+            return;
+        }
+        await this.openPanel();
+        window.queueMicrotask(() => this.applyDeepLinkIfAny());
     }
 
     hideProactiveBubble() {
