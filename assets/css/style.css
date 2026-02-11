@@ -311,59 +311,23 @@
 }
 
 .studio-connect-topic-header {
+    display: none !important;
     min-height: 0;
     max-height: 0;
     overflow: hidden;
-    border-bottom: 0 solid transparent;
-    background: #fcfdff;
-    transition: max-height 0.18s ease, border-color 0.18s ease;
+    padding: 0;
+    margin: 0;
+    border: 0;
 }
 
-.studio-connect-topic-header.is-visible {
-    max-height: 74px;
-    border-bottom: 1px solid #edf1f7;
-    padding: 8px 16px 6px;
-}
-
-.sc-topic-header__row {
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.sc-topic-back {
-    border: none;
-    background: transparent;
-    color: #4c607d;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 2px 0;
-}
-
-.sc-topic-back:hover {
-    color: #1f6feb;
-}
-
-.sc-topic-chip {
-    background: #f1f6ff;
-    border-color: #cfddf4;
-}
-
-.sc-topic-header__recent {
-    margin-left: auto;
-    display: flex;
-    gap: 6px;
-}
-
-.sc-topic-header__tips {
-    margin-top: 4px;
-    min-height: 18px;
-}
-
+.studio-connect-topic-header.is-visible,
+.sc-topic-header__row,
+.sc-topic-back,
+.sc-topic-chip,
+.sc-topic-header__recent,
+.sc-topic-header__tips,
 .sc-context-tip {
-    background: #f8fbff;
-    border-color: #cbdaf4;
+    display: none !important;
 }
 
 .studio-connect-chat-area {

@@ -168,13 +168,15 @@ const TOPIC_CONTENT = {
         ]
     },
     sf_studio_hinzufuegen: {
+        title: 'Studio hinzufügen',
         messages: [
-            'Du vermisst ein Studio? Schick mir kurz die wichtigsten Infos – ich prüfe das und ergänze den Eintrag.',
-            'Am besten: Studio-Name, Ort, Website-Link und welche Leistungen (z.B. Remote, Source-Connect, Regie).',
-            'Tipp: Wenn Du Referenzen/Beispiele hast, gerne als Link – das beschleunigt die Freigabe.'
+            'Du kannst ein neues Studio direkt über das Formular „Neues Studio eintragen“ einreichen.',
+            'Nach dem Absenden prüfe ich die Angaben und schalte den Eintrag anschließend frei.',
+            'Tipp: Adresse, Website und Leistungen vollständig angeben – dann geht’s am schnellsten.'
         ],
         options: [
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'Studio eintragen', action: 'open_studio_submit_modal' },
+            { label: 'Zurück', topicKey: 'sf_suche' }
         ]
     },
     gen_prices: {
@@ -1417,7 +1419,7 @@ class StudioBot {
         }
         this.clearTypewriter();
         this.ensureValidStep();
-        this.updateHeaderSubtext(this.state.currentStepId);
+        this.updateHeaderLocation(this.state.currentStepId);
         this.renderTopicHeader();
         this.messages.innerHTML = '';
         if (this.ui.typingRow) {
@@ -2098,9 +2100,11 @@ class StudioBot {
         return map[stepId] || 'Start';
     }
 
-    updateHeaderSubtext(stepId) {
+    updateHeaderLocation(stepId) {
         if (this.headerSubtext) {
-            this.headerSubtext.textContent = `Du bist hier: ${this.getStepLabel(stepId)}`;
+            const activeTopic = this.getTopicContent(this.ui.activeTopicKey);
+            const locationLabel = activeTopic?.title || this.getStepLabel(stepId);
+            this.headerSubtext.textContent = `Du bist hier: ${locationLabel || 'Start'}`;
         }
     }
 
@@ -2580,61 +2584,10 @@ class StudioBot {
         if (!this.topicHeader) {
             return;
         }
-        const topicKey = this.ui.activeTopicKey;
-        if (!this.isOpen || !topicKey || !this.getTopicContent(topicKey)) {
-            this.topicHeader.innerHTML = '';
-            this.topicHeader.classList.remove('is-visible');
-            return;
-        }
-
-        const meta = this.getTopicMeta(topicKey);
-        const row = document.createElement('div');
-        row.className = 'sc-topic-header__row';
-
-        const backButton = document.createElement('button');
-        backButton.type = 'button';
-        backButton.className = 'sc-topic-back';
-        backButton.textContent = '← Zur Übersicht';
-        backButton.addEventListener('click', () => {
-            this.registerInteraction();
-            this.ui.activeTopicKey = null;
-            const hubByModule = { skriptanalyse: 'sa_hub', gagenrechner: 'gr_hub', studiofinder: 'sf_hub' };
-            this.state.currentStepId = this.isToolPage(this.pageContext)
-                ? this.resolveStepId(hubByModule[this.pageContext.moduleKey] || 'start', ['start'])
-                : 'start';
-            this.renderAndSave();
-        });
-
-        const activeChip = document.createElement('span');
-        activeChip.className = 'sc-chip sc-chip--compact sc-topic-chip';
-        activeChip.textContent = `${meta.toolLabel} · ${meta.topicLabel}`;
-
-        const recentWrap = document.createElement('div');
-        recentWrap.className = 'sc-topic-header__recent';
-        this.getRecentTopics().filter((item) => item !== topicKey).slice(0, 3).forEach((recentKey) => {
-            const recent = document.createElement('button');
-            recent.type = 'button';
-            recent.className = 'sc-chip sc-chip--compact';
-            recent.textContent = this.getStepLabel(recentKey);
-            recent.addEventListener('click', () => {
-                this.registerInteraction();
-                this.showTopic(recentKey, { replaceChat: true });
-            });
-            recentWrap.appendChild(recent);
-        });
-
-        const tipsWrap = document.createElement('div');
-        tipsWrap.className = 'sc-topic-header__tips';
-
-        row.appendChild(backButton);
-        row.appendChild(activeChip);
-        row.appendChild(recentWrap);
         this.topicHeader.innerHTML = '';
-        this.topicHeader.appendChild(row);
-        this.topicHeader.appendChild(tipsWrap);
-        this.topicHeader.classList.add('is-visible');
-        this.maybeShowContextTip(topicKey, { immediate: true });
+        this.topicHeader.classList.remove('is-visible');
     }
+
 
     renderTopicOptionsIfNeeded() {
         const topic = this.getTopicContent(this.ui.activeTopicKey);
@@ -2740,6 +2693,16 @@ class StudioBot {
             const url = links[target] || links[this.pageContext.moduleKey] || '';
             if (url) {
                 window.open(url, '_blank', 'noopener');
+            }
+            return 'halt';
+        }
+
+        if (action === 'open_studio_submit_modal') {
+            const trigger = document.querySelector('[data-action="open_studio_submit_modal"], [data-open="studio-submit-modal"], [data-bs-target="#studio-submit-modal"], #open-studio-submit-modal, .open-studio-submit-modal');
+            if (trigger) {
+                trigger.click();
+            } else {
+                await this.showBotMessage('Ich finde den Button „Neues Studio eintragen“ gerade nicht. Bitte öffne das Formular direkt über den Studio-Finder.');
             }
             return 'halt';
         }
@@ -3826,6 +3789,9 @@ class StudioBot {
 
     getTopicOptions(options = []) {
         return options.filter((option) => {
+            if (option.action) {
+                return true;
+            }
             if (option.topicKey) {
                 return Boolean(this.getTopicContent(option.topicKey));
             }
