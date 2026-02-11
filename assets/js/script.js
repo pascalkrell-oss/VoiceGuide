@@ -2886,7 +2886,7 @@ class StudioBot {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(value).then(() => {
                 if (message) { this.showToast(message); }
-                this.showInlineCopyFeedback(triggerEl);
+                this.showCopyToast(triggerEl);
             }).catch(() => {
                 this.execCopyFallback(value, message, triggerEl);
             });
@@ -2903,27 +2903,54 @@ class StudioBot {
         document.body.appendChild(textarea);
         textarea.focus();
         textarea.select();
+        let didCopy = false;
         try {
-            document.execCommand('copy');
+            didCopy = document.execCommand('copy');
         } catch (error) {
-            // Ignore.
+            didCopy = false;
         }
         document.body.removeChild(textarea);
         if (message) { this.showToast(message); }
-        this.showInlineCopyFeedback(triggerEl);
+        this.showCopyToast(triggerEl, didCopy ? 'In Zwischenablage kopiert' : 'Kopieren nicht möglich');
     }
 
-    showInlineCopyFeedback(el) {
-        if (!el || !el.classList) {
-            return;
+    showCopyToast(anchorEl, text = 'In Zwischenablage kopiert') {
+        const existingToast = document.querySelector('.sc-copy-toast');
+        if (existingToast) {
+            existingToast.remove();
         }
-        el.classList.add('sc-copied');
-        el.dataset.copied = 'Kopiert';
+
+        const toast = document.createElement('div');
+        toast.className = 'sc-copy-toast';
+        const message = (text || 'In Zwischenablage kopiert').trim();
+        if (message === 'In Zwischenablage kopiert') {
+            toast.innerHTML = 'In Zwischenablage kopiert <span class="sc-copy-toast-check">✓</span>';
+        } else {
+            toast.textContent = message;
+        }
+
+        const rect = anchorEl && typeof anchorEl.getBoundingClientRect === 'function'
+            ? anchorEl.getBoundingClientRect()
+            : null;
+        const left = rect ? rect.left + (rect.width / 2) : window.innerWidth / 2;
+        const top = rect ? rect.top - 10 : window.innerHeight / 2;
+
+        toast.style.left = `${left}px`;
+        toast.style.top = `${top}px`;
+
+        document.body.appendChild(toast);
+
+        window.requestAnimationFrame(() => {
+            toast.classList.add('is-visible');
+        });
+
         window.setTimeout(() => {
-            el.classList.remove('sc-copied');
-            if (el.dataset) {
-                delete el.dataset.copied;
-            }
+            toast.classList.remove('is-visible');
+            window.setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 180);
         }, 1200);
     }
 
