@@ -1068,7 +1068,7 @@
     position: fixed;
     right: 24px;
     bottom: 100px;
-    z-index: 9998;
+    z-index: 999999;
     background: #0f141a;
     border: 1px solid #1c222d;
     border-radius: 16px;
@@ -1079,14 +1079,14 @@
     width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
     transition: opacity 260ms ease, transform 260ms ease;
-    pointer-events: auto;
+    pointer-events: auto !important;
 }
 
 .sc-proactive-overlay {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 9998;
+    z-index: 999998;
 }
 
 .sc-proactive-bubble::after {
@@ -1135,7 +1135,8 @@
     margin: 0;
     position: relative;
     z-index: 2;
-    min-height: 32px;
+    min-height: 36px;
+    pointer-events: auto;
 }
 
 .sc-proactive-avatar-wrap .studio-connect-avatar {
@@ -1179,6 +1180,7 @@
     align-items: center;
     justify-content: center;
     line-height: 1;
+    pointer-events: auto;
 }
 
 
@@ -1197,7 +1199,13 @@
     padding: 8px 12px;
     font-size: 11px;
     cursor: pointer;
-    min-height: 32px;
+    min-height: 36px;
+    pointer-events: auto;
+}
+
+.sc-proactive-bubble button,
+.sc-proactive-bubble .sc-proactive-close {
+    pointer-events: auto;
 }
 
 .sc-proactive-bubble.is-scrolled-out {
