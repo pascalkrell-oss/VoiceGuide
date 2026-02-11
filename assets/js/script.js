@@ -853,7 +853,6 @@ class StudioBot {
                         { label: 'Sprechdauer & Tempo', userPromptText: 'Sprechdauer & Tempo.', nextId: 'sa_sprechdauer' },
                         { label: 'Projekte speichern/laden', userPromptText: 'Projekte speichern/laden.', nextId: 'sa_projekte' },
                         { label: 'Premium – Überblick', userPromptText: 'Premium Überblick.', nextId: 'sa_premium' },
-                        { label: 'Zum Tool', userPromptText: 'Skript-Analyse öffnen.', action: 'open_module_tool', target: 'skriptanalyse' }
                     ]
                 };
             case 'gr_hub':
@@ -868,7 +867,6 @@ class StudioBot {
                         { label: 'PDF Export', userPromptText: 'PDF Export öffnen.', nextId: 'gr_pdf' },
                         { label: 'Zurücksetzen (System Clear)', userPromptText: 'Zurücksetzen erklären.', nextId: 'gr_reset' },
                         { label: 'Häufige Fehler', userPromptText: 'Häufige Fehler anzeigen.', nextId: 'gr_fehler' },
-                        { label: 'Zum Tool', userPromptText: 'Gagenrechner öffnen.', action: 'open_module_tool', target: 'gagenrechner' }
                     ]
                 };
             case 'sf_hub':
@@ -882,7 +880,6 @@ class StudioBot {
                         { label: 'Idee/Fehler senden', userPromptText: 'Idee/Fehler senden.', nextId: 'sf_feedback' },
                         { label: 'Import/Export', userPromptText: 'Import/Export.', nextId: 'sf_importexport' },
                         { label: 'Häufige Probleme', userPromptText: 'Häufige Probleme.', nextId: 'sf_probleme' },
-                        { label: 'Zum Tool', userPromptText: 'Studio-Finder öffnen.', action: 'open_module_tool', target: 'studiofinder' }
                     ]
                 };
             case 'sa_quickstart':
@@ -1062,7 +1059,6 @@ class StudioBot {
             text: bullets.join('\n'),
             options: [
                 { label: 'Zur Übersicht', userPromptText: 'Zur Übersicht.', nextId: hubStepId },
-                { label: 'Zum Tool', userPromptText: 'Zum Tool.', action: 'open_module_tool', target: moduleTarget },
                 { label: 'Kontakt', userPromptText: 'Kontakt anzeigen.', nextId: 'kontakt' }
             ]
         };
@@ -2816,6 +2812,12 @@ class StudioBot {
         return { moduleKey: 'general' };
     }
 
+    getLauncherHintStorageKey(type = 'shown', context = this.pageContext) {
+        const contextKey = context?.moduleKey || 'general';
+        const prefix = type === 'dismissed' ? SC_LAUNCHER_HINT_DISMISSED_KEY : SC_LAUNCHER_HINT_SHOWN_KEY;
+        return `${prefix}__${contextKey}`;
+    }
+
     createRecentChip(stepId, className = 'sc-chip') {
         if (!this.logicTree[stepId]) {
             return null;
@@ -3000,17 +3002,19 @@ class StudioBot {
         if (this.isOpen) {
             return;
         }
+        const context = this.getPageContext();
+        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
+        const shownKey = this.getLauncherHintStorageKey('shown', context);
         try {
-            if (sessionStorage.getItem(SC_LAUNCHER_HINT_DISMISSED_KEY) === '1') {
+            if (sessionStorage.getItem(dismissedKey) === '1') {
                 return;
             }
-            if (sessionStorage.getItem(SC_LAUNCHER_HINT_SHOWN_KEY) === '1') {
+            if (sessionStorage.getItem(shownKey) === '1') {
                 return;
             }
         } catch (error) {
             // Ignore.
         }
-        const context = this.getPageContext();
         const shouldPersist = !this.isToolPage(context);
         if (shouldPersist) {
             try {
@@ -3085,7 +3089,7 @@ class StudioBot {
         });
         closeButton.addEventListener('click', () => {
             try {
-                sessionStorage.setItem(SC_LAUNCHER_HINT_DISMISSED_KEY, '1');
+                sessionStorage.setItem(dismissedKey, '1');
             } catch (error) {
                 // Ignore.
             }
@@ -3099,7 +3103,7 @@ class StudioBot {
         this.hintOverlay = overlay;
         this.proactiveBubble = bubble;
         try {
-            sessionStorage.setItem(SC_LAUNCHER_HINT_SHOWN_KEY, '1');
+            sessionStorage.setItem(shownKey, '1');
         } catch (error) {
             // Ignore.
         }
@@ -3119,10 +3123,11 @@ class StudioBot {
     }
 
     createProactiveQuickLinks(context) {
+        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
         const linksByModule = {
             gagenrechner: [
                 { label: 'Nutzungsrechte', nextId: 'gr_rechte' },
-                { label: 'PDF Export', nextId: 'gr_pdf' }
+                { label: 'Preisdetails', nextId: 'gr_preisdetails' }
             ],
             studiofinder: [
                 { label: 'Suche & Filter', nextId: 'sf_suche' },
@@ -3146,7 +3151,7 @@ class StudioBot {
             button.textContent = item.label;
             button.addEventListener('click', () => {
                 try {
-                    sessionStorage.setItem(SC_LAUNCHER_HINT_DISMISSED_KEY, '1');
+                    sessionStorage.setItem(dismissedKey, '1');
                 } catch (error) {
                     // Ignore.
                 }
