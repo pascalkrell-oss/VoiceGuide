@@ -170,7 +170,7 @@ const TOPIC_CONTENT = {
     sf_studio_hinzufuegen: {
         title: 'Studio hinzufügen',
         messages: [
-            'Du kannst ein neues Studio direkt über das Formular „Neues Studio eintragen“ einreichen.',
+            'Du kannst Dein Studio direkt über den Button „Studio eintragen“ einreichen.',
             'Nach dem Absenden prüfe ich die Angaben und schalte den Eintrag anschließend frei.',
             'Tipp: Adresse, Website und Leistungen vollständig angeben – dann geht’s am schnellsten.'
         ],
@@ -1739,7 +1739,7 @@ class StudioBot {
             return;
         }
         if (!repeatCurrent && !skipStack && nextStep.id !== this.state.currentStepId) {
-            this.state.navStack = [...this.state.navStack, this.state.currentStepId];
+            this.pushCurrentViewToNavStack();
         }
         this.state.currentStepId = nextStep.id;
         this.ui.activeTopicKey = null;
@@ -1787,15 +1787,21 @@ class StudioBot {
         this.clearTypingState();
         if (!this.state.navStack.length) {
             this.state.currentStepId = 'start';
+            this.ui.activeTopicKey = null;
             saveState(this.state);
             this.renderApp();
             return;
         }
         const nextStack = [...this.state.navStack];
-        const previousStep = nextStack.pop();
+        const previousEntry = this.normalizeNavEntry(nextStack.pop());
         this.state.navStack = nextStack;
-        this.state.currentStepId = previousStep || 'start';
         this.incrementFriction('back');
+        if (previousEntry.type === 'topic' && previousEntry.key) {
+            this.showTopic(previousEntry.key, { replaceChat: true, fromBack: true });
+            return;
+        }
+        this.ui.activeTopicKey = null;
+        this.state.currentStepId = previousEntry.type === 'step' && previousEntry.id ? previousEntry.id : 'start';
         saveState(this.state);
         this.renderApp();
     }
@@ -2590,10 +2596,12 @@ class StudioBot {
 
 
     renderTopicOptionsIfNeeded() {
-        const topic = this.getTopicContent(this.ui.activeTopicKey);
+        const sourceTopic = this.getTopicContent(this.ui.activeTopicKey);
+        const topic = sourceTopic ? this.getRenderableTopic(sourceTopic, this.ui.activeTopicKey) : null;
         if (!topic || !this.dock) {
             return false;
         }
+        this.renderTopicBackLinkIfNeeded();
         const optionsContainer = document.createElement('div');
         optionsContainer.id = 'studio-connect-options';
         optionsContainer.className = 'studio-connect-options';
@@ -2698,11 +2706,9 @@ class StudioBot {
         }
 
         if (action === 'open_studio_submit_modal') {
-            const trigger = document.querySelector('[data-action="open_studio_submit_modal"], [data-open="studio-submit-modal"], [data-bs-target="#studio-submit-modal"], #open-studio-submit-modal, .open-studio-submit-modal');
+            const trigger = this.findStudioSubmitModalTrigger();
             if (trigger) {
                 trigger.click();
-            } else {
-                await this.showBotMessage('Ich finde den Button „Neues Studio eintragen“ gerade nicht. Bitte öffne das Formular direkt über den Studio-Finder.');
             }
             return 'halt';
         }
@@ -3811,6 +3817,89 @@ class StudioBot {
         });
     }
 
+    canOpenStudioSubmitModal() {
+        return Boolean(this.findStudioSubmitModalTrigger());
+    }
+
+    findStudioSubmitModalTrigger() {
+        const candidateNeedles = ['studio eintragen', 'neues studio', 'studio hinzufügen'];
+        const candidates = document.querySelectorAll('button, a');
+        return Array.from(candidates).find((candidate) => {
+            if (!(candidate instanceof HTMLElement)) {
+                return false;
+            }
+            if (candidate.closest('#sc-widget')) {
+                return false;
+            }
+            const text = (candidate.textContent || '').trim().toLowerCase();
+            return candidateNeedles.some((needle) => text.includes(needle));
+        }) || null;
+    }
+
+    getRenderableTopic(topic, topicKey) {
+        const nextTopic = {
+            ...topic,
+            messages: Array.isArray(topic.messages) ? [...topic.messages] : [],
+            options: Array.isArray(topic.options) ? [...topic.options] : []
+        };
+
+        if (topicKey === 'sf_studio_hinzufuegen' && !this.canOpenStudioSubmitModal()) {
+            nextTopic.options = nextTopic.options.filter((option) => option.action !== 'open_studio_submit_modal');
+            nextTopic.messages.push('Falls Du den Button nicht siehst: scrolle auf der Seite zum Bereich „Studio eintragen“ und öffne dort das Formular.');
+        }
+
+        return nextTopic;
+    }
+
+    renderTopicBackLinkIfNeeded() {
+        if (!this.ui.activeTopicKey || !this.dock || !this.state.navStack.length) {
+            return;
+        }
+        const backRow = document.createElement('div');
+        backRow.className = 'sc-back-row';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sc-back-link';
+        button.textContent = '← Zurück';
+        button.addEventListener('click', () => this.handleBack());
+        backRow.appendChild(button);
+        this.dock.appendChild(backRow);
+    }
+
+    pushCurrentViewToNavStack() {
+        const stack = Array.isArray(this.state.navStack) ? [...this.state.navStack] : [];
+        if (this.ui.activeTopicKey) {
+            stack.push({ type: 'topic', key: this.ui.activeTopicKey });
+        } else if (this.state.currentStepId && this.state.currentStepId !== 'start') {
+            stack.push({ type: 'step', id: this.state.currentStepId });
+        } else {
+            stack.push({ type: 'start' });
+        }
+        this.state.navStack = stack;
+    }
+
+    normalizeNavEntry(entry) {
+        if (!entry) {
+            return { type: 'start' };
+        }
+        if (typeof entry === 'string') {
+            if (entry === 'start') {
+                return { type: 'start' };
+            }
+            if (this.getTopicContent(entry)) {
+                return { type: 'topic', key: entry };
+            }
+            return { type: 'step', id: entry };
+        }
+        if (entry.type === 'topic' && typeof entry.key === 'string') {
+            return { type: 'topic', key: entry.key };
+        }
+        if (entry.type === 'step' && typeof entry.id === 'string') {
+            return { type: 'step', id: entry.id };
+        }
+        return { type: 'start' };
+    }
+
     applyDeepLinkIfAny() {
         if (!this.ui.pendingDeepLinkStepId) {
             return false;
@@ -3851,9 +3940,10 @@ class StudioBot {
             && this.state.history[0]?.text === welcomeText;
     }
 
-    async showTopic(topicKey, { replaceChat = false, _retry = 0 } = {}) {
+    async showTopic(topicKey, { replaceChat = false, fromBack = false, _retry = 0 } = {}) {
         const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
-        const topic = this.getTopicContent(resolvedTopicKey);
+        const sourceTopic = this.getTopicContent(resolvedTopicKey);
+        const topic = sourceTopic ? this.getRenderableTopic(sourceTopic, resolvedTopicKey) : null;
         if (!topic) {
             return false;
         }
@@ -3863,11 +3953,15 @@ class StudioBot {
             if (_retry < 2) {
                 return new Promise((resolve) => {
                     window.requestAnimationFrame(async () => {
-                        resolve(await this.showTopic(topicKey, { replaceChat, _retry: _retry + 1 }));
+                        resolve(await this.showTopic(topicKey, { replaceChat, fromBack, _retry: _retry + 1 }));
                     });
                 });
             }
             return false;
+        }
+
+        if (!fromBack) {
+            this.pushCurrentViewToNavStack();
         }
 
         this.ui.pendingTopicKey = null;

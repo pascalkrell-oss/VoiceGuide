@@ -581,6 +581,27 @@
     background: #dbe6f6;
 }
 
+.sc-back-row {
+    display: flex;
+}
+
+.sc-back-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    opacity: 0.75;
+    background: transparent;
+    border: 0;
+    color: #1c1e21;
+    padding: 6px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.sc-back-link:hover {
+    background: rgba(28, 30, 33, 0.08);
+}
+
 .studio-connect-widget button:focus-visible,
 .studio-connect-widget [role="button"]:focus-visible,
 .studio-connect-launcher:focus-visible,
