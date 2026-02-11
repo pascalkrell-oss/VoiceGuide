@@ -1079,6 +1079,14 @@
     width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
     transition: opacity 260ms ease, transform 260ms ease;
+    pointer-events: auto;
+}
+
+.sc-proactive-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9998;
 }
 
 .sc-proactive-bubble::after {
@@ -1123,10 +1131,11 @@
     color: #ffffff;
     width: 100%;
     text-align: left;
-    padding: 0;
+    padding: 2px;
     margin: 0;
     position: relative;
     z-index: 2;
+    min-height: 32px;
 }
 
 .sc-proactive-avatar-wrap .studio-connect-avatar {
@@ -1163,8 +1172,8 @@
     cursor: pointer;
     color: rgba(255, 255, 255, 0.72);
     z-index: 3;
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
@@ -1185,9 +1194,10 @@
     background: #161d27;
     color: #c9d5e8;
     border-radius: 999px;
-    padding: 5px 10px;
+    padding: 8px 12px;
     font-size: 11px;
     cursor: pointer;
+    min-height: 32px;
 }
 
 .sc-proactive-bubble.is-scrolled-out {

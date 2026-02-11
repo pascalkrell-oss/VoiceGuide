@@ -14,8 +14,18 @@ const SC_LAUNCHER_DEFAULTS = {
 const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
+const SC_LAUNCHER_HINT_SHOWN_KEY = 'sc_launcher_hint_shown';
+const SC_LAUNCHER_HINT_DISMISSED_KEY = 'sc_launcher_hint_dismissed';
+const SC_DYK_COUNT_KEY = 'sc_dyk_count';
+const SC_DYK_LAST_KEY = 'sc_dyk_last';
+const SC_DYK_SEEN_IDS_KEY = 'sc_dyk_seen_ids';
 const SC_COPY_BADGE_TIMEOUT_MS = 1600;
 const PROACTIVE_DELAY_MS = 14000;
+const DYK_INITIAL_DELAY_MS = 75000;
+const DYK_IDLE_MS = 20000;
+const DYK_MIN_INTERVAL_MS = 300000;
+const DYK_MAX_PER_SESSION = 3;
+const DYK_CHECK_INTERVAL_MS = 10000;
 const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
 
 const getDefaultState = () => ({
@@ -508,7 +518,17 @@ class StudioBot {
             hintSoundPlayedForThisShow: false,
             launchSoundRetryDone: false,
             launchSoundUnlocked: false,
-            launchSoundTimer: null
+            launchSoundTimer: null,
+            skipGreetingOnce: false,
+            didYouKnow: {
+                openSince: 0,
+                lastHintAt: 0,
+                shownCount: 0,
+                idleSince: Date.now(),
+                timerId: null,
+                isEmitting: false,
+                seenIds: []
+            }
         };
         this.activeTypewriter = null;
         this.interactionChain = Promise.resolve();
@@ -529,6 +549,7 @@ class StudioBot {
         this.searchTrigger = null;
         this.handleDocumentMouseDown = null;
         this.copyBadgeTimer = null;
+        this.hintOverlay = null;
 
         if (this.resetRequested) {
             clearState();
@@ -555,6 +576,7 @@ class StudioBot {
         this.applyOpenState(this.state.isOpen, true);
         this.renderApp();
         this.startPulseCycle();
+        this.initDidYouKnow();
         this.scheduleProactiveBubble();
     }
 
@@ -1089,6 +1111,14 @@ class StudioBot {
                 }
                 this.copyToClipboard(value, 'Kopiert');
             });
+        }
+
+        if (this.panel) {
+            const markIdle = () => this.markPortalInteraction();
+            this.panel.addEventListener('click', markIdle, true);
+            this.panel.addEventListener('input', markIdle, true);
+            this.panel.addEventListener('keydown', markIdle, true);
+            this.panel.addEventListener('scroll', markIdle, true);
         }
 
         document.addEventListener('keydown', async (event) => {
@@ -1973,7 +2003,15 @@ class StudioBot {
             this.hasInteraction = true;
             this.soundEngine.unlock();
         }
+        this.markPortalInteraction();
         this.unlockLauncherHintSound();
+    }
+
+    markPortalInteraction() {
+        if (!this.ui?.didYouKnow) {
+            return;
+        }
+        this.ui.didYouKnow.idleSince = Date.now();
     }
 
     unlockLauncherHintSound() {
@@ -2306,6 +2344,11 @@ class StudioBot {
         if (!silent && isOpen) {
             this.soundEngine.play('open');
         }
+        if (isOpen) {
+            this.startDidYouKnowScheduler();
+        } else {
+            this.stopDidYouKnowScheduler();
+        }
         alignLauncherToSavedButton();
     }
 
@@ -2357,6 +2400,11 @@ class StudioBot {
     }
 
     async maybeShowGreeting() {
+        if (this.ui.skipGreetingOnce) {
+            this.ui.skipGreetingOnce = false;
+            this.state.flags = { ...this.state.flags, welcomed: true };
+            return false;
+        }
         if (this.state.flags?.welcomed || this.state.history.length > 0) {
             return false;
         }
@@ -2610,6 +2658,135 @@ class StudioBot {
         this.frictionCount = 0;
     }
 
+    initDidYouKnow() {
+        const didYouKnow = this.ui.didYouKnow;
+        didYouKnow.openSince = Date.now();
+        didYouKnow.idleSince = Date.now();
+        didYouKnow.shownCount = this.loadSessionNumber(SC_DYK_COUNT_KEY);
+        didYouKnow.lastHintAt = this.loadSessionNumber(SC_DYK_LAST_KEY);
+        try {
+            const parsed = JSON.parse(sessionStorage.getItem(SC_DYK_SEEN_IDS_KEY) || '[]');
+            didYouKnow.seenIds = Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            didYouKnow.seenIds = [];
+        }
+    }
+
+    startDidYouKnowScheduler() {
+        const didYouKnow = this.ui.didYouKnow;
+        if (!didYouKnow) {
+            return;
+        }
+        didYouKnow.openSince = Date.now();
+        didYouKnow.idleSince = Date.now();
+        if (didYouKnow.timerId) {
+            window.clearInterval(didYouKnow.timerId);
+        }
+        didYouKnow.timerId = window.setInterval(() => {
+            this.maybeShowDidYouKnow();
+        }, DYK_CHECK_INTERVAL_MS);
+    }
+
+    stopDidYouKnowScheduler() {
+        const didYouKnow = this.ui.didYouKnow;
+        if (!didYouKnow || !didYouKnow.timerId) {
+            return;
+        }
+        window.clearInterval(didYouKnow.timerId);
+        didYouKnow.timerId = null;
+    }
+
+    getDidYouKnowContext() {
+        const stepId = this.state?.currentStepId || '';
+        const context = this.getPageContext();
+        if (stepId.startsWith('sa_') || context.moduleKey === 'skriptanalyse') {
+            return 'sa';
+        }
+        if (stepId.startsWith('gr_') || context.moduleKey === 'gagenrechner') {
+            return 'gr';
+        }
+        if (stepId.startsWith('sf_') || context.moduleKey === 'studiofinder') {
+            return 'sf';
+        }
+        return 'general';
+    }
+
+    getDidYouKnowPool(contextKey) {
+        return {
+            sa: [
+                { id: 'sa_teleprompter', text: 'Wusstest Du schon…? Der Teleprompter hilft Dir beim Feinschliff, wenn Du Deinen Text in kurzen Sinnblöcken strukturierst.' },
+                { id: 'sa_pdf', text: 'Wusstest Du schon…? Du kannst Analyse-Ergebnisse als PDF sichern und später mit dem Team teilen.' },
+                { id: 'sa_tempo', text: 'Wusstest Du schon…? Schon kleine Tempo-Anpassungen verändern die Sprechdauer deutlich – teste 2 Varianten direkt nacheinander.' },
+                { id: 'sa_analyseboxen', text: 'Wusstest Du schon…? Die Analyseboxen sind ideal, um Pausen und Betonungen vor der Aufnahme sichtbar zu machen.' }
+            ],
+            gr: [
+                { id: 'gr_rechte', text: 'Wusstest Du schon…? Nutzungsrechte haben oft mehr Einfluss auf den Endpreis als die reine Produktionszeit.' },
+                { id: 'gr_laufzeit', text: 'Wusstest Du schon…? Laufzeit und Gebiet sauber zu definieren macht Angebote vergleichbar und fair kalkulierbar.' },
+                { id: 'gr_details', text: 'Wusstest Du schon…? In den Preisdetails siehst Du schnell, welche Faktoren den größten Anteil ausmachen.' },
+                { id: 'gr_pdf', text: 'Wusstest Du schon…? Mit dem PDF-Export kannst Du den aktuellen Stand direkt intern freigeben lassen.' }
+            ],
+            sf: [
+                { id: 'sf_suche', text: 'Wusstest Du schon…? Mit weniger, aber präzisen Filtern findest Du oft schneller passende Studios.' },
+                { id: 'sf_karte', text: 'Wusstest Du schon…? Mit aktivierter Standortfreigabe wird die Nähe-Sortierung deutlich genauer.' },
+                { id: 'sf_premium', text: 'Wusstest Du schon…? Premium-Badges helfen bei der Vorauswahl, wenn Du verlässliche Setups priorisieren willst.' },
+                { id: 'sf_feedback', text: 'Wusstest Du schon…? Kurzes Feedback zu Treffern verbessert die Ergebnisqualität für spätere Suchen.' }
+            ],
+            general: [
+                { id: 'general_focus', text: 'Wusstest Du schon…? Je genauer Dein Ziel in 1–2 Sätzen beschrieben ist, desto schneller komme ich zum passenden nächsten Schritt.' }
+            ]
+        }[contextKey] || [];
+    }
+
+    maybeShowDidYouKnow() {
+        const didYouKnow = this.ui.didYouKnow;
+        if (!didYouKnow || !this.isOpen || didYouKnow.isEmitting) {
+            return;
+        }
+        const now = Date.now();
+        if ((now - didYouKnow.openSince) < DYK_INITIAL_DELAY_MS) {
+            return;
+        }
+        if ((now - didYouKnow.idleSince) < DYK_IDLE_MS) {
+            return;
+        }
+        if (didYouKnow.shownCount >= DYK_MAX_PER_SESSION) {
+            return;
+        }
+        if (didYouKnow.lastHintAt && (now - didYouKnow.lastHintAt) < DYK_MIN_INTERVAL_MS) {
+            return;
+        }
+
+        const contextKey = this.getDidYouKnowContext();
+        const pool = this.getDidYouKnowPool(contextKey);
+        if (!pool.length) {
+            return;
+        }
+        const unseen = pool.filter((item) => !didYouKnow.seenIds.includes(item.id));
+        const candidates = unseen.length ? unseen : pool;
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        if (!picked || !picked.text) {
+            return;
+        }
+
+        didYouKnow.isEmitting = true;
+        this.showBotMessage(picked.text, { withTypingDots: false }).then(() => {
+            didYouKnow.isEmitting = false;
+            didYouKnow.shownCount += 1;
+            didYouKnow.lastHintAt = Date.now();
+            didYouKnow.idleSince = Date.now();
+            didYouKnow.seenIds = [...didYouKnow.seenIds, picked.id].slice(-24);
+            this.persistSessionNumber(SC_DYK_COUNT_KEY, didYouKnow.shownCount);
+            this.persistSessionNumber(SC_DYK_LAST_KEY, didYouKnow.lastHintAt);
+            try {
+                sessionStorage.setItem(SC_DYK_SEEN_IDS_KEY, JSON.stringify(didYouKnow.seenIds));
+            } catch (error) {
+                // Ignore.
+            }
+        }).catch(() => {
+            didYouKnow.isEmitting = false;
+        });
+    }
+
     incrementFriction(reason) {
         this.frictionCount += 1;
         this.persistSessionNumber(SC_FRICTION_COUNTER_KEY, this.frictionCount);
@@ -2823,6 +3000,16 @@ class StudioBot {
         if (this.isOpen) {
             return;
         }
+        try {
+            if (sessionStorage.getItem(SC_LAUNCHER_HINT_DISMISSED_KEY) === '1') {
+                return;
+            }
+            if (sessionStorage.getItem(SC_LAUNCHER_HINT_SHOWN_KEY) === '1') {
+                return;
+            }
+        } catch (error) {
+            // Ignore.
+        }
         const context = this.getPageContext();
         const shouldPersist = !this.isToolPage(context);
         if (shouldPersist) {
@@ -2836,6 +3023,9 @@ class StudioBot {
         }
 
         const proactiveText = this.getProactiveText(context);
+        const overlay = document.createElement('div');
+        overlay.className = 'sc-proactive-overlay';
+
         const bubble = document.createElement('div');
         bubble.className = 'sc-proactive-bubble';
 
@@ -2894,13 +3084,25 @@ class StudioBot {
             this.persistProactiveShown(context);
         });
         closeButton.addEventListener('click', () => {
+            try {
+                sessionStorage.setItem(SC_LAUNCHER_HINT_DISMISSED_KEY, '1');
+            } catch (error) {
+                // Ignore.
+            }
             bubble.classList.add('sc-fade-out');
             window.setTimeout(() => this.hideProactiveBubble(), 300);
             this.persistProactiveShown(context);
         });
-        document.body.appendChild(bubble);
+        overlay.appendChild(bubble);
+        document.body.appendChild(overlay);
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
+        this.hintOverlay = overlay;
         this.proactiveBubble = bubble;
+        try {
+            sessionStorage.setItem(SC_LAUNCHER_HINT_SHOWN_KEY, '1');
+        } catch (error) {
+            // Ignore.
+        }
         this.persistProactiveShown(context);
         if (window.scrollY > 400) {
             bubble.classList.add('is-scrolled-out');
@@ -2919,12 +3121,12 @@ class StudioBot {
     createProactiveQuickLinks(context) {
         const linksByModule = {
             gagenrechner: [
-                { label: 'Hilfe zu Buyouts', nextId: 'gr_rechte' },
-                { label: 'PDF-Export', nextId: 'gr_pdf' }
+                { label: 'Nutzungsrechte', nextId: 'gr_rechte' },
+                { label: 'PDF Export', nextId: 'gr_pdf' }
             ],
             studiofinder: [
                 { label: 'Suche & Filter', nextId: 'sf_suche' },
-                { label: 'Premium-Studios', nextId: 'sf_premium' }
+                { label: 'Karte & Standort', nextId: 'sf_karte' }
             ],
             skriptanalyse: [
                 { label: 'Schnellstart', nextId: 'sa_quickstart' },
@@ -2943,10 +3145,13 @@ class StudioBot {
             button.className = 'sc-proactive-link';
             button.textContent = item.label;
             button.addEventListener('click', () => {
-                this.state.currentStepId = item.nextId;
-                this.renderAndSave();
-                this.openPanel();
+                try {
+                    sessionStorage.setItem(SC_LAUNCHER_HINT_DISMISSED_KEY, '1');
+                } catch (error) {
+                    // Ignore.
+                }
                 this.hideProactiveBubble();
+                this.openPortalToStep(item.nextId);
                 this.persistProactiveShown(context);
             });
             wrap.appendChild(button);
@@ -2954,10 +3159,26 @@ class StudioBot {
         return wrap;
     }
 
+    async openPortalToStep(stepId) {
+        const targetStepId = this.logicTree[stepId] ? stepId : 'start';
+        this.ui.skipGreetingOnce = true;
+        await this.openPanel();
+        if (!this.logicTree[targetStepId]) {
+            return;
+        }
+        this.state.currentStepId = targetStepId;
+        this.state.flags = { ...this.state.flags, welcomed: true };
+        this.renderAndSave();
+    }
+
     hideProactiveBubble() {
         if (this.proactiveBubble && this.proactiveBubble.parentNode) {
             this.proactiveBubble.parentNode.removeChild(this.proactiveBubble);
         }
+        if (this.hintOverlay && this.hintOverlay.parentNode) {
+            this.hintOverlay.parentNode.removeChild(this.hintOverlay);
+        }
+        this.hintOverlay = null;
         this.proactiveBubble = null;
         this.ui.hintSoundPlayedForThisShow = false;
     }
