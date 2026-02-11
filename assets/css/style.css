@@ -1250,11 +1250,21 @@
 
 .sc-callback-form {
     border-radius: 14px;
-    padding: 12px;
+    padding: 12px 12px 10px;
     background: #f7f8fb;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+}
+
+
+.studio-connect-option-dock:has(.sc-callback-form) {
+    padding-bottom: 10px;
+    gap: 8px;
+}
+
+.sc-callback-form .studio-connect-option-btn {
+    margin-bottom: 0;
 }
 
 .sc-callback-hint {
@@ -1313,7 +1323,7 @@
 }
 
 .sc-callback-status {
-    min-height: 14px;
+    min-height: 12px;
     font-size: 11px;
     line-height: 1.3;
 }

@@ -136,7 +136,7 @@ const TOPIC_CONTENT = {
         options: [
             { label: 'Karte & Standort', topicKey: 'sf_karte' },
             { label: 'Häufige Probleme', topicKey: 'sf_probleme' },
-            { label: 'Import/Export', topicKey: 'sf_importexport' }
+            { label: 'Studio hinzufügen', topicKey: 'sf_studio_hinzufuegen' }
         ]
     },
     sf_karte: {
@@ -157,19 +157,18 @@ const TOPIC_CONTENT = {
         options: [
             { label: 'Suche & Filter', topicKey: 'sf_suche' },
             { label: 'Karte & Standort', topicKey: 'sf_karte' },
-            { label: 'Import/Export', topicKey: 'sf_importexport' }
+            { label: 'Studio hinzufügen', topicKey: 'sf_studio_hinzufuegen' }
         ]
     },
-    sf_importexport: {
+    sf_studio_hinzufuegen: {
         messages: [
-            'Import/Export hilft, viele Studios gesammelt zu pflegen: Export zum Backup/Abgleich, Import für Bulk-Updates.',
-            'Praxis-Tipp: Vor einem großen Import immer erst einen Export machen – damit du jederzeit zurück kannst.',
-            'Wenn Import fehlschlägt: prüfe Pflichtfelder (Name/Ort) und ob Trennzeichen/Encoding stimmt.'
+            'Du vermisst ein Studio? Schick mir kurz die wichtigsten Infos – ich prüfe das und ergänze den Eintrag.',
+            'Am besten: Studio-Name, Ort, Website-Link und welche Leistungen (z.B. Remote, Source-Connect, Regie).',
+            'Tipp: Wenn du Referenzen/Beispiele hast, gerne als Link – das beschleunigt die Freigabe.'
         ],
         options: [
-            { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Feedback', topicKey: 'sf_feedback' },
-            { label: 'Häufige Probleme', topicKey: 'sf_probleme' }
+            { label: 'Idee/Fehler senden', stepId: 'sf_feedback' },
+            { label: 'Kontakt', stepId: 'kontakt' }
         ]
     },
     sf_feedback: {
@@ -179,7 +178,7 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Import/Export', topicKey: 'sf_importexport' }
+            { label: 'Studio hinzufügen', topicKey: 'sf_studio_hinzufuegen' }
         ]
     },
 
@@ -815,7 +814,7 @@ class StudioBot {
             sf_karte: this.getStepConfig('sf_karte'),
             sf_premium: this.getStepConfig('sf_premium'),
             sf_feedback: this.getStepConfig('sf_feedback'),
-            sf_importexport: this.getStepConfig('sf_importexport'),
+            sf_studio_hinzufuegen: this.getStepConfig('sf_studio_hinzufuegen'),
             sf_probleme: this.getStepConfig('sf_probleme')
         };
     }
@@ -1071,8 +1070,8 @@ class StudioBot {
                         { label: 'Suche & Filter', userPromptText: 'Suche & Filter öffnen.', nextId: 'sf_suche' },
                         { label: 'Karte & Standort', userPromptText: 'Karte & Standort öffnen.', nextId: 'sf_karte' },
                         { label: 'Premium-Studios', userPromptText: 'Premium-Studios anzeigen.', nextId: 'sf_premium' },
+                        { label: 'Studio hinzufügen', userPromptText: 'Studio hinzufügen.', topicKey: 'sf_studio_hinzufuegen' },
                         { label: 'Idee/Fehler senden', userPromptText: 'Idee/Fehler senden.', nextId: 'sf_feedback' },
-                        { label: 'Import/Export', userPromptText: 'Import/Export.', nextId: 'sf_importexport' },
                         { label: 'Häufige Probleme', userPromptText: 'Häufige Probleme.', nextId: 'sf_probleme' },
                     ]
                 };
@@ -1220,14 +1219,12 @@ class StudioBot {
                     'Screenshots beschleunigen die Einordnung.',
                     'Rückmeldungen verbessern Suchqualität nachhaltig.'
                 ]), id: 'sf_feedback' };
-            case 'sf_importexport':
+            case 'sf_studio_hinzufuegen':
                 return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
-                    'Import übernimmt bestehende Datenstände schnell.',
-                    'Vor Import Format und Pflichtfelder prüfen.',
-                    'Export eignet sich für Backup und Team-Sharing.',
-                    'Versionen mit Datum kennzeichnen.',
-                    'Große Änderungen zuerst in Testdaten prüfen.'
-                ]), id: 'sf_importexport' };
+                    'Du vermisst ein Studio? Schick uns die wichtigsten Daten zur Prüfung.',
+                    'Nenne Name, Ort, Website und relevante Leistungen für die Suche.',
+                    'Mit Referenzen oder Beispiel-Links wird die Freigabe meist schneller.'
+                ]), id: 'sf_studio_hinzufuegen' };
             case 'sf_probleme':
                 return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
                     'Leere Treffer: Filter zu streng oder Schreibweise prüfen.',
@@ -2032,7 +2029,7 @@ class StudioBot {
             sf_karte: 'Karte & Standort',
             sf_premium: 'Premium-Studios',
             sf_feedback: 'Idee/Fehler senden',
-            sf_importexport: 'Import/Export',
+            sf_studio_hinzufuegen: 'Studio hinzufügen',
             sf_probleme: 'Häufige Probleme'
         };
         return map[stepId] || 'Start';
@@ -3276,29 +3273,27 @@ class StudioBot {
     }
 
     getProactiveText(context) {
-        if (context?.moduleKey === 'general') {
-            return 'Hi! Brauchst Du Hilfe auf der Seite?';
-        }
-        const sharedHelpVariants = [
-            'Wie kann ich Dir helfen?',
-            'Brauchst Du bei einem bestimmten Thema Hilfe?',
-            'Soll ich Dir bei Deinem Projekt behilflich sein?',
-            'Hast Du eine Frage zu Pascals Leistungen?'
-        ];
-        const busyVariant = 'Pascal ist gerade im Studio am Mikrofon – soll ich schon mal alles für ihn vorbereiten?';
-        const textByContext = {
-            general: [...sharedHelpVariants],
-            gagenrechner: [...sharedHelpVariants, 'Soll ich Dir beim Gagenrechner und bei Buyouts helfen?'],
-            studiofinder: [...sharedHelpVariants, 'Soll ich Dir beim Studio-Finder das beste Setup zeigen?'],
-            skriptanalyse: [...sharedHelpVariants, 'Soll ich Deine Skript-Analyse kurz mit Dir durchgehen?']
+        const copyByContext = {
+            skriptanalyse: {
+                title: 'Kurze Hilfe zur Skript-Analyse?',
+                subtitle: 'Wähle ein Thema – ich zeige dir den schnellsten Einstieg.'
+            },
+            gagenrechner: {
+                title: 'Hilfe zum Gagenrechner?',
+                subtitle: 'Klick ein Thema – ich erkläre dir die wichtigsten Stellschrauben.'
+            },
+            studiofinder: {
+                title: 'Studio-Finder Hilfe?',
+                subtitle: 'Filter, Karte & Tipps – wähle ein Thema für den Schnellstart.'
+            },
+            general: {
+                title: 'Hi! Brauchst Du Hilfe?',
+                subtitle: 'Klick – ich führe dich zu den wichtigsten Infos.'
+            }
         };
-        const contextKey = textByContext[context.moduleKey] ? context.moduleKey : 'general';
-        const variants = textByContext[contextKey];
-        const shouldUseBusyVariant = Math.random() < 0.35;
-        const selectedText = shouldUseBusyVariant
-            ? busyVariant
-            : (variants[Math.floor(Math.random() * variants.length)] || sharedHelpVariants[0]);
-        return `${this.getGreeting()} ${selectedText}`;
+        const contextKey = copyByContext[context?.moduleKey] ? context.moduleKey : 'general';
+        const copy = copyByContext[contextKey];
+        return `${copy.title} ${copy.subtitle}`;
     }
 
     getGreeting() {
