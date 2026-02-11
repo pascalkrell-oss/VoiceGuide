@@ -310,6 +310,62 @@
     overflow: hidden;
 }
 
+.studio-connect-topic-header {
+    min-height: 0;
+    max-height: 0;
+    overflow: hidden;
+    border-bottom: 0 solid transparent;
+    background: #fcfdff;
+    transition: max-height 0.18s ease, border-color 0.18s ease;
+}
+
+.studio-connect-topic-header.is-visible {
+    max-height: 74px;
+    border-bottom: 1px solid #edf1f7;
+    padding: 8px 16px 6px;
+}
+
+.sc-topic-header__row {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sc-topic-back {
+    border: none;
+    background: transparent;
+    color: #4c607d;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 0;
+}
+
+.sc-topic-back:hover {
+    color: #1f6feb;
+}
+
+.sc-topic-chip {
+    background: #f1f6ff;
+    border-color: #cfddf4;
+}
+
+.sc-topic-header__recent {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+}
+
+.sc-topic-header__tips {
+    margin-top: 4px;
+    min-height: 18px;
+}
+
+.sc-context-tip {
+    background: #f8fbff;
+    border-color: #cbdaf4;
+}
+
 .studio-connect-chat-area {
     flex: 1 1 auto;
     padding: 20px 20px 10px;
@@ -1279,6 +1335,16 @@
     gap: 8px;
 }
 
+.sc-callback-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.sc-callback-field--full {
+    grid-column: 1 / -1;
+}
+
 .sc-callback-input[name="name"] {
     grid-column: 1 / -1;
 }
@@ -1317,9 +1383,36 @@
     cursor: pointer;
 }
 
+.sc-callback-input:focus,
+.sc-callback-textarea:focus {
+    border-color: rgba(26, 147, 238, 0.5);
+    box-shadow: 0 0 0 2px rgba(26, 147, 238, 0.12);
+    outline: none;
+}
+
+.sc-callback-input.is-invalid,
+.sc-callback-textarea.is-invalid {
+    border-color: rgba(182, 52, 52, 0.46);
+    background: #fff9f9;
+}
+
+.sc-callback-field-error {
+    min-height: 12px;
+    font-size: 11px;
+    color: #b34a4a;
+    opacity: 0.86;
+    line-height: 1.25;
+}
+
 .sc-callback-textarea {
     min-height: 74px;
     resize: vertical;
+}
+
+.sc-callback-form .studio-connect-option-btn:disabled,
+.sc-issue-send:disabled {
+    opacity: 0.56;
+    cursor: not-allowed;
 }
 
 .sc-callback-status {
@@ -1334,6 +1427,28 @@
 
 .sc-callback-status.is-error {
     color: #b63434;
+}
+
+.sc-issue-flow {
+    margin-top: 8px;
+    border: 1px solid #e7edf8;
+    border-radius: 12px;
+    padding: 10px;
+    background: #fcfdff;
+}
+
+.sc-issue-flow__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #29354a;
+    margin-bottom: 8px;
+}
+
+.sc-issue-flow__preview {
+    margin: 8px 0;
+    font-size: 11px;
+    color: #697488;
+    line-height: 1.35;
 }
 
 @media (max-width: 540px) {

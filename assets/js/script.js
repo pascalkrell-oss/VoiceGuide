@@ -1,3 +1,8 @@
+if (window.__SCP_PORTAL_BOOTED__) {
+    console.info('[StudioConnect] Portal bereits initialisiert.');
+} else {
+window.__SCP_PORTAL_BOOTED__ = true;
+
 const SC_STATE_KEY = 'sc_state_v2';
 const SC_LEGACY_KEY = 'sc_chat_state';
 const SC_LEGACY_PREFIX = 'sc_chat_state_';
@@ -30,6 +35,8 @@ const SC_LAST_VISIT_TS_KEY = 'sc_last_visit_ts';
 const SC_GENERAL_HINT_DONE_KEY = 'sc_general_hint_done';
 const SC_TOOL_HINT_DONE_PREFIX = 'sc_tool_hint_done__';
 const SC_GENERAL_HINT_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+const SC_RECENT_TOPICS_KEY = 'sc_recent_topics';
+const SC_CONTEXT_TIPS_SEEN_PREFIX = 'sc_context_tips_seen__';
 
 const TOPIC_CONTENT = {
     sa_quickstart: {
@@ -361,7 +368,8 @@ const renderContactCard = (state, sc_vars, helpers) => {
     formBtn.innerHTML = '<span class="sc-contact-icon"><i class="fa-solid fa-file-pen" aria-hidden="true"></i></span><span class="sc-contact-label">Kontaktformular</span><span class="sc-contact-spacer" aria-hidden="true"></span>';
     formBtn.addEventListener('click', () => {
         helpers.registerInteraction();
-        window.location.href = '/kontakt/';
+        const formUrl = sc_vars.contact_form_url || '/kontakt/';
+        window.location.href = formUrl;
     });
     actions.appendChild(formBtn);
 
@@ -373,9 +381,10 @@ const renderContactCard = (state, sc_vars, helpers) => {
         emailBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span><span class="sc-contact-label">E-Mail: ${sc_vars.email}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert', emailBtn);
+            helpers.copyToClipboard(sc_vars.email, '', emailBtn);
         });
         actions.appendChild(emailBtn);
+        hasCopyAction = true;
     }
 
     if (sc_vars.phone) {
@@ -385,11 +394,12 @@ const renderContactCard = (state, sc_vars, helpers) => {
         phoneBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-phone" aria-hidden="true"></i></span><span class="sc-contact-label">Telefon: ${sc_vars.phone}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert', phoneBtn);
+            helpers.copyToClipboard(sc_vars.phone, '', phoneBtn);
         });
         actions.appendChild(phoneBtn);
         hasCopyAction = true;
     }
+
 
     const whatsappValue = sc_vars.whatsapp || sc_vars.phone;
     if (whatsappValue) {
@@ -399,15 +409,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         whatsappBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></span><span class="sc-contact-label">WhatsApp: ${whatsappValue}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         whatsappBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            const digits = whatsappValue.replace(/\D/g, '');
-            if (digits) {
-                const popup = window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
-                if (!popup) {
-                    helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert', whatsappBtn);
-                }
-            } else {
-                helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert', whatsappBtn);
-            }
+            helpers.copyToClipboard(whatsappValue, '', whatsappBtn);
         });
         actions.appendChild(whatsappBtn);
         hasCopyAction = true;
@@ -426,8 +428,113 @@ const renderContactCard = (state, sc_vars, helpers) => {
         hint.textContent = 'Tippe, um die Daten zu kopieren.';
         wrapper.appendChild(hint);
     }
+
+    const issueFlow = document.createElement('div');
+    issueFlow.className = 'sc-issue-flow';
+    const issueTitle = document.createElement('div');
+    issueTitle.className = 'sc-issue-flow__title';
+    issueTitle.textContent = 'Fehler melden (2 Klicks)';
+    issueFlow.appendChild(issueTitle);
+
+    const issueTypeRow = document.createElement('div');
+    issueTypeRow.className = 'sc-chip-wrap';
+    const issueStatus = document.createElement('div');
+    issueStatus.className = 'sc-callback-status';
+    const sendButton = document.createElement('button');
+    sendButton.type = 'button';
+    sendButton.className = 'sc-chip sc-issue-send';
+    sendButton.textContent = 'Per Mail senden';
+    sendButton.disabled = true;
+
+    const issuePreview = document.createElement('div');
+    issuePreview.className = 'sc-issue-flow__preview';
+    issuePreview.textContent = 'Wähle zuerst den Typ: Bug, Idee oder Datenfehler.';
+
+    const types = ['Bug', 'Idee', 'Datenfehler'];
+    let selectedType = '';
+    const setIssueStatus = (message, type = '') => {
+        issueStatus.className = `sc-callback-status ${type ? `is-${type}` : ''}`.trim();
+        issueStatus.textContent = message || '';
+    };
+
+    const updateIssueUi = () => {
+        sendButton.disabled = !selectedType;
+        issuePreview.textContent = selectedType
+            ? `Melde-Typ: ${selectedType}. Die Mail enthält URL, Kontext und Zeitstempel.`
+            : 'Wähle zuerst den Typ: Bug, Idee oder Datenfehler.';
+    };
+
+    types.forEach((type) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sc-chip sc-chip--compact';
+        button.textContent = type;
+        button.addEventListener('click', () => {
+            helpers.registerInteraction();
+            selectedType = type;
+            issueTypeRow.querySelectorAll('.sc-chip').forEach((chip) => chip.classList.remove('is-active'));
+            button.classList.add('is-active');
+            updateIssueUi();
+            setIssueStatus('', '');
+        });
+        issueTypeRow.appendChild(button);
+    });
+
+    sendButton.addEventListener('click', async () => {
+        helpers.registerInteraction();
+        if (!selectedType) {
+            setIssueStatus('Bitte zuerst einen Typ wählen.', 'error');
+            return;
+        }
+        const previousText = sendButton.textContent;
+        sendButton.disabled = true;
+        sendButton.textContent = 'Wird gesendet…';
+        setIssueStatus('', '');
+
+        try {
+            const body = new URLSearchParams();
+            body.set('action', 'scp_report_issue');
+            body.set('security', helpers.issueNonce || '');
+            body.set('type', selectedType);
+            body.set('url', window.location.href);
+            body.set('contextKey', helpers.contextKey || 'general');
+
+            const response = await fetch(helpers.ajaxUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: body.toString()
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+                throw new Error(payload?.data?.message || 'Senden fehlgeschlagen.');
+            }
+            setIssueStatus(payload?.data?.message || 'Danke! Meldung wurde gesendet.', 'success');
+            sendButton.textContent = 'Gesendet ✓';
+        } catch (error) {
+            setIssueStatus(error.message || 'Senden fehlgeschlagen. Bitte später erneut versuchen.', 'error');
+            sendButton.textContent = previousText;
+            sendButton.disabled = false;
+            return;
+        }
+
+        window.setTimeout(() => {
+            selectedType = '';
+            issueTypeRow.querySelectorAll('.sc-chip').forEach((chip) => chip.classList.remove('is-active'));
+            sendButton.textContent = 'Per Mail senden';
+            updateIssueUi();
+        }, 1300);
+    });
+
+    updateIssueUi();
+    issueFlow.appendChild(issueTypeRow);
+    issueFlow.appendChild(issuePreview);
+    issueFlow.appendChild(sendButton);
+    issueFlow.appendChild(issueStatus);
+    wrapper.appendChild(issueFlow);
+
     return wrapper;
 };
+
 
 const renderWordCalculator = (state, onStatePatch, helpers) => {
     const wrapper = document.createElement('div');
@@ -557,20 +664,25 @@ const renderCallbackForm = (helpers) => {
     name.placeholder = 'Name';
     name.className = 'sc-callback-input';
 
+    const nameError = document.createElement('div');
+    nameError.className = 'sc-callback-field-error';
+
     const phone = document.createElement('input');
     phone.type = 'tel';
     phone.name = 'phone';
     phone.placeholder = 'Telefonnummer';
     phone.className = 'sc-callback-input';
 
+    const phoneError = document.createElement('div');
+    phoneError.className = 'sc-callback-field-error';
+
     const time = document.createElement('input');
     time.type = 'time';
     time.name = 'time';
     time.className = 'sc-callback-input';
 
-    grid.appendChild(name);
-    grid.appendChild(phone);
-    grid.appendChild(time);
+    const timeError = document.createElement('div');
+    timeError.className = 'sc-callback-field-error';
 
     const note = document.createElement('textarea');
     note.name = 'note';
@@ -585,35 +697,93 @@ const renderCallbackForm = (helpers) => {
     button.type = 'button';
     button.className = 'studio-connect-option-btn';
     button.textContent = 'Rückruf wünschen';
+    button.disabled = true;
+
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'sc-callback-field sc-callback-field--full';
+    nameWrap.appendChild(name);
+    nameWrap.appendChild(nameError);
+
+    const phoneWrap = document.createElement('div');
+    phoneWrap.className = 'sc-callback-field';
+    phoneWrap.appendChild(phone);
+    phoneWrap.appendChild(phoneError);
+
+    const timeWrap = document.createElement('div');
+    timeWrap.className = 'sc-callback-field';
+    timeWrap.appendChild(time);
+    timeWrap.appendChild(timeError);
+
+    grid.appendChild(nameWrap);
+    grid.appendChild(phoneWrap);
+    grid.appendChild(timeWrap);
 
     const setStatus = (message, type) => {
         status.className = `sc-callback-status ${type ? `is-${type}` : ''}`.trim();
         status.textContent = message || '';
     };
 
+    const setFieldError = (input, errorEl, message, touched) => {
+        const show = Boolean(touched && message);
+        errorEl.textContent = show ? message : '';
+        input.classList.toggle('is-invalid', show);
+    };
+
+    const validateCallbackForm = () => {
+        const values = {
+            name: (name.value || '').trim(),
+            phone: (phone.value || '').trim(),
+            time: (time.value || '').trim()
+        };
+        const errors = {
+            name: values.name.length >= 2 ? '' : 'Mind. 2 Zeichen erforderlich.',
+            phone: /^[0-9+\-\s()]{7,}$/.test(values.phone) ? '' : 'Bitte gültige Telefonnummer eingeben.',
+            time: /^([01]\d|2[0-3]):[0-5]\d$/.test(values.time) ? '' : 'Bitte HH:MM Format verwenden.'
+        };
+        const isValid = !errors.name && !errors.phone && !errors.time;
+        return { values, errors, isValid };
+    };
+
+    const touched = { name: false, phone: false, time: false };
+    const updateValidationUi = () => {
+        const result = validateCallbackForm();
+        setFieldError(name, nameError, result.errors.name, touched.name);
+        setFieldError(phone, phoneError, result.errors.phone, touched.phone);
+        setFieldError(time, timeError, result.errors.time, touched.time);
+        button.disabled = !result.isValid;
+        return result;
+    };
+
+    [name, phone, time].forEach((input) => {
+        input.addEventListener('input', () => {
+            helpers.registerInteraction();
+            touched[input.name] = true;
+            updateValidationUi();
+        });
+        input.addEventListener('blur', () => {
+            touched[input.name] = true;
+            updateValidationUi();
+        });
+        input.addEventListener('change', () => {
+            touched[input.name] = true;
+            updateValidationUi();
+        });
+    });
+
     button.addEventListener('click', async () => {
         helpers.registerInteraction();
         setStatus('', '');
-        const nameValue = (name.value || '').trim();
-        const phoneValue = (phone.value || '').trim();
-        const timeValue = (time.value || '').trim();
+
+        touched.name = true;
+        touched.phone = true;
+        touched.time = true;
+        const validation = updateValidationUi();
+        if (!validation.isValid) {
+            setStatus('Bitte die markierten Felder prüfen.', 'error');
+            return;
+        }
+
         const noteValue = (note.value || '').trim().slice(0, 240);
-
-        if (nameValue.length < 2) {
-            setStatus('Bitte einen Namen mit mindestens 2 Zeichen eingeben.', 'error');
-            return;
-        }
-
-        if (!/^[0-9+\-\s()]{7,}$/.test(phoneValue)) {
-            setStatus('Bitte eine gültige Telefonnummer eingeben.', 'error');
-            return;
-        }
-
-        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeValue)) {
-            setStatus('Bitte eine gültige Wunschuhrzeit angeben.', 'error');
-            return;
-        }
-
         button.disabled = true;
         const previousText = button.textContent;
         button.textContent = 'Wird gesendet…';
@@ -622,9 +792,9 @@ const renderCallbackForm = (helpers) => {
             const body = new URLSearchParams();
             body.set('action', 'scp_callback_request');
             body.set('security', helpers.nonce || '');
-            body.set('name', nameValue);
-            body.set('phone', phoneValue);
-            body.set('time', timeValue);
+            body.set('name', validation.values.name);
+            body.set('phone', validation.values.phone);
+            body.set('time', validation.values.time);
             body.set('note', noteValue);
             body.set('page_url', window.location.href);
 
@@ -644,11 +814,18 @@ const renderCallbackForm = (helpers) => {
             phone.value = '';
             time.value = '';
             note.value = '';
+            touched.name = false;
+            touched.phone = false;
+            touched.time = false;
+            button.textContent = 'Gesendet ✓';
+            window.setTimeout(() => {
+                button.textContent = previousText;
+                updateValidationUi();
+            }, 1200);
         } catch (error) {
             setStatus(error.message || 'Senden fehlgeschlagen. Bitte später erneut versuchen.', 'error');
-        } finally {
-            button.disabled = false;
             button.textContent = previousText;
+            updateValidationUi();
         }
     });
 
@@ -657,8 +834,10 @@ const renderCallbackForm = (helpers) => {
     wrapper.appendChild(note);
     wrapper.appendChild(button);
     wrapper.appendChild(status);
+    updateValidationUi();
     return wrapper;
 };
+
 
 class StudioBot {
     constructor(settings) {
@@ -684,6 +863,7 @@ class StudioBot {
         this.panel = document.getElementById('sc-container');
         this.launcher = document.getElementById('sc-launcher');
         this.body = document.getElementById('sc-body');
+        this.topicHeader = document.getElementById('sc-topic-header');
         this.dock = document.getElementById('sc-dock');
         this.headerSubtext = document.getElementById('studio-connect-subtext');
         this.toast = document.getElementById('studio-connect-toast');
@@ -713,6 +893,7 @@ class StudioBot {
             pendingTopicRetryCount: 0,
             activeTopicKey: null,
             pendingDeepLinkStepId: null,
+            listenersBound: false,
             didYouKnow: {
                 openSince: 0,
                 lastHintAt: 0,
@@ -1256,6 +1437,10 @@ class StudioBot {
     }
 
     bindEvents() {
+        if (this.ui.listenersBound) {
+            return;
+        }
+        this.ui.listenersBound = true;
         if (this.launcher) {
             this.launcher.addEventListener('click', async () => {
                 this.registerInteraction();
@@ -1359,6 +1544,7 @@ class StudioBot {
         this.clearTypewriter();
         this.ensureValidStep();
         this.updateHeaderSubtext(this.state.currentStepId);
+        this.renderTopicHeader();
         this.messages.innerHTML = '';
         if (this.ui.typingRow) {
             this.ui.typingRow = null;
@@ -1417,7 +1603,10 @@ class StudioBot {
             const card = renderContactCard(this.state, this.settings, {
                 copyToClipboard: this.copyToClipboard.bind(this),
                 registerInteraction: this.registerInteraction.bind(this),
-                showToast: this.showToast.bind(this)
+                showToast: this.showToast.bind(this),
+                ajaxUrl: this.settings.ajax_url || '/wp-admin/admin-ajax.php',
+                issueNonce: this.settings.issue_nonce || '',
+                contextKey: this.pageContext?.contextKey || 'general'
             });
             this.dock.appendChild(card);
         } else if (step && step.id === 'callback') {
@@ -2030,7 +2219,9 @@ class StudioBot {
             sf_premium: 'Premium-Studios',
             sf_feedback: 'Idee/Fehler senden',
             sf_studio_hinzufuegen: 'Studio hinzufügen',
-            sf_probleme: 'Häufige Probleme'
+            sf_probleme: 'Häufige Probleme',
+            gen_prices: 'Preise & Buyouts',
+            gen_contact: 'Kontakt'
         };
         return map[stepId] || 'Start';
     }
@@ -2408,6 +2599,171 @@ class StudioBot {
         this.options.appendChild(button);
     }
 
+
+    getTopicMeta(topicKey = '') {
+        const labelMap = {
+            sa: 'Skript-Analyse',
+            gr: 'Gagenrechner',
+            sf: 'Studio-Finder',
+            gen: 'Allgemein'
+        };
+        const prefix = (topicKey || '').split('_')[0] || 'gen';
+        return {
+            toolLabel: labelMap[prefix] || 'Allgemein',
+            topicLabel: this.getStepLabel(topicKey)
+        };
+    }
+
+    getRecentTopics() {
+        try {
+            const raw = sessionStorage.getItem(SC_RECENT_TOPICS_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed.filter((key) => this.getTopicContent(key)).slice(0, 3) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    updateRecentTopics(topicKey) {
+        if (!topicKey || !this.getTopicContent(topicKey)) {
+            return;
+        }
+        try {
+            const current = this.getRecentTopics().filter((item) => item !== topicKey);
+            const next = [topicKey, ...current].slice(0, 3);
+            sessionStorage.setItem(SC_RECENT_TOPICS_KEY, JSON.stringify(next));
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    getContextTipConfig(topicKey = '') {
+        const content = this.getTopicContent(topicKey);
+        const text = ((content?.messages || []).join(' ') || '').toLowerCase();
+        if ((topicKey === 'gr_rechte' || topicKey === 'gr_preisdetails') && /(paid|ads|social|meta)/i.test(text)) {
+            return { key: 'gr_paid_social', text: 'Tipp: Paid Social → Nutzungsrechte prüfen', topicKey: 'gr_rechte' };
+        }
+        if (topicKey === 'sa_teleprompter') {
+            return { key: 'sa_teleprompter_mode', text: 'Tipp: Studio-Mode nutzen', topicKey: 'sa_teleprompter' };
+        }
+        if ((topicKey === 'sf_probleme' || topicKey === 'sf_suche') && /(0\s*treffer|filter)/i.test(text)) {
+            return { key: 'sf_filter_reduzieren', text: 'Tipp: Filter reduzieren', topicKey: 'sf_suche' };
+        }
+        return null;
+    }
+
+    hasSeenContextTip(tipKey) {
+        if (!tipKey) {
+            return true;
+        }
+        try {
+            return sessionStorage.getItem(`${SC_CONTEXT_TIPS_SEEN_PREFIX}${tipKey}`) === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    markContextTipSeen(tipKey) {
+        if (!tipKey) {
+            return;
+        }
+        try {
+            sessionStorage.setItem(`${SC_CONTEXT_TIPS_SEEN_PREFIX}${tipKey}`, '1');
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    maybeShowContextTip(topicKey, { immediate = false } = {}) {
+        if (!this.topicHeader || !topicKey) {
+            return;
+        }
+        const tip = this.getContextTipConfig(topicKey);
+        if (!tip || this.hasSeenContextTip(tip.key)) {
+            return;
+        }
+
+        const idleFor = Date.now() - (this.ui.didYouKnow?.idleSince || Date.now());
+        if (!immediate && idleFor < 20000) {
+            return;
+        }
+
+        const container = this.topicHeader.querySelector('.sc-topic-header__tips');
+        if (!container) {
+            return;
+        }
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'sc-chip sc-chip--compact sc-context-tip';
+        chip.textContent = tip.text;
+        chip.addEventListener('click', () => {
+            this.registerInteraction();
+            this.showTopic(tip.topicKey, { replaceChat: true });
+        });
+        container.appendChild(chip);
+        this.markContextTipSeen(tip.key);
+    }
+
+    renderTopicHeader() {
+        if (!this.topicHeader) {
+            return;
+        }
+        const topicKey = this.ui.activeTopicKey;
+        if (!this.isOpen || !topicKey || !this.getTopicContent(topicKey)) {
+            this.topicHeader.innerHTML = '';
+            this.topicHeader.classList.remove('is-visible');
+            return;
+        }
+
+        const meta = this.getTopicMeta(topicKey);
+        const row = document.createElement('div');
+        row.className = 'sc-topic-header__row';
+
+        const backButton = document.createElement('button');
+        backButton.type = 'button';
+        backButton.className = 'sc-topic-back';
+        backButton.textContent = '← Zur Übersicht';
+        backButton.addEventListener('click', () => {
+            this.registerInteraction();
+            this.ui.activeTopicKey = null;
+            const hubByModule = { skriptanalyse: 'sa_hub', gagenrechner: 'gr_hub', studiofinder: 'sf_hub' };
+            this.state.currentStepId = this.isToolPage(this.pageContext)
+                ? this.resolveStepId(hubByModule[this.pageContext.moduleKey] || 'start', ['start'])
+                : 'start';
+            this.renderAndSave();
+        });
+
+        const activeChip = document.createElement('span');
+        activeChip.className = 'sc-chip sc-chip--compact sc-topic-chip';
+        activeChip.textContent = `${meta.toolLabel} · ${meta.topicLabel}`;
+
+        const recentWrap = document.createElement('div');
+        recentWrap.className = 'sc-topic-header__recent';
+        this.getRecentTopics().filter((item) => item !== topicKey).slice(0, 3).forEach((recentKey) => {
+            const recent = document.createElement('button');
+            recent.type = 'button';
+            recent.className = 'sc-chip sc-chip--compact';
+            recent.textContent = this.getStepLabel(recentKey);
+            recent.addEventListener('click', () => {
+                this.registerInteraction();
+                this.showTopic(recentKey, { replaceChat: true });
+            });
+            recentWrap.appendChild(recent);
+        });
+
+        const tipsWrap = document.createElement('div');
+        tipsWrap.className = 'sc-topic-header__tips';
+
+        row.appendChild(backButton);
+        row.appendChild(activeChip);
+        row.appendChild(recentWrap);
+        this.topicHeader.innerHTML = '';
+        this.topicHeader.appendChild(row);
+        this.topicHeader.appendChild(tipsWrap);
+        this.topicHeader.classList.add('is-visible');
+        this.maybeShowContextTip(topicKey, { immediate: true });
+    }
+
     renderTopicOptionsIfNeeded() {
         const topic = this.getTopicContent(this.ui.activeTopicKey);
         if (!topic || !this.dock) {
@@ -2618,6 +2974,7 @@ class StudioBot {
         this.chatArea = document.getElementById('studio-connect-chat-area');
         this.options = document.getElementById('studio-connect-options');
         this.body = document.getElementById('sc-body');
+        this.topicHeader = document.getElementById('sc-topic-header');
         this.dock = document.getElementById('sc-dock');
     }
 
@@ -2656,7 +3013,7 @@ class StudioBot {
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(value).then(() => {
-                this.showToast(message);
+                if (message) { this.showToast(message); }
                 this.showInlineCopyFeedback(triggerEl);
             }).catch(() => {
                 this.execCopyFallback(value, message, triggerEl);
@@ -2680,7 +3037,7 @@ class StudioBot {
             // Ignore.
         }
         document.body.removeChild(textarea);
-        this.showToast(message);
+        if (message) { this.showToast(message); }
         this.showInlineCopyFeedback(triggerEl);
     }
 
@@ -3056,6 +3413,9 @@ class StudioBot {
         const didYouKnow = this.ui.didYouKnow;
         if (!didYouKnow || !this.isOpen || didYouKnow.isEmitting) {
             return;
+        }
+        if (this.ui.activeTopicKey) {
+            this.maybeShowContextTip(this.ui.activeTopicKey);
         }
         const now = Date.now();
         if ((now - didYouKnow.openSince) < DYK_INITIAL_DELAY_MS) {
@@ -3651,6 +4011,7 @@ class StudioBot {
         this.ui.skipGreetingOnce = false;
         this.ui.pendingDeepLinkStepId = null;
         this.ui.activeTopicKey = resolvedTopicKey;
+        this.updateRecentTopics(resolvedTopicKey);
         this.state.currentStepId = 'start';
         this.state.flags = { ...this.state.flags, welcomed: true };
 
@@ -3958,17 +4319,23 @@ const initContactPrefill = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     let studioConnectBot = null;
-    const startChat = () => {
-        if (studioConnectBot) {
-            studioConnectBot.refreshDomReferences();
-            studioConnectBot.resetConversation();
-            return;
+    try {
+        const startChat = () => {
+            if (studioConnectBot) {
+                studioConnectBot.refreshDomReferences();
+                studioConnectBot.resetConversation();
+                return;
+            }
+            studioConnectBot = new StudioBot(window.sc_vars || {});
+        };
+        if (document.getElementById('sc-widget')) {
+            startChat();
         }
-        studioConnectBot = new StudioBot(window.sc_vars || {});
-    };
-    if (document.getElementById('sc-widget')) {
-        startChat();
+        initContactPrefill();
+        initLauncherAlignment();
+    } catch (error) {
+        console.error('[StudioConnect] Init fehlgeschlagen.', error);
     }
-    initContactPrefill();
-    initLauncherAlignment();
 });
+
+}
