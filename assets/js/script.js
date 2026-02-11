@@ -89,8 +89,7 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
-            { label: 'Beispiele Rechte', stepId: 'rechte_beispiele', fallbackIds: ['rechte'] },
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'Häufige Fehler', topicKey: 'gr_fehler' }
         ]
     },
     gr_preisdetails: {
@@ -100,8 +99,27 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
-            { label: 'Gagenrechner öffnen', stepId: 'preise', fallbackIds: ['rechte'] },
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'PDF Export', topicKey: 'gr_pdf' }
+        ]
+    },
+    gr_fehler: {
+        messages: [
+            'Häufige Fehler sind fehlende Laufzeit, unklare Reichweite oder nicht definierte Medien.',
+            'Wenn diese Punkte präzise sind, passt die Kalkulation deutlich besser.'
+        ],
+        options: [
+            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
+        ]
+    },
+    gr_pdf: {
+        messages: [
+            'Im PDF sicherst du die aktuelle Kalkulation für Abstimmungen und Freigaben.',
+            'Erstelle den Export erst nach finaler Rechte-Auswahl, damit alle Werte stimmen.'
+        ],
+        options: [
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
+            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' }
         ]
     },
     sf_suche: {
@@ -111,7 +129,7 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Karte & Standort', topicKey: 'sf_karte' },
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'Häufige Probleme', topicKey: 'sf_probleme' }
         ]
     },
     sf_karte: {
@@ -121,7 +139,47 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'Datenschutz', topicKey: 'sf_datenschutz' }
+        ]
+    },
+    sf_probleme: {
+        messages: [
+            'Wenn Treffer fehlen, starte mit weniger Filtern und ergänze sie Schritt für Schritt.',
+            'Aktualisiere zusätzlich Ort und Radius, dann werden Ergebnisse oft sofort besser.'
+        ],
+        options: [
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Karte & Standort', topicKey: 'sf_karte' }
+        ]
+    },
+    sf_datenschutz: {
+        messages: [
+            'Standortfreigabe ist optional und dient nur der besseren Studio-Sortierung.',
+            'Ohne Freigabe kannst du weiterhin manuell über Ort und Filter suchen.'
+        ],
+        options: [
+            { label: 'Karte & Standort', topicKey: 'sf_karte' },
+            { label: 'Suche & Filter', topicKey: 'sf_suche' }
+        ]
+    },
+    gen_prices: {
+        messages: [
+            'Gerne – ich helfe Dir bei Preisen, Buyouts und einer schnellen Orientierung.',
+            'Wenn Du magst, leite ich Dich direkt zum passenden Tool oder zum Kontakt weiter.'
+        ],
+        options: [
+            { label: 'Kontakt', topicKey: 'gen_contact' },
+            { label: 'Preise ansehen', stepId: 'preise', fallbackIds: ['rechte'] }
+        ]
+    },
+    gen_contact: {
+        messages: [
+            'Du kannst Pascal direkt über das Kontaktformular oder per E-Mail erreichen.',
+            'Ich kann Dir auch den Ablauf kurz zeigen, falls Du erst den Prozess klären möchtest.'
+        ],
+        options: [
+            { label: 'Ablauf', stepId: 'ablauf' },
+            { label: 'Kontakt öffnen', stepId: 'kontakt' }
         ]
     }
 };
@@ -619,6 +677,7 @@ class StudioBot {
             launchSoundTimer: null,
             skipGreetingOnce: false,
             pendingTopicKey: null,
+            pendingTopicRetryCount: 0,
             activeTopicKey: null,
             pendingDeepLinkStepId: null,
             didYouKnow: {
@@ -3090,6 +3149,9 @@ class StudioBot {
     }
 
     getProactiveText(context) {
+        if (context?.moduleKey === 'general') {
+            return 'Hi! Brauchst Du Hilfe auf der Seite?';
+        }
         const sharedHelpVariants = [
             'Wie kann ich Dir helfen?',
             'Brauchst Du bei einem bestimmten Thema Hilfe?',
@@ -3130,6 +3192,19 @@ class StudioBot {
     scheduleProactiveBubble() {
         if (this.proactiveTimeout) {
             window.clearTimeout(this.proactiveTimeout);
+        }
+        if (this.isOpen) {
+            return;
+        }
+        const context = this.getPageContext();
+        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
+        const shownKey = this.getLauncherHintStorageKey('shown', context);
+        try {
+            if (sessionStorage.getItem(dismissedKey) === '1' || sessionStorage.getItem(shownKey) === '1') {
+                return;
+            }
+        } catch (error) {
+            // Ignore.
         }
         this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), PROACTIVE_DELAY_MS);
     }
@@ -3188,7 +3263,7 @@ class StudioBot {
     }
 
     showProactiveBubble() {
-        if (this.isOpen) {
+        if (this.isOpen || this.proactiveBubble) {
             return;
         }
         const context = this.getPageContext();
@@ -3314,6 +3389,10 @@ class StudioBot {
     createProactiveQuickLinks(context) {
         const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
         const linksByModule = {
+            general: [
+                { label: 'Preise & Buyouts', topicKey: 'gen_prices' },
+                { label: 'Kontakt', topicKey: 'gen_contact' }
+            ],
             gagenrechner: [
                 { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
                 { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
@@ -3338,6 +3417,7 @@ class StudioBot {
             button.type = 'button';
             button.className = 'sc-proactive-link';
             button.textContent = item.label;
+            button.dataset.topic = item.topicKey;
             button.addEventListener('click', () => {
                 try {
                     sessionStorage.setItem(dismissedKey, '1');
@@ -3411,6 +3491,7 @@ class StudioBot {
     async openPortalToStep(stepId, fallbackStepIds = []) {
         const targetStepId = this.resolveStepId(stepId, fallbackStepIds);
         this.ui.pendingTopicKey = null;
+        this.ui.pendingTopicRetryCount = 0;
         this.ui.activeTopicKey = null;
         this.ui.pendingDeepLinkStepId = targetStepId;
         this.ui.skipGreetingOnce = true;
@@ -3427,24 +3508,51 @@ class StudioBot {
             return false;
         }
         const topicKey = this.ui.pendingTopicKey;
-        this.ui.pendingTopicKey = null;
-        this.ui.skipGreetingOnce = false;
 
         if (this.stepExists(topicKey)) {
+            this.ui.pendingTopicKey = null;
+            this.ui.skipGreetingOnce = false;
             this.ui.pendingDeepLinkStepId = topicKey;
             this.applyDeepLinkIfAny();
             return true;
         }
 
-        const topic = this.getTopicContent(topicKey);
+        const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
+        const topic = this.getTopicContent(resolvedTopicKey);
         if (!topic) {
+            this.ui.pendingTopicKey = null;
+            this.ui.skipGreetingOnce = false;
             return false;
         }
 
-        this.ui.activeTopicKey = topicKey;
+        if (!this.messages) {
+            this.refreshDomReferences();
+        }
+        if (!this.messages) {
+            this.renderApp();
+            const retryCount = Number(this.ui.pendingTopicRetryCount || 0);
+            if (retryCount < 2) {
+                this.ui.pendingTopicRetryCount = retryCount + 1;
+                window.requestAnimationFrame(() => this.applyPendingTopic());
+                window.setTimeout(() => this.applyPendingTopic(), 0);
+            }
+            return false;
+        }
+
+        this.ui.pendingTopicRetryCount = 0;
+        this.ui.pendingTopicKey = null;
+        this.ui.skipGreetingOnce = false;
+
+        this.ui.activeTopicKey = resolvedTopicKey;
         this.state.flags = { ...this.state.flags, welcomed: true };
         this.state.currentStepId = 'start';
-        this.state.history = [];
+        const welcomeText = this.logicTree.start?.text || '';
+        const onlyWelcomeInChat = this.state.history.length === 1
+            && this.state.history[0]?.role === 'bot'
+            && this.state.history[0]?.text === welcomeText;
+        if (!this.state.history.length || onlyWelcomeInChat) {
+            this.state.history = [];
+        }
         (topic.messages || []).forEach((message) => this.pushMessage('bot', message));
         this.renderAndSave();
         return true;
@@ -3456,13 +3564,17 @@ class StudioBot {
         }
         this.ui.pendingDeepLinkStepId = null;
         this.ui.pendingTopicKey = topicKey;
+        this.ui.pendingTopicRetryCount = 0;
         this.ui.skipGreetingOnce = true;
         if (this.isOpen) {
             this.applyPendingTopic();
+            window.requestAnimationFrame(() => this.applyPendingTopic());
+            window.setTimeout(() => this.applyPendingTopic(), 0);
             return;
         }
         await this.openPanel();
-        window.queueMicrotask(() => this.applyPendingTopic());
+        window.requestAnimationFrame(() => this.applyPendingTopic());
+        window.setTimeout(() => this.applyPendingTopic(), 0);
     }
 
     hideProactiveBubble() {
