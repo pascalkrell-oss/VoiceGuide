@@ -105,7 +105,6 @@ function scp_enqueue_assets(): void
     $settings = [
         'ajax_url' => admin_url('admin-ajax.php'),
         'callback_nonce' => wp_create_nonce('scp_callback_request'),
-        'issue_nonce' => wp_create_nonce('scp_report_issue'),
         'email' => get_option('studio_connect_contact_email', ''),
         'phone' => get_option('studio_connect_contact_phone', ''),
         'whatsapp' => get_option('studio_connect_contact_whatsapp', ''),
@@ -156,8 +155,6 @@ add_action('wp_enqueue_scripts', 'scp_enqueue_assets');
 
 add_action('wp_ajax_scp_callback_request', 'scp_callback_request_handler');
 add_action('wp_ajax_nopriv_scp_callback_request', 'scp_callback_request_handler');
-add_action('wp_ajax_scp_report_issue', 'scp_report_issue_handler');
-add_action('wp_ajax_nopriv_scp_report_issue', 'scp_report_issue_handler');
 
 function scp_callback_request_handler(): void
 {
@@ -215,53 +212,6 @@ function scp_callback_request_handler(): void
     }
 
     wp_send_json_success(['message' => 'Danke! Rückrufwunsch ist eingegangen.']);
-}
-
-function scp_report_issue_handler(): void
-{
-    check_ajax_referer('scp_report_issue', 'security');
-
-    $type = isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : '';
-    $url = isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '';
-    $context_key = isset($_POST['contextKey']) ? sanitize_text_field(wp_unslash($_POST['contextKey'])) : 'general';
-    $allowed_types = ['Bug', 'Idee', 'Datenfehler'];
-
-    if (!in_array($type, $allowed_types, true)) {
-        wp_send_json_error(['message' => 'Bitte einen gültigen Meldungstyp wählen.'], 400);
-    }
-
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
-    $rate_key = 'scp_issue_' . md5($ip);
-    $count = (int) get_transient($rate_key);
-
-    if ($count >= 5) {
-        wp_send_json_error(['message' => 'Zu viele Meldungen. Bitte später erneut versuchen.'], 429);
-    }
-
-    set_transient($rate_key, $count + 1, HOUR_IN_SECONDS);
-
-    $to = get_option('studio_connect_contact_email');
-    if (!$to || !is_email($to)) {
-        $to = get_option('admin_email');
-    }
-
-    $subject = '[Studio Assistenz] Fehler melden: ' . $type;
-    $timestamp = wp_date('d.m.Y H:i:s');
-    $lines = [
-        'Typ: ' . $type,
-        'URL: ' . ($url !== '' ? $url : '-'),
-        'Kontext: ' . ($context_key !== '' ? $context_key : 'general'),
-        'Timestamp: ' . $timestamp,
-    ];
-
-    $body = implode("\n", $lines) . "\n\nHinweis: Diese Meldung wurde über den 2-Klick-Flow im Studio Assistenz Portal gesendet.";
-    $sent = wp_mail($to, $subject, $body, ['Content-Type: text/plain; charset=UTF-8']);
-
-    if (!$sent) {
-        wp_send_json_error(['message' => 'Meldung konnte nicht gesendet werden. Bitte später erneut versuchen.'], 500);
-    }
-
-    wp_send_json_success(['message' => 'Danke! Meldung wurde an das Team gesendet.']);
 }
 
 /**

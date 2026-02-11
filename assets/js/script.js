@@ -53,8 +53,8 @@ const TOPIC_CONTENT = {
     },
     sa_analyseboxen: {
         messages: [
-            'Analyseboxen sind deine Checkliste: Sie zeigen dir sofort, wo Lesefluss und Betonung kippen könnten.',
-            'Tipp: Erst die Basics (Tempo/Pausen/CTA), dann Detailboxen – so sparst du Zeit.'
+            'Analyseboxen sind Deine Checkliste: Sie zeigen Dir sofort, wo Lesefluss und Betonung kippen könnten.',
+            'Tipp: Erst die Basics (Tempo/Pausen/CTA), dann Detailboxen – so sparst Du Zeit.'
         ],
         options: [
             { label: 'Schnellstart', topicKey: 'sa_quickstart' },
@@ -107,7 +107,7 @@ const TOPIC_CONTENT = {
     gr_preisdetails: {
         messages: [
             'Preisdetails erklären den Rechenweg: Basis + Rechte + Add-ons = Endsumme.',
-            'Tipp: Rechte zuerst finalisieren – Add-ons erst danach, sonst rechnest du doppelt.'
+            'Tipp: Rechte zuerst finalisieren – Add-ons erst danach, sonst rechnest Du doppelt.'
         ],
         options: [
             { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
@@ -148,7 +148,7 @@ const TOPIC_CONTENT = {
     },
     sf_karte: {
         messages: [
-            'Standort: Wenn dein Browser den Standort blockiert, nutze stattdessen Filter + Trefferliste.',
+            'Standort: Wenn Dein Browser den Standort blockiert, nutze stattdessen Filter + Trefferliste.',
             'Datenschutz: Standort wird nur für die Anzeige genutzt – nichts wird dauerhaft gespeichert.'
         ],
         options: [
@@ -158,7 +158,7 @@ const TOPIC_CONTENT = {
     },
     sf_probleme: {
         messages: [
-            '0 Treffer ist fast immer „zu eng gefiltert“. Nimm 2 Filter raus und taste dich wieder vor.',
+            '0 Treffer ist fast immer „zu eng gefiltert“. Nimm 2 Filter raus und taste Dich wieder vor.',
             'Tipp: Erst Leistung (z.B. „Remote Recording“), dann Equipment – so bleibt die Liste sinnvoll.'
         ],
         options: [
@@ -171,24 +171,12 @@ const TOPIC_CONTENT = {
         messages: [
             'Du vermisst ein Studio? Schick mir kurz die wichtigsten Infos – ich prüfe das und ergänze den Eintrag.',
             'Am besten: Studio-Name, Ort, Website-Link und welche Leistungen (z.B. Remote, Source-Connect, Regie).',
-            'Tipp: Wenn du Referenzen/Beispiele hast, gerne als Link – das beschleunigt die Freigabe.'
+            'Tipp: Wenn Du Referenzen/Beispiele hast, gerne als Link – das beschleunigt die Freigabe.'
         ],
         options: [
-            { label: 'Idee/Fehler senden', stepId: 'sf_feedback' },
             { label: 'Kontakt', stepId: 'kontakt' }
         ]
     },
-    sf_feedback: {
-        messages: [
-            'Feedback wirkt am besten mit kurzer Schrittfolge, damit ein Problem sofort reproduzierbar wird.',
-            'Nenne Browser und Gerät direkt mit, damit der Fix ohne Rückfragen priorisiert werden kann.'
-        ],
-        options: [
-            { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Studio hinzufügen', topicKey: 'sf_studio_hinzufuegen' }
-        ]
-    },
-
     gen_prices: {
         messages: [
             'Preise hängen primär an Einsatz, Laufzeit und Kanälen; die reine Aufnahme ist selten der größte Anteil.',
@@ -428,109 +416,6 @@ const renderContactCard = (state, sc_vars, helpers) => {
         hint.textContent = 'Tippe, um die Daten zu kopieren.';
         wrapper.appendChild(hint);
     }
-
-    const issueFlow = document.createElement('div');
-    issueFlow.className = 'sc-issue-flow';
-    const issueTitle = document.createElement('div');
-    issueTitle.className = 'sc-issue-flow__title';
-    issueTitle.textContent = 'Fehler melden (2 Klicks)';
-    issueFlow.appendChild(issueTitle);
-
-    const issueTypeRow = document.createElement('div');
-    issueTypeRow.className = 'sc-chip-wrap';
-    const issueStatus = document.createElement('div');
-    issueStatus.className = 'sc-callback-status';
-    const sendButton = document.createElement('button');
-    sendButton.type = 'button';
-    sendButton.className = 'sc-chip sc-issue-send';
-    sendButton.textContent = 'Per Mail senden';
-    sendButton.disabled = true;
-
-    const issuePreview = document.createElement('div');
-    issuePreview.className = 'sc-issue-flow__preview';
-    issuePreview.textContent = 'Wähle zuerst den Typ: Bug, Idee oder Datenfehler.';
-
-    const types = ['Bug', 'Idee', 'Datenfehler'];
-    let selectedType = '';
-    const setIssueStatus = (message, type = '') => {
-        issueStatus.className = `sc-callback-status ${type ? `is-${type}` : ''}`.trim();
-        issueStatus.textContent = message || '';
-    };
-
-    const updateIssueUi = () => {
-        sendButton.disabled = !selectedType;
-        issuePreview.textContent = selectedType
-            ? `Melde-Typ: ${selectedType}. Die Mail enthält URL, Kontext und Zeitstempel.`
-            : 'Wähle zuerst den Typ: Bug, Idee oder Datenfehler.';
-    };
-
-    types.forEach((type) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'sc-chip sc-chip--compact';
-        button.textContent = type;
-        button.addEventListener('click', () => {
-            helpers.registerInteraction();
-            selectedType = type;
-            issueTypeRow.querySelectorAll('.sc-chip').forEach((chip) => chip.classList.remove('is-active'));
-            button.classList.add('is-active');
-            updateIssueUi();
-            setIssueStatus('', '');
-        });
-        issueTypeRow.appendChild(button);
-    });
-
-    sendButton.addEventListener('click', async () => {
-        helpers.registerInteraction();
-        if (!selectedType) {
-            setIssueStatus('Bitte zuerst einen Typ wählen.', 'error');
-            return;
-        }
-        const previousText = sendButton.textContent;
-        sendButton.disabled = true;
-        sendButton.textContent = 'Wird gesendet…';
-        setIssueStatus('', '');
-
-        try {
-            const body = new URLSearchParams();
-            body.set('action', 'scp_report_issue');
-            body.set('security', helpers.issueNonce || '');
-            body.set('type', selectedType);
-            body.set('url', window.location.href);
-            body.set('contextKey', helpers.contextKey || 'general');
-
-            const response = await fetch(helpers.ajaxUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                body: body.toString()
-            });
-            const payload = await response.json();
-            if (!response.ok || !payload.success) {
-                throw new Error(payload?.data?.message || 'Senden fehlgeschlagen.');
-            }
-            setIssueStatus(payload?.data?.message || 'Danke! Meldung wurde gesendet.', 'success');
-            sendButton.textContent = 'Gesendet ✓';
-        } catch (error) {
-            setIssueStatus(error.message || 'Senden fehlgeschlagen. Bitte später erneut versuchen.', 'error');
-            sendButton.textContent = previousText;
-            sendButton.disabled = false;
-            return;
-        }
-
-        window.setTimeout(() => {
-            selectedType = '';
-            issueTypeRow.querySelectorAll('.sc-chip').forEach((chip) => chip.classList.remove('is-active'));
-            sendButton.textContent = 'Per Mail senden';
-            updateIssueUi();
-        }, 1300);
-    });
-
-    updateIssueUi();
-    issueFlow.appendChild(issueTypeRow);
-    issueFlow.appendChild(issuePreview);
-    issueFlow.appendChild(sendButton);
-    issueFlow.appendChild(issueStatus);
-    wrapper.appendChild(issueFlow);
 
     return wrapper;
 };
@@ -994,7 +879,6 @@ class StudioBot {
             sf_suche: this.getStepConfig('sf_suche'),
             sf_karte: this.getStepConfig('sf_karte'),
             sf_premium: this.getStepConfig('sf_premium'),
-            sf_feedback: this.getStepConfig('sf_feedback'),
             sf_studio_hinzufuegen: this.getStepConfig('sf_studio_hinzufuegen'),
             sf_probleme: this.getStepConfig('sf_probleme')
         };
@@ -1252,7 +1136,6 @@ class StudioBot {
                         { label: 'Karte & Standort', userPromptText: 'Karte & Standort öffnen.', nextId: 'sf_karte' },
                         { label: 'Premium-Studios', userPromptText: 'Premium-Studios anzeigen.', nextId: 'sf_premium' },
                         { label: 'Studio hinzufügen', userPromptText: 'Studio hinzufügen.', topicKey: 'sf_studio_hinzufuegen' },
-                        { label: 'Idee/Fehler senden', userPromptText: 'Idee/Fehler senden.', nextId: 'sf_feedback' },
                         { label: 'Häufige Probleme', userPromptText: 'Häufige Probleme.', nextId: 'sf_probleme' },
                     ]
                 };
@@ -1392,14 +1275,6 @@ class StudioBot {
                     'Vergleich trotzdem mit Standard-Treffern durchführen.',
                     'Kontaktwege pro Studio direkt dokumentieren.'
                 ]), id: 'sf_premium' };
-            case 'sf_feedback':
-                return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
-                    'Ideen und Fehler direkt über Feedback melden.',
-                    'Kurze Beschreibung mit Schrittfolge hilft bei Prüfung.',
-                    'Bei Bugs Browser und Gerät mit angeben.',
-                    'Screenshots beschleunigen die Einordnung.',
-                    'Rückmeldungen verbessern Suchqualität nachhaltig.'
-                ]), id: 'sf_feedback' };
             case 'sf_studio_hinzufuegen':
                 return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
                     'Du vermisst ein Studio? Schick uns die wichtigsten Daten zur Prüfung.',
@@ -1412,7 +1287,6 @@ class StudioBot {
                     'Karte lädt nicht: Standortberechtigung und Browser prüfen.',
                     'Langsame Suche: Filter reduzieren und neu starten.',
                     'Ungenaue Ergebnisse: Ort präzisieren.',
-                    'Persistente Fehler über Feedback melden.'
                 ]), id: 'sf_probleme' };
             default:
                 return {
@@ -1605,7 +1479,6 @@ class StudioBot {
                 registerInteraction: this.registerInteraction.bind(this),
                 showToast: this.showToast.bind(this),
                 ajaxUrl: this.settings.ajax_url || '/wp-admin/admin-ajax.php',
-                issueNonce: this.settings.issue_nonce || '',
                 contextKey: this.pageContext?.contextKey || 'general'
             });
             this.dock.appendChild(card);
@@ -2217,7 +2090,6 @@ class StudioBot {
             sf_suche: 'Suche & Filter',
             sf_karte: 'Karte & Standort',
             sf_premium: 'Premium-Studios',
-            sf_feedback: 'Idee/Fehler senden',
             sf_studio_hinzufuegen: 'Studio hinzufügen',
             sf_probleme: 'Häufige Probleme',
             gen_prices: 'Preise & Buyouts',
@@ -3401,7 +3273,6 @@ class StudioBot {
                 { id: 'sf_suche', text: 'Wusstest Du schon…? Mit weniger, aber präzisen Filtern findest Du oft schneller passende Studios.' },
                 { id: 'sf_karte', text: 'Wusstest Du schon…? Mit aktivierter Standortfreigabe wird die Nähe-Sortierung deutlich genauer.' },
                 { id: 'sf_premium', text: 'Wusstest Du schon…? Premium-Badges helfen bei der Vorauswahl, wenn Du verlässliche Setups priorisieren willst.' },
-                { id: 'sf_feedback', text: 'Wusstest Du schon…? Kurzes Feedback zu Treffern verbessert die Ergebnisqualität für spätere Suchen.' }
             ],
             general: [
                 { id: 'general_focus', text: 'Wusstest Du schon…? Je genauer Dein Ziel in 1–2 Sätzen beschrieben ist, desto schneller komme ich zum passenden nächsten Schritt.' }
@@ -3636,11 +3507,11 @@ class StudioBot {
         const copyByContext = {
             skriptanalyse: {
                 title: 'Kurze Hilfe zur Skript-Analyse?',
-                subtitle: 'Wähle ein Thema – ich zeige dir den schnellsten Einstieg.'
+                subtitle: 'Wähle ein Thema – ich zeige Dir den schnellsten Einstieg.'
             },
             gagenrechner: {
                 title: 'Hilfe zum Gagenrechner?',
-                subtitle: 'Klick ein Thema – ich erkläre dir die wichtigsten Stellschrauben.'
+                subtitle: 'Klick ein Thema – ich erkläre Dir die wichtigsten Stellschrauben.'
             },
             studiofinder: {
                 title: 'Studio-Finder Hilfe?',
@@ -3648,7 +3519,7 @@ class StudioBot {
             },
             general: {
                 title: 'Hi! Brauchst Du Hilfe?',
-                subtitle: 'Klick – ich führe dich zu den wichtigsten Infos.'
+                subtitle: 'Klick – ich führe Dich zu den wichtigsten Infos.'
             }
         };
         const contextKey = copyByContext[context?.moduleKey] ? context.moduleKey : 'general';
