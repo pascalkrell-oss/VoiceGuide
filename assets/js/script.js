@@ -19,10 +19,9 @@ const SC_LAUNCHER_HINT_DISMISSED_KEY = 'sc_launcher_hint_dismissed';
 const SC_DYK_COUNT_KEY = 'sc_dyk_count';
 const SC_DYK_LAST_KEY = 'sc_dyk_last';
 const SC_DYK_SEEN_IDS_KEY = 'sc_dyk_seen_ids';
-const SC_COPY_BADGE_TIMEOUT_MS = 1600;
 const PROACTIVE_DELAY_MS = 14000;
 const DYK_INITIAL_DELAY_MS = 75000;
-const DYK_IDLE_MS = 20000;
+const DYK_IDLE_MS = 25000;
 const DYK_MIN_INTERVAL_MS = 300000;
 const DYK_MAX_PER_SESSION = 3;
 const DYK_CHECK_INTERVAL_MS = 10000;
@@ -35,28 +34,31 @@ const SC_GENERAL_HINT_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 const TOPIC_CONTENT = {
     sa_quickstart: {
         messages: [
-            'Schnelleinstieg (Skript-Analyse): Text einfügen → Analyse starten → Ergebnisse lesen.',
-            'Tipp: Starte mit Sprechdauer & Tempo und arbeite dich dann zu den Analyseboxen vor.'
+            'Schnelleinstieg: Skript einfügen → Analyse starten → die 3 wichtigsten Werte prüfen (Sprechdauer, Tempo, Pausen).',
+            'Danach: Rhythmus und CTA checken – das bringt sofort mehr Wirkung im Voice-Take.'
         ],
         options: [
             { label: 'Analyseboxen', topicKey: 'sa_analyseboxen' },
             { label: 'Teleprompter', topicKey: 'sa_teleprompter' },
-            { label: 'PDF Export', topicKey: 'sa_pdf' }
+            { label: 'PDF Export', topicKey: 'sa_pdf' },
+            { label: 'Sprechdauer & Tempo', topicKey: 'sa_sprechdauer' }
         ]
     },
     sa_analyseboxen: {
         messages: [
-            'Analyseboxen liefern dir schnelle Hinweise zu Wirkung, Struktur und Lesefluss.',
-            'Tipp: Erst die Basics (Tempo/Pausen/CTA), danach die Detailboxen.'
+            'Analyseboxen sind deine Checkliste: Sie zeigen dir sofort, wo Lesefluss und Betonung kippen könnten.',
+            'Tipp: Erst die Basics (Tempo/Pausen/CTA), dann Detailboxen – so sparst du Zeit.'
         ],
         options: [
-            { label: 'Schnellstart', topicKey: 'sa_quickstart' }
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'Sprechdauer & Tempo', topicKey: 'sa_sprechdauer' },
+            { label: 'Teleprompter', topicKey: 'sa_teleprompter' }
         ]
     },
     sa_teleprompter: {
         messages: [
-            'Teleprompter-Modus: Große Zeilen, klare Segmente und gleichmäßiger Lesefluss.',
-            'Nutze kurze Satzblöcke und markiere Betonungen, damit die Aufnahme natürlicher klingt.'
+            'Teleprompter ist am stärksten mit kurzen Sinnblöcken und klar gesetzten Pausenmarken im Skript.',
+            'Setze pro Zeile nur einen Schwerpunkt, damit Timing und Betonung in der Aufnahme stabil bleiben.'
         ],
         options: [
             { label: 'Schnellstart', topicKey: 'sa_quickstart' },
@@ -65,56 +67,126 @@ const TOPIC_CONTENT = {
     },
     sa_pdf: {
         messages: [
-            'PDF Export bündelt Kernergebnisse, sodass du Analyse und nächste Schritte direkt teilen kannst.',
-            'Exportiere am besten nach der finalen Analyse, damit alle Kennzahlen aktuell sind.'
+            'PDF Export sichert den aktuellen Analyse-Stand für Freigabe, Abnahme und späteren Vergleich.',
+            'Exportiere immer nach der finalen Korrekturschleife, damit Kennzahlen und Empfehlungen zusammenpassen.'
         ],
         options: [
-            { label: 'Schnellstart', topicKey: 'sa_quickstart' }
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'Analyseboxen', topicKey: 'sa_analyseboxen' }
+        ]
+    },
+    sa_sprechdauer: {
+        messages: [
+            'Sprechdauer und Tempo zuerst kalibrieren, weil sie direkt auf Schnitt, Musikbett und CTA-Timing wirken.',
+            'Für Versionen mit gleichem Inhalt lieber über Tempo feinjustieren als Inhalte zu kürzen.'
+        ],
+        options: [
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'PDF Export', topicKey: 'sa_pdf' }
         ]
     },
 
     gr_rechte: {
         messages: [
-            'Nutzungsrechte & Buyouts: Gebiet + Laufzeit + Plattform bestimmen den größten Teil der Kalkulation.',
-            'Tipp: Wenn du unsicher bist, lieber etwas großzügiger planen als zu klein ansetzen.'
+            'Nutzungsrechte sind der größte Preishebel: Gebiet + Laufzeit + Kanäle bestimmen den Buyout.',
+            'Praxis-Tipp: Wenn der Kunde „Social“ sagt, kläre ob Ads (Paid) dabei sind – das ist ein Unterschied.'
         ],
         options: [
-            { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
+            { label: 'Häufige Fehler', topicKey: 'gr_fehler' },
+            { label: 'PDF Export', topicKey: 'gr_pdf' }
         ]
     },
     gr_preisdetails: {
         messages: [
-            'Preisdetails zeigen dir den Rechenweg: Basis + Rechte + Add-ons = Endsumme.',
-            'Tipp: Prüfe zuerst die Rechte, danach Add-ons wie Cutdowns/Pickups.'
+            'Preisdetails erklären den Rechenweg: Basis + Rechte + Add-ons = Endsumme.',
+            'Tipp: Rechte zuerst finalisieren – Add-ons erst danach, sonst rechnest du doppelt.'
         ],
         options: [
+            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
+            { label: 'Häufige Fehler', topicKey: 'gr_fehler' }
+        ]
+    },
+    gr_fehler: {
+        messages: [
+            'Die häufigsten Fehler sind vermischte Laufzeiten, unklare Kanäle und nicht getrennte Paid/Organic-Nutzung.',
+            'Arbeite immer in dieser Reihenfolge: Projektart → Rechte → Add-ons, dann bleibt die Kalkulation belastbar.'
+        ],
+        options: [
+            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
+        ]
+    },
+    gr_pdf: {
+        messages: [
+            'PDF Export ist ideal für interne Freigaben, weil alle Preisbausteine und Rechte kompakt dokumentiert sind.',
+            'Versioniere Exporte mit Datum, damit Änderungsrunden mit Kunden nachvollziehbar bleiben.'
+        ],
+        options: [
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
             { label: 'Nutzungsrechte', topicKey: 'gr_rechte' }
         ]
     },
 
     sf_suche: {
         messages: [
-            'Suche & Filter: Starte mit 1–2 Filtern und verfeinere dann schrittweise.',
-            'Tipp: Zu viele Filter gleichzeitig führen oft zu 0 Treffern.'
+            'Schneller finden: Starte mit 1–2 Filtern (z.B. „Remote“ + „Source-Connect“) und verfeinere erst dann.',
+            'Wenn 0 Treffer: entferne zuerst „Ausstattung“ – die ist meist der härteste Filter.'
         ],
         options: [
-            { label: 'Karte & Standort', topicKey: 'sf_karte' }
+            { label: 'Karte & Standort', topicKey: 'sf_karte' },
+            { label: 'Häufige Probleme', topicKey: 'sf_probleme' },
+            { label: 'Import/Export', topicKey: 'sf_importexport' }
         ]
     },
     sf_karte: {
         messages: [
-            'Karte & Standort: Wenn Standort blockiert ist, nutze die Filter statt der Nähe-Suche.',
-            'Tipp: Datenschutz: Standort wird nur für die Anzeige genutzt (keine dauerhafte Speicherung).'
+            'Standort: Wenn dein Browser den Standort blockiert, nutze stattdessen Filter + Trefferliste.',
+            'Datenschutz: Standort wird nur für die Anzeige genutzt – nichts wird dauerhaft gespeichert.'
         ],
         options: [
-            { label: 'Suche & Filter', topicKey: 'sf_suche' }
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Häufige Probleme', topicKey: 'sf_probleme' }
+        ]
+    },
+    sf_probleme: {
+        messages: [
+            '0 Treffer ist fast immer „zu eng gefiltert“. Nimm 2 Filter raus und taste dich wieder vor.',
+            'Tipp: Erst Leistung (z.B. „Remote Recording“), dann Equipment – so bleibt die Liste sinnvoll.'
+        ],
+        options: [
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Karte & Standort', topicKey: 'sf_karte' },
+            { label: 'Import/Export', topicKey: 'sf_importexport' }
+        ]
+    },
+    sf_importexport: {
+        messages: [
+            'Import/Export hilft, viele Studios gesammelt zu pflegen: Export zum Backup/Abgleich, Import für Bulk-Updates.',
+            'Praxis-Tipp: Vor einem großen Import immer erst einen Export machen – damit du jederzeit zurück kannst.',
+            'Wenn Import fehlschlägt: prüfe Pflichtfelder (Name/Ort) und ob Trennzeichen/Encoding stimmt.'
+        ],
+        options: [
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Feedback', topicKey: 'sf_feedback' },
+            { label: 'Häufige Probleme', topicKey: 'sf_probleme' }
+        ]
+    },
+    sf_feedback: {
+        messages: [
+            'Feedback wirkt am besten mit kurzer Schrittfolge, damit ein Problem sofort reproduzierbar wird.',
+            'Nenne Browser und Gerät direkt mit, damit der Fix ohne Rückfragen priorisiert werden kann.'
+        ],
+        options: [
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Import/Export', topicKey: 'sf_importexport' }
         ]
     },
 
     gen_prices: {
         messages: [
-            'Preise & Buyouts: Der wichtigste Faktor sind Nutzungsrechte (Gebiet + Laufzeit + Medien).',
-            'Tipp: Für Social/Ads gelten oft andere Rechte als für reine Website-Nutzung.'
+            'Preise hängen primär an Einsatz, Laufzeit und Kanälen; die reine Aufnahme ist selten der größte Anteil.',
+            'Kläre vorab Paid/Organic und Gebiet, damit die erste Kalkulation direkt verwertbar ist.'
         ],
         options: [
             { label: 'Kontakt', topicKey: 'gen_contact' }
@@ -122,8 +194,8 @@ const TOPIC_CONTENT = {
     },
     gen_contact: {
         messages: [
-            'Kontakt: Wenn du ein kurzes Briefing sendest, kann ich schneller und passender antworten.',
-            'Tipp: Einsatz, Gebiet und Laufzeit reichen oft schon für eine erste Einschätzung.'
+            'Mit kurzem Briefing (Einsatz, Laufzeit, Kanal) sind Rückmeldung und Angebot deutlich schneller präzise.',
+            'Schicke bei Bedarf ein Referenzbeispiel mit, damit Tonalität und Zielbild sofort klar sind.'
         ],
         options: []
     }
@@ -302,7 +374,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         emailBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></span><span class="sc-contact-label">E-Mail: ${sc_vars.email}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         emailBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert');
+            helpers.copyToClipboard(sc_vars.email, 'E-Mail-Adresse kopiert', emailBtn);
         });
         actions.appendChild(emailBtn);
     }
@@ -314,7 +386,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
         phoneBtn.innerHTML = `<span class="sc-contact-icon"><i class="fa-solid fa-phone" aria-hidden="true"></i></span><span class="sc-contact-label">Telefon: ${sc_vars.phone}</span><span class="sc-contact-spacer" aria-hidden="true"></span>`;
         phoneBtn.addEventListener('click', () => {
             helpers.registerInteraction();
-            helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert');
+            helpers.copyToClipboard(sc_vars.phone, 'Telefonnummer kopiert', phoneBtn);
         });
         actions.appendChild(phoneBtn);
         hasCopyAction = true;
@@ -332,10 +404,10 @@ const renderContactCard = (state, sc_vars, helpers) => {
             if (digits) {
                 const popup = window.open(`https://wa.me/${encodeURIComponent(digits)}`, '_blank', 'noopener');
                 if (!popup) {
-                    helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert');
+                    helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert', whatsappBtn);
                 }
             } else {
-                helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert');
+                helpers.copyToClipboard(whatsappValue, 'WhatsApp-Nummer kopiert', whatsappBtn);
             }
         });
         actions.appendChild(whatsappBtn);
@@ -480,6 +552,12 @@ const renderCallbackForm = (helpers) => {
     const grid = document.createElement('div');
     grid.className = 'sc-callback-grid';
 
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.name = 'name';
+    name.placeholder = 'Name';
+    name.className = 'sc-callback-input';
+
     const phone = document.createElement('input');
     phone.type = 'tel';
     phone.name = 'phone';
@@ -491,6 +569,7 @@ const renderCallbackForm = (helpers) => {
     time.name = 'time';
     time.className = 'sc-callback-input';
 
+    grid.appendChild(name);
     grid.appendChild(phone);
     grid.appendChild(time);
 
@@ -516,9 +595,15 @@ const renderCallbackForm = (helpers) => {
     button.addEventListener('click', async () => {
         helpers.registerInteraction();
         setStatus('', '');
+        const nameValue = (name.value || '').trim();
         const phoneValue = (phone.value || '').trim();
         const timeValue = (time.value || '').trim();
         const noteValue = (note.value || '').trim().slice(0, 240);
+
+        if (nameValue.length < 2) {
+            setStatus('Bitte einen Namen mit mindestens 2 Zeichen eingeben.', 'error');
+            return;
+        }
 
         if (!/^[0-9+\-\s()]{7,}$/.test(phoneValue)) {
             setStatus('Bitte eine gültige Telefonnummer eingeben.', 'error');
@@ -538,6 +623,7 @@ const renderCallbackForm = (helpers) => {
             const body = new URLSearchParams();
             body.set('action', 'scp_callback_request');
             body.set('security', helpers.nonce || '');
+            body.set('name', nameValue);
             body.set('phone', phoneValue);
             body.set('time', timeValue);
             body.set('note', noteValue);
@@ -555,6 +641,7 @@ const renderCallbackForm = (helpers) => {
             }
 
             setStatus(payload.data?.message || 'Danke! Rückrufwunsch ist eingegangen.', 'success');
+            name.value = '';
             phone.value = '';
             time.value = '';
             note.value = '';
@@ -632,6 +719,7 @@ class StudioBot {
                 lastHintAt: 0,
                 shownCount: 0,
                 idleSince: Date.now(),
+                lastInteractionAt: Date.now(),
                 timerId: null,
                 isEmitting: false,
                 seenIds: []
@@ -655,7 +743,6 @@ class StudioBot {
         this.searchResults = null;
         this.searchTrigger = null;
         this.handleDocumentMouseDown = null;
-        this.copyBadgeTimer = null;
         this.hintOverlay = null;
 
         if (this.resetRequested) {
@@ -1212,7 +1299,7 @@ class StudioBot {
                 if (!value) {
                     return;
                 }
-                this.copyToClipboard(value, 'Kopiert');
+                this.copyToClipboard(value, 'Kopiert', target);
             });
         }
 
@@ -1366,7 +1453,11 @@ class StudioBot {
                         briefingValue: button.dataset.briefingValue || undefined,
                         returnToStepId: button.dataset.returnToStepId || undefined
                     };
-                    this.handleOption(option);
+                    if (option.topicKey) {
+                this.showTopic(option.topicKey, { replaceChat: true });
+                return;
+            }
+            this.handleOption(option);
                 });
                 this.dock.appendChild(optionsContainer);
                 this.options = optionsContainer;
@@ -1407,7 +1498,11 @@ class StudioBot {
                         briefingValue: button.dataset.briefingValue || undefined,
                         returnToStepId: button.dataset.returnToStepId || undefined
                     };
-                    this.handleOption(option);
+                    if (option.topicKey) {
+                this.showTopic(option.topicKey, { replaceChat: true });
+                return;
+            }
+            this.handleOption(option);
                 });
                 this.dock.appendChild(optionsContainer);
                 this.options = optionsContainer;
@@ -1437,7 +1532,11 @@ class StudioBot {
                         briefingValue: button.dataset.briefingValue || undefined,
                         returnToStepId: button.dataset.returnToStepId || undefined
                     };
-                this.handleOption(option);
+                if (option.topicKey) {
+                this.showTopic(option.topicKey, { replaceChat: true });
+                return;
+            }
+            this.handleOption(option);
             });
             this.dock.appendChild(optionsContainer);
             this.options = optionsContainer;
@@ -1532,7 +1631,7 @@ class StudioBot {
         }
 
         if (option.topicKey) {
-            await this.openPortalToTopic(option.topicKey);
+            await this.showTopic(option.topicKey, { replaceChat: true });
             this.setOptionsDisabled(false);
             return;
         }
@@ -1555,7 +1654,11 @@ class StudioBot {
         }
 
         if (option.nextId) {
-            await this.advanceToStep(option.nextId);
+            if (this.getTopicContent(option.nextId)) {
+                await this.showTopic(option.nextId, { replaceChat: true });
+            } else {
+                await this.advanceToStep(option.nextId);
+            }
             this.setOptionsDisabled(false);
             return;
         }
@@ -2151,7 +2254,9 @@ class StudioBot {
         if (!this.ui?.didYouKnow) {
             return;
         }
-        this.ui.didYouKnow.idleSince = Date.now();
+        const now = Date.now();
+        this.ui.didYouKnow.idleSince = now;
+        this.ui.didYouKnow.lastInteractionAt = now;
     }
 
     unlockLauncherHintSound() {
@@ -2333,6 +2438,10 @@ class StudioBot {
                 briefingValue: button.dataset.briefingValue || undefined,
                 returnToStepId: button.dataset.returnToStepId || undefined
             };
+            if (option.topicKey) {
+                this.showTopic(option.topicKey, { replaceChat: true });
+                return;
+            }
             this.handleOption(option);
         });
         this.dock.appendChild(optionsContainer);
@@ -2544,23 +2653,23 @@ class StudioBot {
         alignLauncherToSavedButton();
     }
 
-    copyToClipboard(value, message) {
+    copyToClipboard(value, message, triggerEl = null) {
         if (!value) {
             return;
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(value).then(() => {
                 this.showToast(message);
-                this.showCopyFeedbackBadge();
+                this.showInlineCopyFeedback(triggerEl);
             }).catch(() => {
-                this.execCopyFallback(value, message);
+                this.execCopyFallback(value, message, triggerEl);
             });
             return;
         }
-        this.execCopyFallback(value, message);
+        this.execCopyFallback(value, message, triggerEl);
     }
 
-    execCopyFallback(value, message) {
+    execCopyFallback(value, message, triggerEl = null) {
         const textarea = document.createElement('textarea');
         textarea.value = value;
         textarea.style.position = 'fixed';
@@ -2575,20 +2684,21 @@ class StudioBot {
         }
         document.body.removeChild(textarea);
         this.showToast(message);
-        this.showCopyFeedbackBadge();
+        this.showInlineCopyFeedback(triggerEl);
     }
 
-    showCopyFeedbackBadge() {
-        if (!this.homeButton) {
+    showInlineCopyFeedback(el) {
+        if (!el || !el.classList) {
             return;
         }
-        this.homeButton.classList.add('has-copy-feedback');
-        if (this.copyBadgeTimer) {
-            window.clearTimeout(this.copyBadgeTimer);
-        }
-        this.copyBadgeTimer = window.setTimeout(() => {
-            this.homeButton.classList.remove('has-copy-feedback');
-        }, SC_COPY_BADGE_TIMEOUT_MS);
+        el.classList.add('sc-copied');
+        el.dataset.copied = 'Kopiert';
+        window.setTimeout(() => {
+            el.classList.remove('sc-copied');
+            if (el.dataset) {
+                delete el.dataset.copied;
+            }
+        }, 1200);
     }
 
     async maybeShowGreeting() {
@@ -2868,6 +2978,7 @@ class StudioBot {
         const didYouKnow = this.ui.didYouKnow;
         didYouKnow.openSince = Date.now();
         didYouKnow.idleSince = Date.now();
+        didYouKnow.lastInteractionAt = Date.now();
         didYouKnow.shownCount = this.loadSessionNumber(SC_DYK_COUNT_KEY);
         didYouKnow.lastHintAt = this.loadSessionNumber(SC_DYK_LAST_KEY);
         try {
@@ -2885,6 +2996,7 @@ class StudioBot {
         }
         didYouKnow.openSince = Date.now();
         didYouKnow.idleSince = Date.now();
+        didYouKnow.lastInteractionAt = Date.now();
         if (didYouKnow.timerId) {
             window.clearInterval(didYouKnow.timerId);
         }
@@ -2955,6 +3067,12 @@ class StudioBot {
         if ((now - didYouKnow.idleSince) < DYK_IDLE_MS) {
             return;
         }
+        if ((now - (didYouKnow.lastInteractionAt || 0)) < DYK_IDLE_MS) {
+            return;
+        }
+        if (this.ui.pendingTopicKey || this.proactiveBubble || this.ui.isTyping) {
+            return;
+        }
         if (didYouKnow.shownCount >= DYK_MAX_PER_SESSION) {
             return;
         }
@@ -2980,6 +3098,7 @@ class StudioBot {
             didYouKnow.shownCount += 1;
             didYouKnow.lastHintAt = Date.now();
             didYouKnow.idleSince = Date.now();
+            didYouKnow.lastInteractionAt = Date.now();
             didYouKnow.seenIds = [...didYouKnow.seenIds, picked.id].slice(-24);
             this.persistSessionNumber(SC_DYK_COUNT_KEY, didYouKnow.shownCount);
             this.persistSessionNumber(SC_DYK_LAST_KEY, didYouKnow.lastHintAt);
@@ -3501,55 +3620,61 @@ class StudioBot {
         window.queueMicrotask(() => this.applyDeepLinkIfAny());
     }
 
+    clearChatMessages() {
+        this.state.history = [];
+        this.lastRenderedHistoryLength = 0;
+    }
+
+    isOnlyGreetingHistory() {
+        const welcomeText = this.logicTree.start?.text || '';
+        return this.state.history.length === 1
+            && this.state.history[0]?.role === 'bot'
+            && this.state.history[0]?.text === welcomeText;
+    }
+
+    async showTopic(topicKey, { replaceChat = false, _retry = 0 } = {}) {
+        const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
+        const topic = this.getTopicContent(resolvedTopicKey);
+        if (!topic) {
+            return false;
+        }
+        let chatEl = this.getChatMessagesEl();
+        if (!chatEl) {
+            this.renderApp();
+            if (_retry < 2) {
+                return new Promise((resolve) => {
+                    window.requestAnimationFrame(async () => {
+                        resolve(await this.showTopic(topicKey, { replaceChat, _retry: _retry + 1 }));
+                    });
+                });
+            }
+            return false;
+        }
+
+        this.ui.pendingTopicKey = null;
+        this.ui.pendingTopicRetryCount = 0;
+        this.ui.skipGreetingOnce = false;
+        this.ui.pendingDeepLinkStepId = null;
+        this.ui.activeTopicKey = resolvedTopicKey;
+        this.state.currentStepId = 'start';
+        this.state.flags = { ...this.state.flags, welcomed: true };
+
+        if (replaceChat || !this.state.history.length || this.isOnlyGreetingHistory()) {
+            this.clearChatMessages();
+        }
+
+        (topic.messages || []).forEach((message) => this.pushMessage('bot', message));
+        this.renderAndSave();
+        this.scrollToBottom();
+        return true;
+    }
+
     applyPendingTopic() {
         if (!this.ui.pendingTopicKey) {
             return false;
         }
         const topicKey = this.ui.pendingTopicKey;
-        this.ui.pendingTopicKey = null;
-
-        if (this.stepExists(topicKey)) {
-            this.ui.skipGreetingOnce = false;
-            this.ui.pendingDeepLinkStepId = topicKey;
-            this.applyDeepLinkIfAny();
-            return true;
-        }
-
-        const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
-        const topic = this.getTopicContent(resolvedTopicKey);
-        if (!topic) {
-            this.ui.skipGreetingOnce = false;
-            return false;
-        }
-
-        const chatEl = this.getChatMessagesEl();
-        if (!chatEl) {
-            this.renderApp();
-            const retryCount = Number(this.ui.pendingTopicRetryCount || 0);
-            if (retryCount < 2) {
-                this.ui.pendingTopicRetryCount = retryCount + 1;
-                this.ui.pendingTopicKey = topicKey;
-                window.requestAnimationFrame(() => this.applyPendingTopic());
-                window.setTimeout(() => this.applyPendingTopic(), 0);
-            }
-            return false;
-        }
-
-        this.ui.pendingTopicRetryCount = 0;
-        this.ui.skipGreetingOnce = false;
-
-        this.ui.activeTopicKey = resolvedTopicKey;
-        this.state.flags = { ...this.state.flags, welcomed: true };
-        this.state.currentStepId = 'start';
-        const welcomeText = this.logicTree.start?.text || '';
-        const onlyWelcomeInChat = this.state.history.length === 1
-            && this.state.history[0]?.role === 'bot'
-            && this.state.history[0]?.text === welcomeText;
-        if (!this.state.history.length || onlyWelcomeInChat) {
-            this.state.history = [];
-        }
-        (topic.messages || []).forEach((message) => this.pushMessage('bot', message));
-        this.renderAndSave();
+        this.showTopic(topicKey, { replaceChat: true });
         return true;
     }
 
@@ -3562,14 +3687,11 @@ class StudioBot {
         this.ui.pendingTopicRetryCount = 0;
         this.ui.skipGreetingOnce = true;
         if (this.isOpen) {
-            this.applyPendingTopic();
-            window.requestAnimationFrame(() => this.applyPendingTopic());
-            window.setTimeout(() => this.applyPendingTopic(), 0);
+            window.requestAnimationFrame(() => this.showTopic(topicKey, { replaceChat: true }));
             return;
         }
         await this.openPanel();
-        window.requestAnimationFrame(() => this.applyPendingTopic());
-        window.setTimeout(() => this.applyPendingTopic(), 0);
+        window.requestAnimationFrame(() => this.showTopic(topicKey, { replaceChat: true }));
     }
 
     hideProactiveBubble() {

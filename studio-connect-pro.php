@@ -159,10 +159,15 @@ function scp_callback_request_handler(): void
 {
     check_ajax_referer('scp_callback_request', 'security');
 
+    $name = sanitize_text_field($_POST['name'] ?? '');
     $phone = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
     $time = isset($_POST['time']) ? sanitize_text_field(wp_unslash($_POST['time'])) : '';
     $note = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
     $page_url = isset($_POST['page_url']) ? esc_url_raw(wp_unslash($_POST['page_url'])) : '';
+
+    if (strlen($name) < 2) {
+        wp_send_json_error(['message' => 'Bitte einen Namen mit mindestens 2 Zeichen angeben.'], 400);
+    }
 
     if (!preg_match('/^[0-9+\-\s()]{7,}$/', $phone)) {
         wp_send_json_error(['message' => 'Bitte eine gültige Telefonnummer angeben.'], 400);
@@ -190,11 +195,12 @@ function scp_callback_request_handler(): void
     $subject = '[Studio Assistenz] Rückruf gewünscht';
     $timestamp = wp_date('d.m.Y H:i:s');
     $lines = [
+        'Name: ' . $name,
         'Telefonnummer: ' . $phone,
         'Wunschuhrzeit: ' . $time,
         'Notiz: ' . ($note !== '' ? $note : '-'),
-        'Seite/URL: ' . ($page_url !== '' ? $page_url : '-'),
-        'Zeitpunkt: ' . $timestamp,
+        'URL: ' . ($page_url !== '' ? $page_url : '-'),
+        'Timestamp: ' . $timestamp,
     ];
     $body = implode("\n", $lines);
 
