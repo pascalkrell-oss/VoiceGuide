@@ -27,29 +27,30 @@ const DYK_MIN_INTERVAL_MS = 300000;
 const DYK_MAX_PER_SESSION = 3;
 const DYK_CHECK_INTERVAL_MS = 10000;
 const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
+const SC_LAST_VISIT_TS_KEY = 'sc_last_visit_ts';
+const SC_GENERAL_HINT_DONE_KEY = 'sc_general_hint_done';
+const SC_TOOL_HINT_DONE_PREFIX = 'sc_tool_hint_done__';
+const SC_GENERAL_HINT_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 
 const TOPIC_CONTENT = {
     sa_quickstart: {
         messages: [
-            'Schnelleinstieg: Skript einfügen → Analyse starten → Ergebnisse lesen.',
-            'Tipp: Starte mit Sprechdauer & Tempo, dann prüfe Rhythmus und den Call-to-Action.'
+            'Schnelleinstieg (Skript-Analyse): Text einfügen → Analyse starten → Ergebnisse lesen.',
+            'Tipp: Starte mit Sprechdauer & Tempo und arbeite dich dann zu den Analyseboxen vor.'
         ],
         options: [
-            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' },
+            { label: 'Analyseboxen', topicKey: 'sa_analyseboxen' },
             { label: 'Teleprompter', topicKey: 'sa_teleprompter' },
-            { label: 'PDF Export', topicKey: 'sa_pdf' },
-            { label: 'Preise & Buyouts', stepId: 'preise', fallbackIds: ['rechte'] }
+            { label: 'PDF Export', topicKey: 'sa_pdf' }
         ]
     },
     sa_analyseboxen: {
         messages: [
-            'Analyseboxen geben dir schnelle Hinweise zu Struktur, Lesbarkeit und Wirkung.',
-            'Tipp: Nutze zuerst die Basics (Tempo, Pausen, CTA), danach die Detailboxen.'
+            'Analyseboxen liefern dir schnelle Hinweise zu Wirkung, Struktur und Lesefluss.',
+            'Tipp: Erst die Basics (Tempo/Pausen/CTA), danach die Detailboxen.'
         ],
         options: [
-            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
-            { label: 'Sprechdauer & Tempo', topicKey: 'sa_sprechdauer' },
-            { label: 'Kontakt', stepId: 'kontakt' }
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' }
         ]
     },
     sa_teleprompter: {
@@ -59,7 +60,7 @@ const TOPIC_CONTENT = {
         ],
         options: [
             { label: 'Schnellstart', topicKey: 'sa_quickstart' },
-            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' }
+            { label: 'Analyseboxen', topicKey: 'sa_analyseboxen' }
         ]
     },
     sa_pdf: {
@@ -68,121 +69,66 @@ const TOPIC_CONTENT = {
             'Exportiere am besten nach der finalen Analyse, damit alle Kennzahlen aktuell sind.'
         ],
         options: [
-            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
-            { label: 'Kontakt', stepId: 'kontakt' }
-        ]
-    },
-    sa_sprechdauer: {
-        messages: [
-            'Sprechdauer basiert auf Wortzahl und Tempo – so planst du Timing und Pausen realistisch.',
-            'Für Werbetexte lieber etwas langsamer kalkulieren, damit Betonungen genug Raum haben.'
-        ],
-        options: [
-            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' },
             { label: 'Schnellstart', topicKey: 'sa_quickstart' }
         ]
     },
+
     gr_rechte: {
         messages: [
-            'Nutzungsrechte definieren, wo und wie lange deine Aufnahme laufen darf.',
-            'Für saubere Kalkulation zuerst Medium, Laufzeit und Reichweite festlegen.'
+            'Nutzungsrechte & Buyouts: Gebiet + Laufzeit + Plattform bestimmen den größten Teil der Kalkulation.',
+            'Tipp: Wenn du unsicher bist, lieber etwas großzügiger planen als zu klein ansetzen.'
         ],
         options: [
-            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
-            { label: 'Häufige Fehler', topicKey: 'gr_fehler' }
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
         ]
     },
     gr_preisdetails: {
         messages: [
-            'Preisdetails setzen sich aus Produktion, Nutzungsdauer und Ausspielkanälen zusammen.',
-            'Mit klaren Angaben zu Einsatz und Zeitraum wird dein Angebot sofort präziser.'
+            'Preisdetails zeigen dir den Rechenweg: Basis + Rechte + Add-ons = Endsumme.',
+            'Tipp: Prüfe zuerst die Rechte, danach Add-ons wie Cutdowns/Pickups.'
         ],
         options: [
-            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
-            { label: 'PDF Export', topicKey: 'gr_pdf' }
-        ]
-    },
-    gr_fehler: {
-        messages: [
-            'Häufige Fehler sind fehlende Laufzeit, unklare Reichweite oder nicht definierte Medien.',
-            'Wenn diese Punkte präzise sind, passt die Kalkulation deutlich besser.'
-        ],
-        options: [
-            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
-            { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
-        ]
-    },
-    gr_pdf: {
-        messages: [
-            'Im PDF sicherst du die aktuelle Kalkulation für Abstimmungen und Freigaben.',
-            'Erstelle den Export erst nach finaler Rechte-Auswahl, damit alle Werte stimmen.'
-        ],
-        options: [
-            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
             { label: 'Nutzungsrechte', topicKey: 'gr_rechte' }
         ]
     },
+
     sf_suche: {
         messages: [
-            'Schnelleinstieg: Suche mit Genre, Ort oder Ausstattung starten und dann gezielt eingrenzen.',
-            'Nutze zuerst 2–3 Kernfilter, danach Feintuning für Verfügbarkeit und Equipment.'
+            'Suche & Filter: Starte mit 1–2 Filtern und verfeinere dann schrittweise.',
+            'Tipp: Zu viele Filter gleichzeitig führen oft zu 0 Treffern.'
         ],
         options: [
-            { label: 'Karte & Standort', topicKey: 'sf_karte' },
-            { label: 'Häufige Probleme', topicKey: 'sf_probleme' }
+            { label: 'Karte & Standort', topicKey: 'sf_karte' }
         ]
     },
     sf_karte: {
         messages: [
-            'Karte & Standort helfen dir, Studios nach Nähe und Anfahrt schnell zu vergleichen.',
-            'Prüfe Standort und Raumdetails zusammen, damit Technik und Logistik direkt passen.'
+            'Karte & Standort: Wenn Standort blockiert ist, nutze die Filter statt der Nähe-Suche.',
+            'Tipp: Datenschutz: Standort wird nur für die Anzeige genutzt (keine dauerhafte Speicherung).'
         ],
         options: [
-            { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Datenschutz', topicKey: 'sf_datenschutz' }
-        ]
-    },
-    sf_probleme: {
-        messages: [
-            'Wenn Treffer fehlen, starte mit weniger Filtern und ergänze sie Schritt für Schritt.',
-            'Aktualisiere zusätzlich Ort und Radius, dann werden Ergebnisse oft sofort besser.'
-        ],
-        options: [
-            { label: 'Suche & Filter', topicKey: 'sf_suche' },
-            { label: 'Karte & Standort', topicKey: 'sf_karte' }
-        ]
-    },
-    sf_datenschutz: {
-        messages: [
-            'Standortfreigabe ist optional und dient nur der besseren Studio-Sortierung.',
-            'Ohne Freigabe kannst du weiterhin manuell über Ort und Filter suchen.'
-        ],
-        options: [
-            { label: 'Karte & Standort', topicKey: 'sf_karte' },
             { label: 'Suche & Filter', topicKey: 'sf_suche' }
         ]
     },
+
     gen_prices: {
         messages: [
-            'Gerne – ich helfe Dir bei Preisen, Buyouts und einer schnellen Orientierung.',
-            'Wenn Du magst, leite ich Dich direkt zum passenden Tool oder zum Kontakt weiter.'
+            'Preise & Buyouts: Der wichtigste Faktor sind Nutzungsrechte (Gebiet + Laufzeit + Medien).',
+            'Tipp: Für Social/Ads gelten oft andere Rechte als für reine Website-Nutzung.'
         ],
         options: [
-            { label: 'Kontakt', topicKey: 'gen_contact' },
-            { label: 'Preise ansehen', stepId: 'preise', fallbackIds: ['rechte'] }
+            { label: 'Kontakt', topicKey: 'gen_contact' }
         ]
     },
     gen_contact: {
         messages: [
-            'Du kannst Pascal direkt über das Kontaktformular oder per E-Mail erreichen.',
-            'Ich kann Dir auch den Ablauf kurz zeigen, falls Du erst den Prozess klären möchtest.'
+            'Kontakt: Wenn du ein kurzes Briefing sendest, kann ich schneller und passender antworten.',
+            'Tipp: Einsatz, Gebiet und Laufzeit reichen oft schon für eine erste Einschätzung.'
         ],
-        options: [
-            { label: 'Ablauf', stepId: 'ablauf' },
-            { label: 'Kontakt öffnen', stepId: 'kontakt' }
-        ]
+        options: []
     }
 };
+
 
 const getDefaultState = () => ({
     isOpen: false,
@@ -647,6 +593,7 @@ class StudioBot {
             skriptanalyse: settings?.module_links?.skriptanalyse || defaults.skriptanalyseLink
         };
         this.pageContext = this.getPageContext();
+        this.shouldShowGeneralByRecency = this.computeGeneralRecencyEligibility();
         this.widget = document.getElementById('sc-widget');
         this.panel = document.getElementById('sc-container');
         this.launcher = document.getElementById('sc-launcher');
@@ -2568,6 +2515,13 @@ class StudioBot {
         this.dock = document.getElementById('sc-dock');
     }
 
+    getChatMessagesEl() {
+        if (!this.messages) {
+            this.refreshDomReferences();
+        }
+        return this.messages || null;
+    }
+
     applyOpenState(isOpen, silent = false) {
         if (!this.widget || !this.panel) {
             return;
@@ -2638,15 +2592,15 @@ class StudioBot {
     }
 
     async maybeShowGreeting() {
+        if (this.ui.skipGreetingOnce) {
+            this.ui.skipGreetingOnce = false;
+            this.state.flags = { ...this.state.flags, welcomed: true };
+            return false;
+        }
         if (this.ui.pendingDeepLinkStepId) {
             return false;
         }
         if (this.ui.pendingTopicKey) {
-            return false;
-        }
-        if (this.ui.skipGreetingOnce) {
-            this.ui.skipGreetingOnce = false;
-            this.state.flags = { ...this.state.flags, welcomed: true };
             return false;
         }
         if (this.state.flags?.welcomed || this.state.history.length > 0) {
@@ -2894,7 +2848,15 @@ class StudioBot {
 
     clearSessionEnhancements() {
         try {
-            [SC_RECENT_STEPS_KEY, SC_PROACTIVE_SHOWN_KEY, SC_FRICTION_COUNTER_KEY].forEach((key) => sessionStorage.removeItem(key));
+            [
+                SC_RECENT_STEPS_KEY,
+                SC_PROACTIVE_SHOWN_KEY,
+                SC_FRICTION_COUNTER_KEY,
+                SC_GENERAL_HINT_DONE_KEY,
+                `${SC_TOOL_HINT_DONE_PREFIX}skriptanalyse`,
+                `${SC_TOOL_HINT_DONE_PREFIX}gagenrechner`,
+                `${SC_TOOL_HINT_DONE_PREFIX}studiofinder`
+            ].forEach((key) => sessionStorage.removeItem(key));
         } catch (error) {
             // Ignore.
         }
@@ -3042,22 +3004,68 @@ class StudioBot {
 
     getPageContext() {
         const rawPath = window.location.pathname || '/';
-        let path = rawPath.toLowerCase();
-        if (!path.endsWith('/')) {
-            path = `${path}/`;
-        }
+        const path = this.normalizePath(rawPath);
+        const toolMap = {
+            '/extras/skript-analyse-fuer-sprecher-und-autoren': 'skriptanalyse',
+            '/extras/gagenrechner': 'gagenrechner',
+            '/extras/studio-finder': 'studiofinder'
+        };
+        const contextKey = toolMap[path] || 'general';
+        return {
+            contextKey,
+            moduleKey: contextKey
+        };
+    }
 
-        if (path.startsWith('/extras/studio-finder/')) {
-            return { moduleKey: 'studiofinder' };
-        }
-        if (path.startsWith('/extras/gagenrechner/')) {
-            return { moduleKey: 'gagenrechner' };
-        }
-        if (path.startsWith('/extras/skript-analyse-fuer-sprecher-und-autoren/')) {
-            return { moduleKey: 'skriptanalyse' };
-        }
+    normalizePath(path = '/') {
+        const normalized = String(path || '/').toLowerCase();
+        const trimmed = normalized.replace(/\/+$/, '');
+        return trimmed || '/';
+    }
 
-        return { moduleKey: 'general' };
+    computeGeneralRecencyEligibility() {
+        let previousVisitTs = 0;
+        const now = Date.now();
+        try {
+            previousVisitTs = parseInt(localStorage.getItem(SC_LAST_VISIT_TS_KEY) || '0', 10) || 0;
+            localStorage.setItem(SC_LAST_VISIT_TS_KEY, String(now));
+        } catch (error) {
+            return true;
+        }
+        return !previousVisitTs || (now - previousVisitTs) > SC_GENERAL_HINT_RECENCY_THRESHOLD_MS;
+    }
+
+    getToolHintDoneKey(context = this.pageContext) {
+        const contextKey = context?.moduleKey || 'general';
+        return `${SC_TOOL_HINT_DONE_PREFIX}${contextKey}`;
+    }
+
+    markSessionHintDone(context = this.pageContext) {
+        const contextKey = context?.moduleKey || 'general';
+        try {
+            if (contextKey === 'general') {
+                sessionStorage.setItem(SC_GENERAL_HINT_DONE_KEY, '1');
+            } else if (this.isToolPage(context)) {
+                sessionStorage.setItem(this.getToolHintDoneKey(context), '1');
+            }
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    isSessionHintDone(context = this.pageContext) {
+        const contextKey = context?.moduleKey || 'general';
+        try {
+            if (contextKey === 'general') {
+                return sessionStorage.getItem(SC_GENERAL_HINT_DONE_KEY) === '1';
+            }
+            if (this.isToolPage(context)) {
+                return sessionStorage.getItem(this.getToolHintDoneKey(context)) === '1';
+            }
+        } catch (error) {
+            return false;
+        }
+        return false;
     }
 
     getLauncherHintStorageKey(type = 'shown', context = this.pageContext) {
@@ -3197,20 +3205,32 @@ class StudioBot {
             return;
         }
         const context = this.getPageContext();
-        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
-        const shownKey = this.getLauncherHintStorageKey('shown', context);
-        try {
-            if (sessionStorage.getItem(dismissedKey) === '1' || sessionStorage.getItem(shownKey) === '1') {
-                return;
-            }
-        } catch (error) {
-            // Ignore.
+        if (!this.canShowLauncherHint(context)) {
+            return;
         }
-        this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), PROACTIVE_DELAY_MS);
+        const delay = this.isToolPage(context) ? PROACTIVE_DELAY_MS : 0;
+        this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), delay);
     }
 
     isToolPage(context = this.pageContext) {
         return ['gagenrechner', 'studiofinder', 'skriptanalyse'].includes(context?.moduleKey);
+    }
+
+    canShowLauncherHint(context = this.pageContext) {
+        if (this.isOpen) {
+            return false;
+        }
+        const contextKey = context?.moduleKey || 'general';
+        if (contextKey === 'general') {
+            if (!this.shouldShowGeneralByRecency) {
+                return false;
+            }
+            return !this.isSessionHintDone(context);
+        }
+        if (this.isToolPage(context)) {
+            return !this.isSessionHintDone(context);
+        }
+        return false;
     }
 
     getProactiveSeenKey(context = this.pageContext) {
@@ -3267,17 +3287,8 @@ class StudioBot {
             return;
         }
         const context = this.getPageContext();
-        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
-        const shownKey = this.getLauncherHintStorageKey('shown', context);
-        try {
-            if (sessionStorage.getItem(dismissedKey) === '1') {
-                return;
-            }
-            if (sessionStorage.getItem(shownKey) === '1') {
-                return;
-            }
-        } catch (error) {
-            // Ignore.
+        if (!this.canShowLauncherHint(context)) {
+            return;
         }
         const shouldPersist = !this.isToolPage(context);
         if (shouldPersist) {
@@ -3343,6 +3354,7 @@ class StudioBot {
         }
 
         mainButton.addEventListener('click', () => {
+            this.markSessionHintDone(context);
             this.state.currentStepId = 'start';
             this.renderAndSave();
             window.requestAnimationFrame(() => {
@@ -3352,25 +3364,16 @@ class StudioBot {
             this.persistProactiveShown(context);
         });
         closeButton.addEventListener('click', () => {
-            try {
-                sessionStorage.setItem(dismissedKey, '1');
-            } catch (error) {
-                // Ignore.
-            }
+            this.markSessionHintDone(context);
             bubble.classList.add('sc-fade-out');
             window.setTimeout(() => this.hideProactiveBubble(), 300);
             this.persistProactiveShown(context);
         });
-        overlay.appendChild(bubble);
         document.body.appendChild(overlay);
+        document.body.appendChild(bubble);
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
         this.hintOverlay = overlay;
         this.proactiveBubble = bubble;
-        try {
-            sessionStorage.setItem(shownKey, '1');
-        } catch (error) {
-            // Ignore.
-        }
         this.persistProactiveShown(context);
         if (window.scrollY > 400) {
             bubble.classList.add('is-scrolled-out');
@@ -3387,7 +3390,6 @@ class StudioBot {
     }
 
     createProactiveQuickLinks(context) {
-        const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
         const linksByModule = {
             general: [
                 { label: 'Preise & Buyouts', topicKey: 'gen_prices' },
@@ -3419,11 +3421,7 @@ class StudioBot {
             button.textContent = item.label;
             button.dataset.topic = item.topicKey;
             button.addEventListener('click', () => {
-                try {
-                    sessionStorage.setItem(dismissedKey, '1');
-                } catch (error) {
-                    // Ignore.
-                }
+                this.markSessionHintDone(context);
                 this.hideProactiveBubble();
                 this.openPortalToTopic(item.topicKey);
                 this.persistProactiveShown(context);
@@ -3508,9 +3506,9 @@ class StudioBot {
             return false;
         }
         const topicKey = this.ui.pendingTopicKey;
+        this.ui.pendingTopicKey = null;
 
         if (this.stepExists(topicKey)) {
-            this.ui.pendingTopicKey = null;
             this.ui.skipGreetingOnce = false;
             this.ui.pendingDeepLinkStepId = topicKey;
             this.applyDeepLinkIfAny();
@@ -3520,19 +3518,17 @@ class StudioBot {
         const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
         const topic = this.getTopicContent(resolvedTopicKey);
         if (!topic) {
-            this.ui.pendingTopicKey = null;
             this.ui.skipGreetingOnce = false;
             return false;
         }
 
-        if (!this.messages) {
-            this.refreshDomReferences();
-        }
-        if (!this.messages) {
+        const chatEl = this.getChatMessagesEl();
+        if (!chatEl) {
             this.renderApp();
             const retryCount = Number(this.ui.pendingTopicRetryCount || 0);
             if (retryCount < 2) {
                 this.ui.pendingTopicRetryCount = retryCount + 1;
+                this.ui.pendingTopicKey = topicKey;
                 window.requestAnimationFrame(() => this.applyPendingTopic());
                 window.setTimeout(() => this.applyPendingTopic(), 0);
             }
@@ -3540,7 +3536,6 @@ class StudioBot {
         }
 
         this.ui.pendingTopicRetryCount = 0;
-        this.ui.pendingTopicKey = null;
         this.ui.skipGreetingOnce = false;
 
         this.ui.activeTopicKey = resolvedTopicKey;

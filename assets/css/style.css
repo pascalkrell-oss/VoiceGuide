@@ -1064,7 +1064,8 @@
     gap: 8px;
 }
 
-.sc-proactive-bubble {
+.sc-proactive-bubble,
+.sc-launcher-hint {
     position: fixed;
     right: 24px;
     bottom: 100px;
@@ -1079,14 +1080,15 @@
     width: min(320px, calc(100vw - 32px));
     max-width: calc(100vw - 32px);
     transition: opacity 260ms ease, transform 260ms ease;
-    pointer-events: auto !important;
+    pointer-events: auto;
 }
 
-.sc-proactive-overlay {
+.sc-proactive-overlay,
+.sc-hint-overlay {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 999998;
+    z-index: 999990;
 }
 
 .sc-proactive-bubble::after {
@@ -1204,7 +1206,9 @@
 }
 
 .sc-proactive-bubble button,
-.sc-proactive-bubble .sc-proactive-close {
+.sc-proactive-bubble .sc-proactive-close,
+.sc-launcher-hint button,
+.sc-launcher-hint .sc-hint-close {
     pointer-events: auto;
 }
 
