@@ -581,25 +581,21 @@
     background: #dbe6f6;
 }
 
-.sc-back-row {
-    display: flex;
+.sc-back-row,
+.sc-back-link,
+.sc-pill-back {
+    display: none !important;
 }
 
-.sc-back-link {
-    display: inline-flex;
-    align-items: center;
-    font-size: 12px;
-    opacity: 0.75;
-    background: transparent;
-    border: 0;
-    color: #1c1e21;
-    padding: 6px 8px;
-    border-radius: 10px;
-    cursor: pointer;
+.sc-msg-appear {
+    opacity: 0;
+    transform: translateY(6px);
 }
 
-.sc-back-link:hover {
-    background: rgba(28, 30, 33, 0.08);
+.sc-msg-appear.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .studio-connect-widget button:focus-visible,
