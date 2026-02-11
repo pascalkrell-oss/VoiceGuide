@@ -175,8 +175,7 @@ const TOPIC_CONTENT = {
             'Tipp: Adresse, Website und Leistungen vollständig angeben – dann geht’s am schnellsten.'
         ],
         options: [
-            { label: 'Studio eintragen', action: 'open_studio_submit_modal' },
-            { label: 'Zurück', topicKey: 'sf_suche' }
+            { label: 'Studio eintragen', action: 'open_studio_submit_modal' }
         ]
     },
     gen_prices: {
@@ -779,6 +778,8 @@ class StudioBot {
             pendingTopicKey: null,
             pendingTopicRetryCount: 0,
             activeTopicKey: null,
+            msgQueueTimers: [],
+            msgQueueRunId: 0,
             pendingDeepLinkStepId: null,
             listenersBound: false,
             didYouKnow: {
@@ -1457,7 +1458,7 @@ class StudioBot {
 
         this.dock.innerHTML = '';
         const step = this.logicTree[this.state.currentStepId];
-        const shouldShowBack = step && step.id !== 'start';
+        const shouldShowBack = Boolean(this.ui.activeTopicKey) || (step && step.id !== 'start');
         if (shouldShowBack) {
             const backButton = this.createBackButton();
             this.dock.appendChild(backButton);
@@ -1734,6 +1735,7 @@ class StudioBot {
 
     async advanceToStep(stepId, options = {}) {
         const { repeatCurrent = false, skipStack = false, suppressBotMessage = false } = options;
+        this.clearMessageQueue();
         const nextStep = repeatCurrent ? this.logicTree[this.state.currentStepId] : this.logicTree[stepId];
         if (!nextStep) {
             return;
@@ -1778,13 +1780,18 @@ class StudioBot {
         button.type = 'button';
         button.className = 'studio-connect-option-btn studio-connect-back-btn';
         button.textContent = 'Zurück';
-        button.addEventListener('click', () => this.handleBack());
+        button.addEventListener('click', () => this.goBack());
         return button;
     }
 
     handleBack() {
+        this.goBack();
+    }
+
+    goBack() {
         this.registerInteraction();
         this.clearTypingState();
+        this.clearMessageQueue();
         if (!this.state.navStack.length) {
             this.state.currentStepId = 'start';
             this.ui.activeTopicKey = null;
@@ -1863,6 +1870,38 @@ class StudioBot {
         }
         this.ui.typingRow = null;
         this.scrollToBottom();
+    }
+
+    clearMessageQueue() {
+        (this.ui.msgQueueTimers || []).forEach((timerId) => window.clearTimeout(timerId));
+        this.ui.msgQueueTimers = [];
+        this.ui.msgQueueRunId += 1;
+    }
+
+    appendBotMessage(text, { animate = false, queueRunId = null } = {}) {
+        if (!text) {
+            return;
+        }
+        if (queueRunId !== null && queueRunId !== this.ui.msgQueueRunId) {
+            return;
+        }
+        this.pushMessage('bot', text);
+        saveState(this.state);
+        if (!this.messages) {
+            this.renderApp();
+            return;
+        }
+        const { row, bubble, bubbleWrap } = this.createMessageRow('bot');
+        bubble.innerHTML = this.createCopyMarkup(text);
+        if (animate) {
+            row.classList.add('sc-msg-appear');
+            window.requestAnimationFrame(() => {
+                row.classList.add('is-visible');
+            });
+        }
+        const meta = this.createMessageMeta('bot', Date.now());
+        bubbleWrap.appendChild(meta);
+        this.messages.appendChild(row);
     }
 
     async showBotMessage(text, { withTypingDots = true } = {}) {
@@ -2365,11 +2404,15 @@ class StudioBot {
         }, 15000);
     }
 
-    scrollToBottom() {
+    scrollToBottom(smooth = false) {
         if (!this.chatArea) {
             return;
         }
         requestAnimationFrame(() => {
+            if (smooth && typeof this.chatArea.scrollTo === 'function') {
+                this.chatArea.scrollTo({ top: this.chatArea.scrollHeight, behavior: 'smooth' });
+                return;
+            }
             this.chatArea.scrollTop = this.chatArea.scrollHeight;
         });
     }
@@ -2601,7 +2644,6 @@ class StudioBot {
         if (!topic || !this.dock) {
             return false;
         }
-        this.renderTopicBackLinkIfNeeded();
         const optionsContainer = document.createElement('div');
         optionsContainer.id = 'studio-connect-options';
         optionsContainer.className = 'studio-connect-options';
@@ -3795,6 +3837,9 @@ class StudioBot {
 
     getTopicOptions(options = []) {
         return options.filter((option) => {
+            if ((option.label || '').trim().toLowerCase() === 'zurück') {
+                return false;
+            }
             if (option.action) {
                 return true;
             }
@@ -3851,21 +3896,6 @@ class StudioBot {
         return nextTopic;
     }
 
-    renderTopicBackLinkIfNeeded() {
-        if (!this.ui.activeTopicKey || !this.dock || !this.state.navStack.length) {
-            return;
-        }
-        const backRow = document.createElement('div');
-        backRow.className = 'sc-back-row';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'sc-back-link';
-        button.textContent = '← Zurück';
-        button.addEventListener('click', () => this.handleBack());
-        backRow.appendChild(button);
-        this.dock.appendChild(backRow);
-    }
-
     pushCurrentViewToNavStack() {
         const stack = Array.isArray(this.state.navStack) ? [...this.state.navStack] : [];
         if (this.ui.activeTopicKey) {
@@ -3915,6 +3945,7 @@ class StudioBot {
 
     async openPortalToStep(stepId, fallbackStepIds = []) {
         const targetStepId = this.resolveStepId(stepId, fallbackStepIds);
+        this.clearMessageQueue();
         this.ui.pendingTopicKey = null;
         this.ui.pendingTopicRetryCount = 0;
         this.ui.activeTopicKey = null;
@@ -3940,7 +3971,7 @@ class StudioBot {
             && this.state.history[0]?.text === welcomeText;
     }
 
-    async showTopic(topicKey, { replaceChat = false, fromBack = false, _retry = 0 } = {}) {
+    async showTopic(topicKey, { replaceChat = false, fromBack = false, animateMessages = false, _retry = 0 } = {}) {
         const resolvedTopicKey = this.getTopicContent(topicKey) ? topicKey : 'gen_prices';
         const sourceTopic = this.getTopicContent(resolvedTopicKey);
         const topic = sourceTopic ? this.getRenderableTopic(sourceTopic, resolvedTopicKey) : null;
@@ -3953,13 +3984,14 @@ class StudioBot {
             if (_retry < 2) {
                 return new Promise((resolve) => {
                     window.requestAnimationFrame(async () => {
-                        resolve(await this.showTopic(topicKey, { replaceChat, fromBack, _retry: _retry + 1 }));
+                        resolve(await this.showTopic(topicKey, { replaceChat, fromBack, animateMessages, _retry: _retry + 1 }));
                     });
                 });
             }
             return false;
         }
 
+        this.clearMessageQueue();
         if (!fromBack) {
             this.pushCurrentViewToNavStack();
         }
@@ -3975,6 +4007,23 @@ class StudioBot {
 
         if (replaceChat || !this.state.history.length || this.isOnlyGreetingHistory()) {
             this.clearChatMessages();
+        }
+
+        const shouldQueueMessages = replaceChat || animateMessages;
+        if (shouldQueueMessages) {
+            this.renderAndSave();
+            const queueRunId = this.ui.msgQueueRunId;
+            (topic.messages || []).forEach((message, index) => {
+                const timerId = window.setTimeout(() => {
+                    if (queueRunId !== this.ui.msgQueueRunId) {
+                        return;
+                    }
+                    this.appendBotMessage(message, { animate: true, queueRunId });
+                    this.scrollToBottom(true);
+                }, 140 * index);
+                this.ui.msgQueueTimers.push(timerId);
+            });
+            return true;
         }
 
         (topic.messages || []).forEach((message) => this.pushMessage('bot', message));
@@ -3996,6 +4045,7 @@ class StudioBot {
         if (!topicKey) {
             return;
         }
+        this.clearMessageQueue();
         this.ui.pendingDeepLinkStepId = null;
         this.ui.pendingTopicKey = topicKey;
         this.ui.pendingTopicRetryCount = 0;
