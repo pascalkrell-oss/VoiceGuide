@@ -28,6 +28,104 @@ const DYK_MAX_PER_SESSION = 3;
 const DYK_CHECK_INTERVAL_MS = 10000;
 const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
 
+const TOPIC_CONTENT = {
+    sa_quickstart: {
+        messages: [
+            'Schnelleinstieg: Skript einfügen → Analyse starten → Ergebnisse lesen.',
+            'Tipp: Starte mit Sprechdauer & Tempo, dann prüfe Rhythmus und den Call-to-Action.'
+        ],
+        options: [
+            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' },
+            { label: 'Teleprompter', topicKey: 'sa_teleprompter' },
+            { label: 'PDF Export', topicKey: 'sa_pdf' },
+            { label: 'Preise & Buyouts', stepId: 'preise', fallbackIds: ['rechte'] }
+        ]
+    },
+    sa_analyseboxen: {
+        messages: [
+            'Analyseboxen geben dir schnelle Hinweise zu Struktur, Lesbarkeit und Wirkung.',
+            'Tipp: Nutze zuerst die Basics (Tempo, Pausen, CTA), danach die Detailboxen.'
+        ],
+        options: [
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'Sprechdauer & Tempo', topicKey: 'sa_sprechdauer' },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    },
+    sa_teleprompter: {
+        messages: [
+            'Teleprompter-Modus: Große Zeilen, klare Segmente und gleichmäßiger Lesefluss.',
+            'Nutze kurze Satzblöcke und markiere Betonungen, damit die Aufnahme natürlicher klingt.'
+        ],
+        options: [
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' }
+        ]
+    },
+    sa_pdf: {
+        messages: [
+            'PDF Export bündelt Kernergebnisse, sodass du Analyse und nächste Schritte direkt teilen kannst.',
+            'Exportiere am besten nach der finalen Analyse, damit alle Kennzahlen aktuell sind.'
+        ],
+        options: [
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    },
+    sa_sprechdauer: {
+        messages: [
+            'Sprechdauer basiert auf Wortzahl und Tempo – so planst du Timing und Pausen realistisch.',
+            'Für Werbetexte lieber etwas langsamer kalkulieren, damit Betonungen genug Raum haben.'
+        ],
+        options: [
+            { label: 'Analyseboxen erklärt', topicKey: 'sa_analyseboxen' },
+            { label: 'Schnellstart', topicKey: 'sa_quickstart' }
+        ]
+    },
+    gr_rechte: {
+        messages: [
+            'Nutzungsrechte definieren, wo und wie lange deine Aufnahme laufen darf.',
+            'Für saubere Kalkulation zuerst Medium, Laufzeit und Reichweite festlegen.'
+        ],
+        options: [
+            { label: 'Preisdetails', topicKey: 'gr_preisdetails' },
+            { label: 'Beispiele Rechte', stepId: 'rechte_beispiele', fallbackIds: ['rechte'] },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    },
+    gr_preisdetails: {
+        messages: [
+            'Preisdetails setzen sich aus Produktion, Nutzungsdauer und Ausspielkanälen zusammen.',
+            'Mit klaren Angaben zu Einsatz und Zeitraum wird dein Angebot sofort präziser.'
+        ],
+        options: [
+            { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
+            { label: 'Gagenrechner öffnen', stepId: 'preise', fallbackIds: ['rechte'] },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    },
+    sf_suche: {
+        messages: [
+            'Schnelleinstieg: Suche mit Genre, Ort oder Ausstattung starten und dann gezielt eingrenzen.',
+            'Nutze zuerst 2–3 Kernfilter, danach Feintuning für Verfügbarkeit und Equipment.'
+        ],
+        options: [
+            { label: 'Karte & Standort', topicKey: 'sf_karte' },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    },
+    sf_karte: {
+        messages: [
+            'Karte & Standort helfen dir, Studios nach Nähe und Anfahrt schnell zu vergleichen.',
+            'Prüfe Standort und Raumdetails zusammen, damit Technik und Logistik direkt passen.'
+        ],
+        options: [
+            { label: 'Suche & Filter', topicKey: 'sf_suche' },
+            { label: 'Kontakt', stepId: 'kontakt' }
+        ]
+    }
+};
+
 const getDefaultState = () => ({
     isOpen: false,
     currentStepId: 'start',
@@ -520,6 +618,8 @@ class StudioBot {
             launchSoundUnlocked: false,
             launchSoundTimer: null,
             skipGreetingOnce: false,
+            pendingTopicKey: null,
+            activeTopicKey: null,
             pendingDeepLinkStepId: null,
             didYouKnow: {
                 openSince: 0,
@@ -1211,6 +1311,14 @@ class StudioBot {
             this.dock.appendChild(backButton);
         }
 
+        if (this.renderTopicOptionsIfNeeded()) {
+            if (this.ui.isTyping) {
+                this.showTypingIndicator();
+            }
+            this.scrollToBottom();
+            return;
+        }
+
         if (step && step.id === 'start') {
             this.renderStartEnhancements();
         }
@@ -1244,6 +1352,9 @@ class StudioBot {
                         userPromptText: button.dataset.userPromptText || undefined,
                         nextId: button.dataset.nextId || undefined,
                         action: button.dataset.action || undefined,
+                        topicKey: button.dataset.topicKey || undefined,
+                        stepId: button.dataset.stepId || undefined,
+                        fallbackIds: button.dataset.fallbackIds ? button.dataset.fallbackIds.split('|').filter(Boolean) : undefined,
                         target: button.dataset.target || undefined,
                         briefingKey: button.dataset.briefingKey || undefined,
                         briefingValue: button.dataset.briefingValue || undefined,
@@ -1282,6 +1393,9 @@ class StudioBot {
                         userPromptText: button.dataset.userPromptText || undefined,
                         nextId: button.dataset.nextId || undefined,
                         action: button.dataset.action || undefined,
+                        topicKey: button.dataset.topicKey || undefined,
+                        stepId: button.dataset.stepId || undefined,
+                        fallbackIds: button.dataset.fallbackIds ? button.dataset.fallbackIds.split('|').filter(Boolean) : undefined,
                         target: button.dataset.target || undefined,
                         briefingKey: button.dataset.briefingKey || undefined,
                         briefingValue: button.dataset.briefingValue || undefined,
@@ -1309,6 +1423,9 @@ class StudioBot {
                         userPromptText: button.dataset.userPromptText || undefined,
                         nextId: button.dataset.nextId || undefined,
                         action: button.dataset.action || undefined,
+                        topicKey: button.dataset.topicKey || undefined,
+                        stepId: button.dataset.stepId || undefined,
+                        fallbackIds: button.dataset.fallbackIds ? button.dataset.fallbackIds.split('|').filter(Boolean) : undefined,
                         target: button.dataset.target || undefined,
                         briefingKey: button.dataset.briefingKey || undefined,
                         briefingValue: button.dataset.briefingValue || undefined,
@@ -1408,6 +1525,21 @@ class StudioBot {
             return;
         }
 
+        if (option.topicKey) {
+            await this.openPortalToTopic(option.topicKey);
+            this.setOptionsDisabled(false);
+            return;
+        }
+
+        if (option.stepId && !option.nextId) {
+            const targetStepId = this.resolveExistingStep(option.stepId, option.fallbackIds || []);
+            if (targetStepId) {
+                await this.advanceToStep(targetStepId);
+            }
+            this.setOptionsDisabled(false);
+            return;
+        }
+
         if (option.action) {
             const actionHandled = await this.handleContactAction(option);
             if (actionHandled === 'halt') {
@@ -1440,6 +1572,7 @@ class StudioBot {
             this.state.navStack = [...this.state.navStack, this.state.currentStepId];
         }
         this.state.currentStepId = nextStep.id;
+        this.ui.activeTopicKey = null;
         this.trackRecentStep(nextStep.id);
         if (suppressBotMessage) {
             this.renderAndSave();
@@ -1931,16 +2064,18 @@ class StudioBot {
             return;
         }
         const hasPendingDeepLink = Boolean(this.ui.pendingDeepLinkStepId);
+        const hasPendingTopic = Boolean(this.ui.pendingTopicKey);
         this.panel.classList.remove('sc-is-closing');
         this.state.isOpen = true;
         this.hideProactiveBubble();
         this.applyOpenState(true);
-        const greeted = hasPendingDeepLink ? false : await this.maybeShowGreeting();
+        const greeted = (hasPendingDeepLink || hasPendingTopic) ? false : await this.maybeShowGreeting();
         if (!greeted) {
             saveState(this.state);
             this.renderApp();
         }
         this.applyDeepLinkIfAny();
+        this.applyPendingTopic();
         window.setTimeout(() => {
             const firstButton = this.panel ? this.panel.querySelector('button') : null;
             if (firstButton) {
@@ -2141,6 +2276,15 @@ class StudioBot {
         if (option.action) {
             button.dataset.action = option.action;
         }
+        if (option.topicKey) {
+            button.dataset.topicKey = option.topicKey;
+        }
+        if (option.stepId) {
+            button.dataset.stepId = option.stepId;
+        }
+        if (option.fallbackIds && option.fallbackIds.length) {
+            button.dataset.fallbackIds = option.fallbackIds.join('|');
+        }
         if (option.target) {
             button.dataset.target = option.target;
         }
@@ -2154,6 +2298,42 @@ class StudioBot {
             button.dataset.returnToStepId = option.returnToStepId;
         }
         this.options.appendChild(button);
+    }
+
+    renderTopicOptionsIfNeeded() {
+        const topic = this.getTopicContent(this.ui.activeTopicKey);
+        if (!topic || !this.dock) {
+            return false;
+        }
+        const optionsContainer = document.createElement('div');
+        optionsContainer.id = 'studio-connect-options';
+        optionsContainer.className = 'studio-connect-options';
+        optionsContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('.studio-connect-option-btn');
+            if (!button) {
+                return;
+            }
+            const option = {
+                label: button.dataset.label || button.textContent,
+                userLabel: button.dataset.userLabel || undefined,
+                userPromptText: button.dataset.userPromptText || undefined,
+                nextId: button.dataset.nextId || undefined,
+                action: button.dataset.action || undefined,
+                topicKey: button.dataset.topicKey || undefined,
+                stepId: button.dataset.stepId || undefined,
+                fallbackIds: button.dataset.fallbackIds ? button.dataset.fallbackIds.split('|').filter(Boolean) : undefined,
+                target: button.dataset.target || undefined,
+                briefingKey: button.dataset.briefingKey || undefined,
+                briefingValue: button.dataset.briefingValue || undefined,
+                returnToStepId: button.dataset.returnToStepId || undefined
+            };
+            this.handleOption(option);
+        });
+        this.dock.appendChild(optionsContainer);
+        this.options = optionsContainer;
+        this.getTopicOptions(topic.options || []).forEach((option) => this.appendOption(option));
+        this.applyOptionsDisabled();
+        return true;
     }
 
     async handleContactAction(option) {
@@ -2400,6 +2580,9 @@ class StudioBot {
 
     async maybeShowGreeting() {
         if (this.ui.pendingDeepLinkStepId) {
+            return false;
+        }
+        if (this.ui.pendingTopicKey) {
             return false;
         }
         if (this.ui.skipGreetingOnce) {
@@ -3132,16 +3315,16 @@ class StudioBot {
         const dismissedKey = this.getLauncherHintStorageKey('dismissed', context);
         const linksByModule = {
             gagenrechner: [
-                { label: 'Nutzungsrechte', nextId: 'gr_rechte', fallbackIds: ['gr_nutzungsrechte', 'gr_start'] },
-                { label: 'Preisdetails', nextId: 'gr_preisdetails', fallbackIds: ['gr_preis_details', 'gr_start'] }
+                { label: 'Nutzungsrechte', topicKey: 'gr_rechte' },
+                { label: 'Preisdetails', topicKey: 'gr_preisdetails' }
             ],
             studiofinder: [
-                { label: 'Suche & Filter', nextId: 'sf_suche', fallbackIds: ['sf_suche_filter', 'sf_start'] },
-                { label: 'Karte & Standort', nextId: 'sf_karte', fallbackIds: ['sf_karte_standort_datenschutz', 'sf_start'] }
+                { label: 'Suche & Filter', topicKey: 'sf_suche' },
+                { label: 'Karte & Standort', topicKey: 'sf_karte' }
             ],
             skriptanalyse: [
-                { label: 'Schnellstart', nextId: 'sa_quickstart', fallbackIds: ['sa_schnellstart', 'sa_start'] },
-                { label: 'Analyseboxen', nextId: 'sa_analyseboxen', fallbackIds: ['analyseboxen', 'sa_boxes'] }
+                { label: 'Schnellstart', topicKey: 'sa_quickstart' },
+                { label: 'Analyseboxen', topicKey: 'sa_analyseboxen' }
             ]
         };
         const links = linksByModule[context.moduleKey];
@@ -3162,7 +3345,7 @@ class StudioBot {
                     // Ignore.
                 }
                 this.hideProactiveBubble();
-                this.openPortalToStep(item.nextId, item.fallbackIds || []);
+                this.openPortalToTopic(item.topicKey);
                 this.persistProactiveShown(context);
             });
             wrap.appendChild(button);
@@ -3179,12 +3362,46 @@ class StudioBot {
         return candidates.find((candidate) => this.stepExists(candidate)) || 'start';
     }
 
+    resolveExistingStep(preferredStepId, fallbackStepIds = []) {
+        const candidates = [preferredStepId, ...fallbackStepIds];
+        return candidates.find((candidate) => this.stepExists(candidate)) || null;
+    }
+
+    getTopicContent(topicKey) {
+        if (!topicKey) {
+            return null;
+        }
+        return TOPIC_CONTENT[topicKey] || null;
+    }
+
+    getTopicOptions(options = []) {
+        return options.filter((option) => {
+            if (option.topicKey) {
+                return Boolean(this.getTopicContent(option.topicKey));
+            }
+            if (option.stepId) {
+                return Boolean(this.resolveExistingStep(option.stepId, option.fallbackIds || []));
+            }
+            return false;
+        }).map((option) => {
+            if (option.stepId) {
+                const resolvedStepId = this.resolveExistingStep(option.stepId, option.fallbackIds || []);
+                return {
+                    ...option,
+                    nextId: resolvedStepId || undefined
+                };
+            }
+            return option;
+        });
+    }
+
     applyDeepLinkIfAny() {
         if (!this.ui.pendingDeepLinkStepId) {
             return false;
         }
         const targetStepId = this.ui.pendingDeepLinkStepId;
         this.ui.pendingDeepLinkStepId = null;
+        this.ui.activeTopicKey = null;
         this.state.currentStepId = targetStepId;
         this.state.flags = { ...this.state.flags, welcomed: true };
         this.renderAndSave();
@@ -3193,6 +3410,8 @@ class StudioBot {
 
     async openPortalToStep(stepId, fallbackStepIds = []) {
         const targetStepId = this.resolveStepId(stepId, fallbackStepIds);
+        this.ui.pendingTopicKey = null;
+        this.ui.activeTopicKey = null;
         this.ui.pendingDeepLinkStepId = targetStepId;
         this.ui.skipGreetingOnce = true;
         if (this.isOpen) {
@@ -3201,6 +3420,49 @@ class StudioBot {
         }
         await this.openPanel();
         window.queueMicrotask(() => this.applyDeepLinkIfAny());
+    }
+
+    applyPendingTopic() {
+        if (!this.ui.pendingTopicKey) {
+            return false;
+        }
+        const topicKey = this.ui.pendingTopicKey;
+        this.ui.pendingTopicKey = null;
+        this.ui.skipGreetingOnce = false;
+
+        if (this.stepExists(topicKey)) {
+            this.ui.pendingDeepLinkStepId = topicKey;
+            this.applyDeepLinkIfAny();
+            return true;
+        }
+
+        const topic = this.getTopicContent(topicKey);
+        if (!topic) {
+            return false;
+        }
+
+        this.ui.activeTopicKey = topicKey;
+        this.state.flags = { ...this.state.flags, welcomed: true };
+        this.state.currentStepId = 'start';
+        this.state.history = [];
+        (topic.messages || []).forEach((message) => this.pushMessage('bot', message));
+        this.renderAndSave();
+        return true;
+    }
+
+    async openPortalToTopic(topicKey) {
+        if (!topicKey) {
+            return;
+        }
+        this.ui.pendingDeepLinkStepId = null;
+        this.ui.pendingTopicKey = topicKey;
+        this.ui.skipGreetingOnce = true;
+        if (this.isOpen) {
+            this.applyPendingTopic();
+            return;
+        }
+        await this.openPanel();
+        window.queueMicrotask(() => this.applyPendingTopic());
     }
 
     hideProactiveBubble() {
