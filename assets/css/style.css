@@ -585,7 +585,7 @@
     justify-content: center;
     line-height: normal !important;
     padding-top: 0;
-    padding-bottom: 3px !important; /* <--- Der "Lift"-Fix: Drückt den Text optisch hoch */
+    padding-bottom: 1px !important; /* <--- Korrigiert von 3px auf 1px */
 }
 
 .studio-connect-widget .studio-connect-option-btn,
