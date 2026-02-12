@@ -16,6 +16,41 @@ const SC_LAUNCHER_DEFAULTS = {
     left: 'auto'
 };
 
+function scpFindLauncherEl() {
+    const selectors = [
+        '[data-sc-launcher]',
+        '.sc-launcher',
+        '#sc-launcher',
+        '.studio-assist-launcher',
+        '.studio-assist__launcher',
+        '.scp-launcher',
+        '.studio-connect-launcher'
+    ];
+    for (const selector of selectors) {
+        const launcherEl = document.querySelector(selector);
+        if (launcherEl) {
+            return launcherEl;
+        }
+    }
+    const candidates = Array.from(document.querySelectorAll('button, a, div'));
+    const launcherEl = candidates.find((node) => {
+        const styles = window.getComputedStyle(node);
+        if (styles.position !== 'fixed') {
+            return false;
+        }
+        const right = parseFloat(styles.right || '9999');
+        const bottom = parseFloat(styles.bottom || '9999');
+        if (Number.isNaN(right) || Number.isNaN(bottom)) {
+            return false;
+        }
+        if (right > 40 || bottom > 40) {
+            return false;
+        }
+        return node.offsetWidth >= 34 && node.offsetHeight >= 34;
+    });
+    return launcherEl || null;
+}
+
 const SC_RECENT_STEPS_KEY = 'sc_recent_steps';
 const SC_PROACTIVE_SHOWN_KEY = 'sc_proactive_shown';
 const SC_FRICTION_COUNTER_KEY = 'sc_friction_counter';
@@ -822,9 +857,9 @@ class StudioBot {
             startX: 0,
             startRight: 18,
             moved: false,
-            pointerId: null
+            id: null
         };
-        this.ui.suppressNextClick = false;
+        this.ui.suppressNextClickUntil = 0;
         this.bootStartedAt = Date.now();
         this.earlyInteractionDetected = false;
         this.arrivalMinimizeRequested = false;
@@ -1347,13 +1382,14 @@ class StudioBot {
         if (this.launcher) {
             this.launcher.addEventListener('click', async (event) => {
                 this.registerInteraction();
-                if (this.ui.suppressNextClick) {
+                if (Date.now() < this.ui.suppressNextClickUntil) {
                     event.preventDefault();
                     event.stopPropagation();
                     return;
                 }
                 if (this.ui.launcherDocked) {
                     event.preventDefault();
+                    event.stopPropagation();
                     this.setDocked(false);
                     return;
                 }
@@ -2335,7 +2371,9 @@ class StudioBot {
         this.applyDeepLinkIfAny();
         this.applyPendingTopic();
         window.setTimeout(() => {
-            const firstButton = this.panel ? this.panel.querySelector('button') : null;
+            const firstButton = this.panel
+                ? this.panel.querySelector('button:not(.sc-header-icon), .studio-connect-option-btn, .studio-connect-calculator-btn, .studio-connect-copy')
+                : null;
             if (firstButton) {
                 firstButton.focus();
             }
@@ -2903,27 +2941,32 @@ class StudioBot {
     }
 
     getLauncherEl() {
-        return document.querySelector('[data-sc-launcher]')
-            || document.querySelector('.sc-launcher')
-            || document.querySelector('#sc-launcher')
-            || document.querySelector('.studio-assist-launcher')
-            || document.querySelector('.studio-connect-launcher')
-            || null;
+        return scpFindLauncherEl();
     }
 
-    bindDockingListeners() {
+    bindDockingListeners(retry = false) {
         if (this.ui.dockListenersBound) {
             return;
         }
         this.launcher = this.getLauncherEl();
         if (!this.launcher) {
+            if (!retry) {
+                window.setTimeout(() => this.bindDockingListeners(true), 800);
+            }
             return;
         }
         this.ui.dockListenersBound = true;
-        this.launcher.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false });
-        window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false });
-        window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: false });
-        window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: false });
+        document.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false, capture: true });
+        document.addEventListener('mousedown', (event) => this.onLauncherMouseDown(event), { passive: false, capture: true });
+        document.addEventListener('touchstart', (event) => this.onLauncherTouchStart(event), { passive: false, capture: true });
+        window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false, capture: true });
+        window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: false, capture: true });
+        window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: false, capture: true });
+        window.addEventListener('mousemove', (event) => this.onLauncherMouseMove(event), { passive: false, capture: true });
+        window.addEventListener('mouseup', (event) => this.onLauncherMouseUp(event), { passive: false, capture: true });
+        window.addEventListener('touchmove', (event) => this.onLauncherTouchMove(event), { passive: false, capture: true });
+        window.addEventListener('touchend', (event) => this.onLauncherTouchEnd(event), { passive: false, capture: true });
+        window.addEventListener('touchcancel', (event) => this.onLauncherTouchEnd(event), { passive: false, capture: true });
     }
 
     getChatMessagesEl() {
@@ -3872,83 +3915,153 @@ class StudioBot {
         }
     }
 
-    setDocked(nextState, silent = false) {
-        this.ui.launcherDocked = Boolean(nextState);
-        this.persistLauncherDockedState();
+    setDocked(state, silent = false) {
+        this.ui = this.ui || {};
+        this.ui.launcherDocked = Boolean(state);
+        document.body.classList.toggle('sc-launcher--docked', this.ui.launcherDocked);
+        try {
+            localStorage.setItem(SC_LAUNCHER_DOCKED_KEY, this.ui.launcherDocked ? '1' : '0');
+        } catch (error) {
+            // Ignore.
+        }
         this.applyLauncherDockedState(silent);
     }
 
-    onLauncherPointerDown(event) {
-        this.launcher = this.getLauncherEl();
-        if (!this.launcher || !event) {
+    getEventClientX(event) {
+        if (!event) {
+            return null;
+        }
+        if (event.touches && event.touches.length) {
+            return event.touches[0].clientX;
+        }
+        if (event.changedTouches && event.changedTouches.length) {
+            return event.changedTouches[0].clientX;
+        }
+        if (typeof event.clientX === 'number') {
+            return event.clientX;
+        }
+        return null;
+    }
+
+    beginLauncherDrag(event, pointerId = null) {
+        this.ui = this.ui || {};
+        this.ui.drag = this.ui.drag || { active: false, startX: 0, startRight: 18, moved: false, id: null };
+        const launcherEl = scpFindLauncherEl();
+        const clientX = this.getEventClientX(event);
+        if (!launcherEl || clientX === null) {
             return;
         }
+        if (event && event.target && !launcherEl.contains(event.target)) {
+            return;
+        }
+        this.launcher = launcherEl;
         const drag = this.ui.drag;
         drag.active = true;
-        drag.pointerId = event.pointerId;
-        drag.startX = event.clientX;
-        const computedRight = parseFloat(window.getComputedStyle(this.launcher).right);
+        drag.id = pointerId;
+        drag.startX = clientX;
+        const computedRight = parseFloat(window.getComputedStyle(launcherEl).right);
         drag.startRight = Number.isFinite(computedRight) ? computedRight : 18;
         drag.moved = false;
         document.body.classList.add('sc-launcher--dragging');
-        if (typeof this.launcher.setPointerCapture === 'function') {
-            try {
-                this.launcher.setPointerCapture(event.pointerId);
-            } catch (error) {
-                // Ignore capture failures.
-            }
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
         }
-        event.preventDefault();
+        if (event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation();
+        }
     }
 
-    onLauncherPointerMove(event) {
-        this.launcher = this.getLauncherEl();
-        if (!this.launcher || !event) {
-            return;
-        }
+    moveLauncherDrag(event, pointerId = null) {
         const drag = this.ui.drag;
-        if (!drag.active || drag.pointerId !== event.pointerId) {
+        if (!drag || !drag.active) {
             return;
         }
-        const dx = event.clientX - drag.startX;
+        if (pointerId !== null && drag.id !== null && drag.id !== pointerId) {
+            return;
+        }
+        const launcherEl = scpFindLauncherEl();
+        const clientX = this.getEventClientX(event);
+        if (!launcherEl || clientX === null) {
+            return;
+        }
+        this.launcher = launcherEl;
+        const dx = clientX - drag.startX;
         if (Math.abs(dx) > 6) {
             drag.moved = true;
         }
-        const maxRight = 80;
-        const right = Math.max(0, Math.min(maxRight, drag.startRight - dx));
-        this.launcher.style.right = `${right}px`;
-        event.preventDefault();
+        const right = Math.max(0, Math.min(90, drag.startRight - dx));
+        launcherEl.style.right = `${right}px`;
+        if (event && typeof event.preventDefault === 'function') {
+            event.preventDefault();
+        }
     }
 
-    onLauncherPointerUp(event) {
-        this.launcher = this.getLauncherEl();
+    endLauncherDrag(event, pointerId = null) {
         const drag = this.ui.drag;
-        if (!drag.active || !event || drag.pointerId !== event.pointerId) {
+        if (!drag || !drag.active) {
             return;
         }
-        drag.active = false;
-        drag.pointerId = null;
-        document.body.classList.remove('sc-launcher--dragging');
-        const currentRight = this.launcher
-            ? (parseFloat(window.getComputedStyle(this.launcher).right) || 18)
+        if (pointerId !== null && drag.id !== null && drag.id !== pointerId) {
+            return;
+        }
+        const launcherEl = scpFindLauncherEl();
+        const currentRight = launcherEl
+            ? (parseFloat(window.getComputedStyle(launcherEl).right) || 18)
             : 18;
         const shouldDock = currentRight <= 10;
         if (drag.moved) {
-            this.ui.suppressNextClick = true;
-            window.setTimeout(() => {
-                this.ui.suppressNextClick = false;
-            }, 120);
+            this.ui.suppressNextClickUntil = Date.now() + 250;
         }
-        if (this.launcher) {
-            this.launcher.style.right = '';
+        if (launcherEl) {
+            launcherEl.style.right = '';
         }
-        this.setDocked(shouldDock);
+        document.body.classList.remove('sc-launcher--dragging');
+        drag.active = false;
+        drag.id = null;
         drag.startX = 0;
         drag.startRight = 18;
         drag.moved = false;
+        this.setDocked(shouldDock);
+    }
+
+    onLauncherPointerDown(event) {
+        this.beginLauncherDrag(event, event?.pointerId ?? null);
+    }
+
+    onLauncherPointerMove(event) {
+        this.moveLauncherDrag(event, event?.pointerId ?? null);
+    }
+
+    onLauncherPointerUp(event) {
+        this.endLauncherDrag(event, event?.pointerId ?? null);
+    }
+
+    onLauncherMouseDown(event) {
+        this.beginLauncherDrag(event, 'mouse');
+    }
+
+    onLauncherMouseMove(event) {
+        this.moveLauncherDrag(event, 'mouse');
+    }
+
+    onLauncherMouseUp(event) {
+        this.endLauncherDrag(event, 'mouse');
+    }
+
+    onLauncherTouchStart(event) {
+        this.beginLauncherDrag(event, 'touch');
+    }
+
+    onLauncherTouchMove(event) {
+        this.moveLauncherDrag(event, 'touch');
+    }
+
+    onLauncherTouchEnd(event) {
+        this.endLauncherDrag(event, 'touch');
     }
 
     applyLauncherDockedState(silent = false) {
+
         if (this.widget) {
             this.widget.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
         }
