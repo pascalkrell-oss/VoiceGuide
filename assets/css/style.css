@@ -23,7 +23,8 @@
     overflow: visible;
 }
 
-.studio-connect-launcher {
+.studio-connect-launcher,
+.sc-launcher {
     position: fixed;
     bottom: 18px;
     right: 18px;
@@ -43,15 +44,20 @@
     text-align: center;
     cursor: pointer;
     overflow: visible;
-    touch-action: pan-y;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
     transform: none !important;
-    transition: opacity 0.2s ease, background 0.2s ease, right 180ms ease, width 180ms ease, border-radius 180ms ease;
+    transition: right 200ms ease, width 200ms ease;
 }
 
-.studio-connect-launcher.sc-launcher--dragging {
+body.sc-launcher--dragging .studio-connect-launcher,
+body.sc-launcher--dragging .sc-launcher {
     transition: none !important;
 }
 
+body.sc-launcher--docked .studio-connect-launcher,
+body.sc-launcher--docked .sc-launcher,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher {
     right: 0 !important;
     width: 20px;
@@ -60,11 +66,15 @@
     overflow: hidden;
 }
 
+body.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon,
+body.sc-launcher--docked .sc-launcher .studio-connect-launcher-icon,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon {
     opacity: 0;
     pointer-events: none;
 }
 
+body.sc-launcher--docked .studio-connect-launcher::after,
+body.sc-launcher--docked .sc-launcher::after,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher::after {
     content: "←";
     position: absolute;
@@ -80,6 +90,7 @@
     font-weight: 700;
     width: 14px;
     height: 14px;
+    pointer-events: none;
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -580,6 +591,34 @@
 .studio-connect-options.is-disabled {
     opacity: 0.6;
     pointer-events: none;
+}
+
+.studio-connect-widget .studio-connect-option-btn,
+.studio-connect-widget .studio-connect-calculator-btn,
+.studio-connect-widget .studio-connect-copy,
+.studio-connect-widget .sc-proactive-link,
+.studio-connect-widget .sc-proactive-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1 !important;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.studio-connect-widget .studio-connect-option-btn,
+.studio-connect-widget .studio-connect-calculator-btn,
+.studio-connect-widget .studio-connect-copy {
+    height: 38px;
+    min-height: 38px;
+}
+
+.studio-connect-widget .studio-connect-option-btn *,
+.studio-connect-widget .studio-connect-calculator-btn *,
+.studio-connect-widget .studio-connect-copy * {
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
 }
 
 .studio-connect-option-btn {
@@ -1204,8 +1243,8 @@
     pointer-events: auto;
 }
 
-body.sc-launcher-docked .sc-proactive-bubble,
-body.sc-launcher-docked .sc-launcher-hint,
+body.sc-launcher--docked .sc-proactive-bubble,
+body.sc-launcher--docked .sc-launcher-hint,
 .sc-proactive-bubble.sc-proactive-bubble--docked,
 .sc-launcher-hint.sc-proactive-bubble--docked {
     right: 28px;
@@ -1489,4 +1528,14 @@ body.sc-launcher-docked .sc-launcher-hint,
     .sc-callback-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.studio-connect-widget .studio-connect-option-btn,
+.studio-connect-widget .studio-connect-calculator-btn,
+.studio-connect-widget .studio-connect-copy,
+.studio-connect-widget .studio-connect-option-btn:hover,
+.studio-connect-widget .studio-connect-calculator-btn:hover,
+.studio-connect-widget .studio-connect-copy:hover {
+    transform: none !important;
+    top: auto !important;
 }

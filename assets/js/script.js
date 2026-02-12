@@ -749,7 +749,7 @@ class StudioBot {
         this.shouldShowGeneralByRecency = this.computeGeneralRecencyEligibility();
         this.widget = document.getElementById('sc-widget');
         this.panel = document.getElementById('sc-container');
-        this.launcher = document.getElementById('sc-launcher');
+        this.launcher = this.getLauncherEl();
         this.body = document.getElementById('sc-body');
         this.topicHeader = document.getElementById('sc-topic-header');
         this.dock = document.getElementById('sc-dock');
@@ -784,6 +784,7 @@ class StudioBot {
             msgQueueRunId: 0,
             pendingDeepLinkStepId: null,
             listenersBound: false,
+            dockListenersBound: false,
             didYouKnow: {
                 openSince: 0,
                 lastHintAt: 0,
@@ -842,7 +843,7 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
-        this.ui.launcherDocked = this.loadLauncherDockedState();
+        this.ui.launcherDocked = false;
         this.arrivalMinimizeRequested = this.consumeMinimizeOnArrivalFlag();
         if (!this.arrivalMinimizeRequested && this.state.isOpen) {
             this.state.isOpen = false;
@@ -854,7 +855,7 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.applyLauncherDockedState(true);
+        this.setDocked(this.loadLauncherDockedState(), true);
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
         this.bindEvents();
@@ -1342,6 +1343,7 @@ class StudioBot {
             return;
         }
         this.ui.listenersBound = true;
+        this.launcher = this.getLauncherEl();
         if (this.launcher) {
             this.launcher.addEventListener('click', async (event) => {
                 this.registerInteraction();
@@ -1364,11 +1366,8 @@ class StudioBot {
                 }
                 this.openPanel();
             });
-            this.launcher.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false });
-            window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false });
-            window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: true });
-            window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: true });
         }
+        this.bindDockingListeners();
 
         if (this.closeButton) {
             this.closeButton.addEventListener('click', async () => {
@@ -2900,6 +2899,31 @@ class StudioBot {
         this.body = document.getElementById('sc-body');
         this.topicHeader = document.getElementById('sc-topic-header');
         this.dock = document.getElementById('sc-dock');
+        this.launcher = this.getLauncherEl();
+    }
+
+    getLauncherEl() {
+        return document.querySelector('[data-sc-launcher]')
+            || document.querySelector('.sc-launcher')
+            || document.querySelector('#sc-launcher')
+            || document.querySelector('.studio-assist-launcher')
+            || document.querySelector('.studio-connect-launcher')
+            || null;
+    }
+
+    bindDockingListeners() {
+        if (this.ui.dockListenersBound) {
+            return;
+        }
+        this.launcher = this.getLauncherEl();
+        if (!this.launcher) {
+            return;
+        }
+        this.ui.dockListenersBound = true;
+        this.launcher.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false });
+        window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false });
+        window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: false });
+        window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: false });
     }
 
     getChatMessagesEl() {
@@ -3855,6 +3879,7 @@ class StudioBot {
     }
 
     onLauncherPointerDown(event) {
+        this.launcher = this.getLauncherEl();
         if (!this.launcher || !event) {
             return;
         }
@@ -3865,7 +3890,7 @@ class StudioBot {
         const computedRight = parseFloat(window.getComputedStyle(this.launcher).right);
         drag.startRight = Number.isFinite(computedRight) ? computedRight : 18;
         drag.moved = false;
-        this.launcher.classList.add('sc-launcher--dragging');
+        document.body.classList.add('sc-launcher--dragging');
         if (typeof this.launcher.setPointerCapture === 'function') {
             try {
                 this.launcher.setPointerCapture(event.pointerId);
@@ -3877,6 +3902,7 @@ class StudioBot {
     }
 
     onLauncherPointerMove(event) {
+        this.launcher = this.getLauncherEl();
         if (!this.launcher || !event) {
             return;
         }
@@ -3888,34 +3914,35 @@ class StudioBot {
         if (Math.abs(dx) > 6) {
             drag.moved = true;
         }
-        const maxRight = 60;
+        const maxRight = 80;
         const right = Math.max(0, Math.min(maxRight, drag.startRight - dx));
         this.launcher.style.right = `${right}px`;
         event.preventDefault();
     }
 
     onLauncherPointerUp(event) {
+        this.launcher = this.getLauncherEl();
         const drag = this.ui.drag;
-        if (!drag.active || drag.pointerId !== event.pointerId) {
+        if (!drag.active || !event || drag.pointerId !== event.pointerId) {
             return;
         }
         drag.active = false;
         drag.pointerId = null;
-        this.launcher?.classList.remove('sc-launcher--dragging');
+        document.body.classList.remove('sc-launcher--dragging');
         const currentRight = this.launcher
             ? (parseFloat(window.getComputedStyle(this.launcher).right) || 18)
             : 18;
-        const shouldDock = currentRight <= 12;
+        const shouldDock = currentRight <= 10;
         if (drag.moved) {
             this.ui.suppressNextClick = true;
             window.setTimeout(() => {
                 this.ui.suppressNextClick = false;
-            }, 60);
+            }, 120);
         }
-        this.setDocked(shouldDock);
         if (this.launcher) {
             this.launcher.style.right = '';
         }
+        this.setDocked(shouldDock);
         drag.startX = 0;
         drag.startRight = 18;
         drag.moved = false;
@@ -3925,7 +3952,7 @@ class StudioBot {
         if (this.widget) {
             this.widget.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
         }
-        document.body.classList.toggle('sc-launcher-docked', Boolean(this.ui.launcherDocked));
+        document.body.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
         if (this.launcher) {
             this.launcher.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Studio Connect öffnen');
         }
