@@ -882,7 +882,7 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.ensureLauncherChevron();
+        this.ensureLauncherDockDot();
         this.loadDockState();
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
@@ -1374,8 +1374,23 @@ class StudioBot {
         this.launcher = this.getLauncherEl();
         if (this.launcher) {
             this.launcher.addEventListener('click', (event) => {
-                const chevron = event.target.closest('.sc-launcher-chevron');
-                if (!chevron) {
+                const dockDot = event.target.closest('.sc-launcher-dockdot');
+                if (!dockDot) {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                this.setDocked(true);
+                if (this.isOpen) {
+                    this.closePanel();
+                }
+            }, true);
+            this.launcher.addEventListener('keydown', (event) => {
+                const dockDot = event.target.closest('.sc-launcher-dockdot');
+                if (!dockDot) {
+                    return;
+                }
+                if (event.key !== 'Enter' && event.key !== ' ') {
                     return;
                 }
                 event.preventDefault();
@@ -3900,13 +3915,15 @@ class StudioBot {
         this.applyLauncherDockedState(silent);
     }
 
-    ensureLauncherChevron() {
+    ensureLauncherDockDot() {
         this.launcher = this.getLauncherEl();
-        if (this.launcher && !this.launcher.querySelector('.sc-launcher-chevron')) {
-            const chevron = document.createElement('span');
-            chevron.className = 'sc-launcher-chevron';
-            chevron.setAttribute('aria-hidden', 'true');
-            this.launcher.appendChild(chevron);
+        if (this.launcher && !this.launcher.querySelector('.sc-launcher-dockdot')) {
+            const dockDot = document.createElement('span');
+            dockDot.className = 'sc-launcher-dockdot';
+            dockDot.setAttribute('role', 'button');
+            dockDot.setAttribute('tabindex', '0');
+            dockDot.setAttribute('aria-label', 'Launcher einfahren');
+            this.launcher.appendChild(dockDot);
         }
     }
 
