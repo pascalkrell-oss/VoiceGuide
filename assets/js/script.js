@@ -815,6 +815,10 @@ class StudioBot {
         this.handleDocumentMouseDown = null;
         this.hintOverlay = null;
         this.launcherDockToggle = null;
+        this.launcherDockHint = null;
+        this.launcherLongPressTimer = null;
+        this.launcherLongPressTriggered = false;
+        this.launcherPointerId = null;
         this.bootStartedAt = Date.now();
         this.earlyInteractionDetected = false;
         this.arrivalMinimizeRequested = false;
@@ -845,7 +849,7 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.ensureLauncherDockToggle();
+        this.ensureLauncherDockHint();
         this.applyLauncherDockedState(true);
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
@@ -1335,8 +1339,18 @@ class StudioBot {
         }
         this.ui.listenersBound = true;
         if (this.launcher) {
-            this.launcher.addEventListener('click', async () => {
+            this.launcher.addEventListener('click', async (event) => {
                 this.registerInteraction();
+                if (this.launcherLongPressTriggered) {
+                    this.launcherLongPressTriggered = false;
+                    event.preventDefault();
+                    return;
+                }
+                if (this.ui.launcherDocked) {
+                    event.preventDefault();
+                    this.setDocked(false);
+                    return;
+                }
                 if (this.ui.soundBlocked && !this.ui.launchSoundRetryDone) {
                     this.playLauncherHintSound(true);
                 }
@@ -1346,16 +1360,55 @@ class StudioBot {
                 }
                 this.openPanel();
             });
+
+            this.launcher.addEventListener('pointerdown', (event) => {
+                if (!event.pointerType || event.pointerType === 'mouse') {
+                    return;
+                }
+                this.launcherPointerId = event.pointerId;
+                this.launcherLongPressTriggered = false;
+                if (this.launcherLongPressTimer) {
+                    window.clearTimeout(this.launcherLongPressTimer);
+                }
+                this.launcherLongPressTimer = window.setTimeout(() => {
+                    this.launcherLongPressTriggered = true;
+                    this.registerInteraction();
+                    this.setDocked(!this.ui.launcherDocked);
+                }, 450);
+            });
+
+            const clearLauncherPress = () => {
+                if (this.launcherLongPressTimer) {
+                    window.clearTimeout(this.launcherLongPressTimer);
+                    this.launcherLongPressTimer = null;
+                }
+                this.launcherPointerId = null;
+            };
+
+            this.launcher.addEventListener('pointerup', clearLauncherPress);
+            this.launcher.addEventListener('pointercancel', clearLauncherPress);
+            this.launcher.addEventListener('pointerleave', (event) => {
+                if (event.pointerType && event.pointerType !== 'mouse') {
+                    clearLauncherPress();
+                }
+            });
         }
 
-        if (this.launcherDockToggle) {
-            this.launcherDockToggle.addEventListener('click', (event) => {
+        if (this.launcherDockHint) {
+            this.launcherDockHint.addEventListener('click', (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 this.registerInteraction();
-                this.ui.launcherDocked = !this.ui.launcherDocked;
-                this.persistLauncherDockedState();
-                this.applyLauncherDockedState();
+                this.setDocked(true);
+            });
+            this.launcherDockHint.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') {
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                this.registerInteraction();
+                this.setDocked(true);
             });
         }
 
@@ -3837,15 +3890,24 @@ class StudioBot {
         }
     }
 
-    ensureLauncherDockToggle() {
-        if (!this.launcher || this.launcherDockToggle) {
+    setDocked(nextState, silent = false) {
+        this.ui.launcherDocked = Boolean(nextState);
+        this.persistLauncherDockedState();
+        this.applyLauncherDockedState(silent);
+    }
+
+    ensureLauncherDockHint() {
+        if (!this.launcher || this.launcherDockHint) {
             return;
         }
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'sc-launcher-dock-toggle';
-        this.launcher.insertAdjacentElement('afterend', toggle);
-        this.launcherDockToggle = toggle;
+        const hint = document.createElement('div');
+        hint.className = 'sc-launcher-dockhint';
+        hint.setAttribute('role', 'button');
+        hint.setAttribute('tabindex', '0');
+        hint.setAttribute('aria-label', 'Launcher einfahren');
+        hint.innerHTML = '<span>Einfahren</span><span class="sc-arrow" aria-hidden="true">→</span>';
+        this.launcher.appendChild(hint);
+        this.launcherDockHint = hint;
     }
 
     applyLauncherDockedState(silent = false) {
@@ -3853,9 +3915,11 @@ class StudioBot {
             this.widget.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
         }
         document.body.classList.toggle('sc-launcher-docked', Boolean(this.ui.launcherDocked));
-        if (this.launcherDockToggle) {
-            this.launcherDockToggle.textContent = this.ui.launcherDocked ? '←' : '→';
-            this.launcherDockToggle.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Launcher einklappen');
+        if (this.launcher) {
+            this.launcher.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Studio Connect öffnen');
+        }
+        if (this.launcherDockHint) {
+            this.launcherDockHint.setAttribute('aria-hidden', this.ui.launcherDocked ? 'true' : 'false');
         }
         if (!silent) {
             alignLauncherToSavedButton();
