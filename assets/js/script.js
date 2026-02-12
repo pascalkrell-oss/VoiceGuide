@@ -139,7 +139,7 @@ const TOPIC_CONTENT = {
 
     sf_suche: {
         messages: [
-            'Schneller finden: Starte mit 1–2 Filtern (z.B. „Remote“ + „Source-Connect“) und verfeinere erst dann.',
+            'Schneller finden: Starte mit wenigen Filtern (z.B. „Remote“ + „Source-Connect“) und verfeinere erst dann.',
             'Wenn 0 Treffer: entferne zuerst „Ausstattung“ – die ist meist der härteste Filter.'
         ],
         options: [
@@ -416,7 +416,7 @@ const renderContactCard = (state, sc_vars, helpers) => {
     if (hasCopyAction) {
         const hint = document.createElement('div');
         hint.className = 'studio-connect-copy-hint';
-        hint.textContent = 'Tippe, um die Daten zu kopieren.';
+        hint.textContent = 'Klick, um die Daten zu kopieren.';
         wrapper.appendChild(hint);
     }
 
@@ -816,9 +816,14 @@ class StudioBot {
         this.hintOverlay = null;
         this.launcherDockToggle = null;
         this.launcherDockHint = null;
-        this.launcherLongPressTimer = null;
-        this.launcherLongPressTriggered = false;
-        this.launcherPointerId = null;
+        this.ui.drag = {
+            active: false,
+            startX: 0,
+            startRight: 18,
+            moved: false,
+            pointerId: null
+        };
+        this.ui.suppressNextClick = false;
         this.bootStartedAt = Date.now();
         this.earlyInteractionDetected = false;
         this.arrivalMinimizeRequested = false;
@@ -849,7 +854,6 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.ensureLauncherDockHint();
         this.applyLauncherDockedState(true);
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
@@ -1010,7 +1014,7 @@ class StudioBot {
             case 'rechte_beispiele':
                 return {
                     id: 'rechte_beispiele',
-                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWähle oben den passenden Einsatz aus oder tippe auf „Kontakt“, dann ordnet Pascal die Lizenz passend ein.',
+                    text: 'Typische Einsatz-Szenarien:\n\n• Website + organische Social Posts (3–6 Monate)\n• Social Ads (Meta/YouTube) mit festem Budget\n• YouTube PreRoll national (6 Monate)\n• Regionales Radio/TV (4 Wochen)\n• Podcast-Intro/Outro (1 Jahr)\n\nWähle oben den passenden Einsatz aus oder klick auf „Kontakt“, dann ordnet Pascal die Lizenz passend ein.',
                     options: [
                         { label: 'Beispiele', userPromptText: 'Zeig mir Beispiele.', nextId: 'rechte_beispiele' },
                         { label: 'Kontakt', userPromptText: 'Kontakt öffnen.', nextId: 'kontakt' },
@@ -1116,7 +1120,7 @@ class StudioBot {
             case 'callback':
                 return {
                     id: 'callback',
-                    text: 'Trag Deine Daten ein - ich melde mich schnellstmöglich zurück.',
+                    text: 'Gib Deine Rückrufdaten ein – ich melde mich schnellstmöglich zurück.',
                     action: 'callback_form',
                     options: [
                         { label: 'Kontakt', userPromptText: 'Kontakt anzeigen.', nextId: 'kontakt' }
@@ -1301,7 +1305,7 @@ class StudioBot {
             case 'sf_studio_hinzufuegen':
                 return { ...this.buildModuleTopicStep('sf_hub', 'studiofinder', [
                     'Du vermisst ein Studio? Schick uns die wichtigsten Daten zur Prüfung.',
-                    'Nenne Name, Ort, Website und relevante Leistungen für die Suche.',
+                    'Nutze den Eintrag-Button und ergänze Name, Ort, Website und relevante Leistungen.',
                     'Mit Referenzen oder Beispiel-Links wird die Freigabe meist schneller.'
                 ]), id: 'sf_studio_hinzufuegen' };
             case 'sf_probleme':
@@ -1341,9 +1345,9 @@ class StudioBot {
         if (this.launcher) {
             this.launcher.addEventListener('click', async (event) => {
                 this.registerInteraction();
-                if (this.launcherLongPressTriggered) {
-                    this.launcherLongPressTriggered = false;
+                if (this.ui.suppressNextClick) {
                     event.preventDefault();
+                    event.stopPropagation();
                     return;
                 }
                 if (this.ui.launcherDocked) {
@@ -1360,56 +1364,10 @@ class StudioBot {
                 }
                 this.openPanel();
             });
-
-            this.launcher.addEventListener('pointerdown', (event) => {
-                if (!event.pointerType || event.pointerType === 'mouse') {
-                    return;
-                }
-                this.launcherPointerId = event.pointerId;
-                this.launcherLongPressTriggered = false;
-                if (this.launcherLongPressTimer) {
-                    window.clearTimeout(this.launcherLongPressTimer);
-                }
-                this.launcherLongPressTimer = window.setTimeout(() => {
-                    this.launcherLongPressTriggered = true;
-                    this.registerInteraction();
-                    this.setDocked(!this.ui.launcherDocked);
-                }, 450);
-            });
-
-            const clearLauncherPress = () => {
-                if (this.launcherLongPressTimer) {
-                    window.clearTimeout(this.launcherLongPressTimer);
-                    this.launcherLongPressTimer = null;
-                }
-                this.launcherPointerId = null;
-            };
-
-            this.launcher.addEventListener('pointerup', clearLauncherPress);
-            this.launcher.addEventListener('pointercancel', clearLauncherPress);
-            this.launcher.addEventListener('pointerleave', (event) => {
-                if (event.pointerType && event.pointerType !== 'mouse') {
-                    clearLauncherPress();
-                }
-            });
-        }
-
-        if (this.launcherDockHint) {
-            this.launcherDockHint.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                this.registerInteraction();
-                this.setDocked(true);
-            });
-            this.launcherDockHint.addEventListener('keydown', (event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-                this.registerInteraction();
-                this.setDocked(true);
-            });
+            this.launcher.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false });
+            window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false });
+            window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: true });
+            window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: true });
         }
 
         if (this.closeButton) {
@@ -2269,7 +2227,7 @@ class StudioBot {
         const popover = document.createElement('div');
         popover.className = 'sc-search-popover';
         popover.setAttribute('aria-hidden', 'true');
-        popover.innerHTML = '<input type="search" class="sc-search-popover__input" placeholder="Stichwort eingeben…" aria-label="Stichwortsuche" /><div class="sc-search-popover__results"></div>';
+        popover.innerHTML = '<input type="search" class="sc-search-popover__input" placeholder="Bereich auswählen…" aria-label="Stichwortsuche" /><div class="sc-search-popover__results"></div>';
         this.headerActions.appendChild(popover);
         this.searchPopover = popover;
         this.searchInput = popover.querySelector('.sc-search-popover__input');
@@ -2332,7 +2290,7 @@ class StudioBot {
         }
         const value = (query || '').trim().toLowerCase();
         if (!value) {
-            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Tippe ein Stichwort…</div>';
+            this.searchResults.innerHTML = '<div class="sc-search-popover__empty">Wähle einen Bereich…</div>';
             return;
         }
         const tokens = value.split(/\s+/).filter(Boolean);
@@ -3207,7 +3165,7 @@ class StudioBot {
             `• Deadline: ${deadline}`,
             `• Aussprache: ${aussprache}`,
             '',
-            'Tippe auf „Jetzt anfragen“ – ich bringe Dich direkt zum Kontaktformular und übernehme Deine Briefing-Angaben als Vorlage.'
+            'Klick auf „Jetzt anfragen“ – ich bringe Dich direkt zum Kontaktformular und übernehme Deine Briefing-Angaben als Vorlage.'
         );
         return lines.join('\n');
     }
@@ -3396,7 +3354,7 @@ class StudioBot {
                 { id: 'sf_premium', text: 'Wusstest Du schon…? Premium-Badges helfen bei der Vorauswahl, wenn Du verlässliche Setups priorisieren willst.' },
             ],
             general: [
-                { id: 'general_focus', text: 'Wusstest Du schon…? Je genauer Dein Ziel in 1–2 Sätzen beschrieben ist, desto schneller komme ich zum passenden nächsten Schritt.' }
+                { id: 'general_focus', text: 'Wusstest Du schon…? Wähle ein Thema – ich zeige Dir den passenden nächsten Schritt.' }
             ]
         }[contextKey] || [];
     }
@@ -3896,18 +3854,71 @@ class StudioBot {
         this.applyLauncherDockedState(silent);
     }
 
-    ensureLauncherDockHint() {
-        if (!this.launcher || this.launcherDockHint) {
+    onLauncherPointerDown(event) {
+        if (!this.launcher || !event) {
             return;
         }
-        const hint = document.createElement('div');
-        hint.className = 'sc-launcher-dockhint';
-        hint.setAttribute('role', 'button');
-        hint.setAttribute('tabindex', '0');
-        hint.setAttribute('aria-label', 'Launcher einfahren');
-        hint.innerHTML = '<span>Einfahren</span><span class="sc-arrow" aria-hidden="true">→</span>';
-        this.launcher.appendChild(hint);
-        this.launcherDockHint = hint;
+        const drag = this.ui.drag;
+        drag.active = true;
+        drag.pointerId = event.pointerId;
+        drag.startX = event.clientX;
+        const computedRight = parseFloat(window.getComputedStyle(this.launcher).right);
+        drag.startRight = Number.isFinite(computedRight) ? computedRight : 18;
+        drag.moved = false;
+        this.launcher.classList.add('sc-launcher--dragging');
+        if (typeof this.launcher.setPointerCapture === 'function') {
+            try {
+                this.launcher.setPointerCapture(event.pointerId);
+            } catch (error) {
+                // Ignore capture failures.
+            }
+        }
+        event.preventDefault();
+    }
+
+    onLauncherPointerMove(event) {
+        if (!this.launcher || !event) {
+            return;
+        }
+        const drag = this.ui.drag;
+        if (!drag.active || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        const dx = event.clientX - drag.startX;
+        if (Math.abs(dx) > 6) {
+            drag.moved = true;
+        }
+        const maxRight = 60;
+        const right = Math.max(0, Math.min(maxRight, drag.startRight - dx));
+        this.launcher.style.right = `${right}px`;
+        event.preventDefault();
+    }
+
+    onLauncherPointerUp(event) {
+        const drag = this.ui.drag;
+        if (!drag.active || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        drag.active = false;
+        drag.pointerId = null;
+        this.launcher?.classList.remove('sc-launcher--dragging');
+        const currentRight = this.launcher
+            ? (parseFloat(window.getComputedStyle(this.launcher).right) || 18)
+            : 18;
+        const shouldDock = currentRight <= 12;
+        if (drag.moved) {
+            this.ui.suppressNextClick = true;
+            window.setTimeout(() => {
+                this.ui.suppressNextClick = false;
+            }, 60);
+        }
+        this.setDocked(shouldDock);
+        if (this.launcher) {
+            this.launcher.style.right = '';
+        }
+        drag.startX = 0;
+        drag.startRight = 18;
+        drag.moved = false;
     }
 
     applyLauncherDockedState(silent = false) {
@@ -3918,8 +3929,11 @@ class StudioBot {
         if (this.launcher) {
             this.launcher.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Studio Connect öffnen');
         }
-        if (this.launcherDockHint) {
-            this.launcherDockHint.setAttribute('aria-hidden', this.ui.launcherDocked ? 'true' : 'false');
+        if (this.launcher) {
+            this.launcher.style.right = '';
+        }
+        if (this.ui.launcherDocked && this.state?.isOpen) {
+            this.closePanel();
         }
         if (!silent) {
             alignLauncherToSavedButton();
