@@ -47,19 +47,11 @@
     text-align: center;
     cursor: pointer;
     overflow: visible;
-    touch-action: none;
+    touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
     transform: none !important;
-    transition: right 200ms ease, width 200ms ease;
-}
-
-body.sc-launcher--dragging .studio-connect-launcher,
-body.sc-launcher--dragging .sc-launcher,
-body.sc-launcher--dragging #sc-launcher,
-body.sc-launcher--dragging .studio-assist-launcher,
-body.sc-launcher--dragging .scp-launcher {
-    transition: none !important;
+    transition: right 200ms ease, width 200ms ease, background 200ms ease;
 }
 
 body.sc-launcher--docked .studio-connect-launcher,
@@ -69,9 +61,10 @@ body.sc-launcher--docked .studio-assist-launcher,
 body.sc-launcher--docked .scp-launcher,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher {
     right: 0 !important;
-    width: 20px !important;
-    min-width: 20px;
-    border-radius: 12px 0 0 12px;
+    width: 22px !important;
+    min-width: 22px;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
     overflow: hidden !important;
 }
 
@@ -82,27 +75,42 @@ body.sc-launcher--docked .sc-launcher .studio-connect-launcher-icon,
     pointer-events: none;
 }
 
-body.sc-launcher--docked .studio-connect-launcher::after,
-body.sc-launcher--docked .sc-launcher::after,
-body.sc-launcher--docked #sc-launcher::after,
-body.sc-launcher--docked .studio-assist-launcher::after,
-body.sc-launcher--docked .scp-launcher::after,
-.sc-widget-root.sc-launcher--docked .studio-connect-launcher::after {
-    content: "←";
+.sc-launcher-chevron {
     position: absolute;
-    left: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: inline-flex;
+    right: 10px;
+    bottom: 10px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: rgba(15, 20, 26, 0.35);
+    display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto;
+    z-index: 2;
+}
+
+.sc-launcher-chevron::before {
+    content: "→";
+    font-size: 12px;
+    line-height: 1;
+    color: #fff;
+    opacity: 0.95;
+}
+
+.studio-connect-launcher .sc-launcher-chevron { opacity: .85; }
+.studio-connect-launcher:hover .sc-launcher-chevron { opacity: 1; }
+
+body.sc-launcher--docked #sc-launcher .sc-launcher-chevron {
+    right: 2px;
+    bottom: 50%;
+    transform: translateY(50%);
+    background: transparent;
+}
+
+body.sc-launcher--docked #sc-launcher .sc-launcher-chevron::before {
+    content: "←";
     color: #1a93ee;
-    opacity: 0.9;
-    font-size: 14px;
-    font-weight: 700;
-    width: 14px;
-    height: 14px;
-    pointer-events: none;
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -125,6 +133,10 @@ body.sc-launcher--docked .scp-launcher::after,
 
 .studio-connect-widget.is-open .studio-connect-launcher {
     background: var(--sc-dark);
+}
+
+#sc-widget.is-open #sc-launcher {
+    background: var(--sc-dark) !important;
 }
 
 .studio-connect-widget.is-open .studio-connect-launcher-icon i {
@@ -281,7 +293,15 @@ body.sc-launcher--docked .scp-launcher::after,
 .sc-header-icon:active {
     outline: none !important;
     box-shadow: none !important;
-    border-color: transparent;
+    border-color: transparent !important;
+}
+
+#studio-connect-close:focus,
+#studio-connect-close:focus-visible,
+#studio-connect-close:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
 }
 
 .studio-connect-header-actions {
@@ -699,8 +719,7 @@ body.sc-launcher--docked .scp-launcher::after,
 .studio-connect-launcher:focus-visible,
 .studio-connect-option-btn:focus-visible,
 .studio-connect-calculator-btn:focus-visible,
-.studio-connect-copy:focus-visible,
-.studio-connect-close:focus-visible {
+.studio-connect-copy:focus-visible {
     outline: 3px solid rgba(26, 147, 238, 0.45);
     outline-offset: 2px;
     box-shadow: 0 0 0 4px rgba(26, 147, 238, 0.2);

@@ -852,14 +852,6 @@ class StudioBot {
         this.hintOverlay = null;
         this.launcherDockToggle = null;
         this.launcherDockHint = null;
-        this.ui.drag = {
-            active: false,
-            startX: 0,
-            startRight: 18,
-            moved: false,
-            id: null
-        };
-        this.ui.suppressNextClickUntil = 0;
         this.bootStartedAt = Date.now();
         this.earlyInteractionDetected = false;
         this.arrivalMinimizeRequested = false;
@@ -890,7 +882,8 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.setDocked(this.loadLauncherDockedState(), true);
+        this.ensureLauncherChevron();
+        this.loadDockState();
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
         this.bindEvents();
@@ -1380,13 +1373,20 @@ class StudioBot {
         this.ui.listenersBound = true;
         this.launcher = this.getLauncherEl();
         if (this.launcher) {
-            this.launcher.addEventListener('click', async (event) => {
-                this.registerInteraction();
-                if (Date.now() < this.ui.suppressNextClickUntil) {
-                    event.preventDefault();
-                    event.stopPropagation();
+            this.launcher.addEventListener('click', (event) => {
+                const chevron = event.target.closest('.sc-launcher-chevron');
+                if (!chevron) {
                     return;
                 }
+                event.preventDefault();
+                event.stopPropagation();
+                this.setDocked(true);
+                if (this.isOpen) {
+                    this.closePanel();
+                }
+            }, true);
+            this.launcher.addEventListener('click', async (event) => {
+                this.registerInteraction();
                 if (this.ui.launcherDocked) {
                     event.preventDefault();
                     event.stopPropagation();
@@ -1403,7 +1403,6 @@ class StudioBot {
                 this.openPanel();
             });
         }
-        this.bindDockingListeners();
 
         if (this.closeButton) {
             this.closeButton.addEventListener('click', async () => {
@@ -2370,14 +2369,6 @@ class StudioBot {
         }
         this.applyDeepLinkIfAny();
         this.applyPendingTopic();
-        window.setTimeout(() => {
-            const firstButton = this.panel
-                ? this.panel.querySelector('button:not(.sc-header-icon), .studio-connect-option-btn, .studio-connect-calculator-btn, .studio-connect-copy')
-                : null;
-            if (firstButton) {
-                firstButton.focus();
-            }
-        }, 0);
     }
 
     async closePanel() {
@@ -2944,30 +2935,7 @@ class StudioBot {
         return scpFindLauncherEl();
     }
 
-    bindDockingListeners(retry = false) {
-        if (this.ui.dockListenersBound) {
-            return;
-        }
-        this.launcher = this.getLauncherEl();
-        if (!this.launcher) {
-            if (!retry) {
-                window.setTimeout(() => this.bindDockingListeners(true), 800);
-            }
-            return;
-        }
-        this.ui.dockListenersBound = true;
-        document.addEventListener('pointerdown', (event) => this.onLauncherPointerDown(event), { passive: false, capture: true });
-        document.addEventListener('mousedown', (event) => this.onLauncherMouseDown(event), { passive: false, capture: true });
-        document.addEventListener('touchstart', (event) => this.onLauncherTouchStart(event), { passive: false, capture: true });
-        window.addEventListener('pointermove', (event) => this.onLauncherPointerMove(event), { passive: false, capture: true });
-        window.addEventListener('pointerup', (event) => this.onLauncherPointerUp(event), { passive: false, capture: true });
-        window.addEventListener('pointercancel', (event) => this.onLauncherPointerUp(event), { passive: false, capture: true });
-        window.addEventListener('mousemove', (event) => this.onLauncherMouseMove(event), { passive: false, capture: true });
-        window.addEventListener('mouseup', (event) => this.onLauncherMouseUp(event), { passive: false, capture: true });
-        window.addEventListener('touchmove', (event) => this.onLauncherTouchMove(event), { passive: false, capture: true });
-        window.addEventListener('touchend', (event) => this.onLauncherTouchEnd(event), { passive: false, capture: true });
-        window.addEventListener('touchcancel', (event) => this.onLauncherTouchEnd(event), { passive: false, capture: true });
-    }
+    bindDockingListeners() {}
 
     getChatMessagesEl() {
         if (!this.messages) {
@@ -3907,6 +3875,11 @@ class StudioBot {
         }
     }
 
+    loadDockState() {
+        const saved = this.loadLauncherDockedState();
+        this.setDocked(saved, true);
+    }
+
     persistLauncherDockedState() {
         try {
             localStorage.setItem(SC_LAUNCHER_DOCKED_KEY, this.ui.launcherDocked ? '1' : '0');
@@ -3927,137 +3900,14 @@ class StudioBot {
         this.applyLauncherDockedState(silent);
     }
 
-    getEventClientX(event) {
-        if (!event) {
-            return null;
+    ensureLauncherChevron() {
+        this.launcher = this.getLauncherEl();
+        if (this.launcher && !this.launcher.querySelector('.sc-launcher-chevron')) {
+            const chevron = document.createElement('span');
+            chevron.className = 'sc-launcher-chevron';
+            chevron.setAttribute('aria-hidden', 'true');
+            this.launcher.appendChild(chevron);
         }
-        if (event.touches && event.touches.length) {
-            return event.touches[0].clientX;
-        }
-        if (event.changedTouches && event.changedTouches.length) {
-            return event.changedTouches[0].clientX;
-        }
-        if (typeof event.clientX === 'number') {
-            return event.clientX;
-        }
-        return null;
-    }
-
-    beginLauncherDrag(event, pointerId = null) {
-        this.ui = this.ui || {};
-        this.ui.drag = this.ui.drag || { active: false, startX: 0, startRight: 18, moved: false, id: null };
-        const launcherEl = scpFindLauncherEl();
-        const clientX = this.getEventClientX(event);
-        if (!launcherEl || clientX === null) {
-            return;
-        }
-        if (event && event.target && !launcherEl.contains(event.target)) {
-            return;
-        }
-        this.launcher = launcherEl;
-        const drag = this.ui.drag;
-        drag.active = true;
-        drag.id = pointerId;
-        drag.startX = clientX;
-        const computedRight = parseFloat(window.getComputedStyle(launcherEl).right);
-        drag.startRight = Number.isFinite(computedRight) ? computedRight : 18;
-        drag.moved = false;
-        document.body.classList.add('sc-launcher--dragging');
-        if (event && typeof event.preventDefault === 'function') {
-            event.preventDefault();
-        }
-        if (event && typeof event.stopPropagation === 'function') {
-            event.stopPropagation();
-        }
-    }
-
-    moveLauncherDrag(event, pointerId = null) {
-        const drag = this.ui.drag;
-        if (!drag || !drag.active) {
-            return;
-        }
-        if (pointerId !== null && drag.id !== null && drag.id !== pointerId) {
-            return;
-        }
-        const launcherEl = scpFindLauncherEl();
-        const clientX = this.getEventClientX(event);
-        if (!launcherEl || clientX === null) {
-            return;
-        }
-        this.launcher = launcherEl;
-        const dx = clientX - drag.startX;
-        if (Math.abs(dx) > 6) {
-            drag.moved = true;
-        }
-        const right = Math.max(0, Math.min(90, drag.startRight - dx));
-        launcherEl.style.right = `${right}px`;
-        if (event && typeof event.preventDefault === 'function') {
-            event.preventDefault();
-        }
-    }
-
-    endLauncherDrag(event, pointerId = null) {
-        const drag = this.ui.drag;
-        if (!drag || !drag.active) {
-            return;
-        }
-        if (pointerId !== null && drag.id !== null && drag.id !== pointerId) {
-            return;
-        }
-        const launcherEl = scpFindLauncherEl();
-        const currentRight = launcherEl
-            ? (parseFloat(window.getComputedStyle(launcherEl).right) || 18)
-            : 18;
-        const shouldDock = currentRight <= 10;
-        if (drag.moved) {
-            this.ui.suppressNextClickUntil = Date.now() + 250;
-        }
-        if (launcherEl) {
-            launcherEl.style.right = '';
-        }
-        document.body.classList.remove('sc-launcher--dragging');
-        drag.active = false;
-        drag.id = null;
-        drag.startX = 0;
-        drag.startRight = 18;
-        drag.moved = false;
-        this.setDocked(shouldDock);
-    }
-
-    onLauncherPointerDown(event) {
-        this.beginLauncherDrag(event, event?.pointerId ?? null);
-    }
-
-    onLauncherPointerMove(event) {
-        this.moveLauncherDrag(event, event?.pointerId ?? null);
-    }
-
-    onLauncherPointerUp(event) {
-        this.endLauncherDrag(event, event?.pointerId ?? null);
-    }
-
-    onLauncherMouseDown(event) {
-        this.beginLauncherDrag(event, 'mouse');
-    }
-
-    onLauncherMouseMove(event) {
-        this.moveLauncherDrag(event, 'mouse');
-    }
-
-    onLauncherMouseUp(event) {
-        this.endLauncherDrag(event, 'mouse');
-    }
-
-    onLauncherTouchStart(event) {
-        this.beginLauncherDrag(event, 'touch');
-    }
-
-    onLauncherTouchMove(event) {
-        this.moveLauncherDrag(event, 'touch');
-    }
-
-    onLauncherTouchEnd(event) {
-        this.endLauncherDrag(event, 'touch');
     }
 
     applyLauncherDockedState(silent = false) {
