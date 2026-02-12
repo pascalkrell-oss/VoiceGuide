@@ -54,79 +54,6 @@
     transition: right 200ms ease, width 200ms ease, background 200ms ease;
 }
 
-body.sc-launcher--docked .studio-connect-launcher,
-body.sc-launcher--docked .sc-launcher,
-body.sc-launcher--docked #sc-launcher,
-body.sc-launcher--docked .studio-assist-launcher,
-body.sc-launcher--docked .scp-launcher,
-.sc-widget-root.sc-launcher--docked .studio-connect-launcher {
-    right: 0 !important;
-    width: 28px !important;
-    min-width: 28px;
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    overflow: hidden !important;
-}
-
-body.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon,
-body.sc-launcher--docked .sc-launcher .studio-connect-launcher-icon,
-body.sc-launcher--docked #sc-launcher .studio-connect-launcher-icon,
-.sc-widget-root.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.sc-launcher-dockdot {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    background: #1a93ee;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-    cursor: pointer;
-    opacity: 0.9;
-    z-index: 3;
-}
-
-.sc-launcher-dockdot::before {
-    content: "↗";
-    color: #fff;
-    font-size: 12px;
-    line-height: 1;
-}
-
-.sc-launcher-dockdot:hover {
-    opacity: 1;
-}
-
-.sc-launcher-dockdot:focus,
-.sc-launcher-dockdot:focus-visible {
-    outline: none;
-    box-shadow: none;
-}
-
-body.sc-launcher--docked .sc-launcher-dockdot {
-    display: none;
-}
-
-body.sc-launcher--docked #sc-launcher::after {
-    content: "←";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    color: #fff;
-    font-size: 18px;
-    line-height: 1;
-    opacity: 1;
-    pointer-events: none;
-}
-
 .studio-connect-launcher.is-pulsing {
     animation: sc-pulse 1.6s ease-out;
 }
@@ -1295,13 +1222,6 @@ body.sc-launcher--docked #sc-launcher::after {
     max-width: calc(100vw - 32px);
     transition: opacity 260ms ease, transform 260ms ease;
     pointer-events: auto;
-}
-
-body.sc-launcher--docked .sc-proactive-bubble,
-body.sc-launcher--docked .sc-launcher-hint,
-.sc-proactive-bubble.sc-proactive-bubble--docked,
-.sc-launcher-hint.sc-proactive-bubble--docked {
-    right: 36px;
 }
 
 .sc-proactive-overlay,

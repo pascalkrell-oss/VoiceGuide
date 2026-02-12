@@ -72,7 +72,6 @@ const SC_TOOL_HINT_DONE_PREFIX = 'sc_tool_hint_done__';
 const SC_GENERAL_HINT_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 const SC_RECENT_TOPICS_KEY = 'sc_recent_topics';
 const SC_CONTEXT_TIPS_SEEN_PREFIX = 'sc_context_tips_seen__';
-const SC_LAUNCHER_DOCKED_KEY = 'sc_launcher_docked';
 const SC_MINIMIZE_ON_NEXT_PAGE_KEY = 'sc_minimize_on_next_page';
 
 const TOPIC_CONTENT = {
@@ -850,8 +849,6 @@ class StudioBot {
         this.searchTrigger = null;
         this.handleDocumentMouseDown = null;
         this.hintOverlay = null;
-        this.launcherDockToggle = null;
-        this.launcherDockHint = null;
         this.bootStartedAt = Date.now();
         this.earlyInteractionDetected = false;
         this.arrivalMinimizeRequested = false;
@@ -870,7 +867,6 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
-        this.ui.launcherDocked = false;
         this.arrivalMinimizeRequested = this.consumeMinimizeOnArrivalFlag();
         if (!this.arrivalMinimizeRequested && this.state.isOpen) {
             this.state.isOpen = false;
@@ -882,8 +878,6 @@ class StudioBot {
         }
 
         this.refreshDomReferences();
-        this.ensureLauncherDockDot();
-        this.loadDockState();
         this.observeEarlyInteraction();
         this.setupHeaderSearch();
         this.bindEvents();
@@ -1373,41 +1367,8 @@ class StudioBot {
         this.ui.listenersBound = true;
         this.launcher = this.getLauncherEl();
         if (this.launcher) {
-            this.launcher.addEventListener('click', (event) => {
-                const dockDot = event.target.closest('.sc-launcher-dockdot');
-                if (!dockDot) {
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-                this.setDocked(true);
-                if (this.isOpen) {
-                    this.closePanel();
-                }
-            }, true);
-            this.launcher.addEventListener('keydown', (event) => {
-                const dockDot = event.target.closest('.sc-launcher-dockdot');
-                if (!dockDot) {
-                    return;
-                }
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-                this.setDocked(true);
-                if (this.isOpen) {
-                    this.closePanel();
-                }
-            }, true);
             this.launcher.addEventListener('click', async (event) => {
                 this.registerInteraction();
-                if (this.ui.launcherDocked) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    this.setDocked(false);
-                    return;
-                }
                 if (this.ui.soundBlocked && !this.ui.launchSoundRetryDone) {
                     this.playLauncherHintSound(true);
                 }
@@ -3786,8 +3747,6 @@ class StudioBot {
 
         const bubble = document.createElement('div');
         bubble.className = 'sc-proactive-bubble';
-        bubble.classList.toggle('sc-proactive-bubble--docked', Boolean(this.ui.launcherDocked));
-
         const closeButton = document.createElement('button');
         closeButton.type = 'button';
         closeButton.className = 'sc-proactive-close';
@@ -3880,71 +3839,6 @@ class StudioBot {
         };
         window.addEventListener('scroll', mark, { passive: true, once: true });
         document.addEventListener('click', mark, { passive: true, once: true, capture: true });
-    }
-
-    loadLauncherDockedState() {
-        try {
-            return localStorage.getItem(SC_LAUNCHER_DOCKED_KEY) === '1';
-        } catch (error) {
-            return false;
-        }
-    }
-
-    loadDockState() {
-        const saved = this.loadLauncherDockedState();
-        this.setDocked(saved, true);
-    }
-
-    persistLauncherDockedState() {
-        try {
-            localStorage.setItem(SC_LAUNCHER_DOCKED_KEY, this.ui.launcherDocked ? '1' : '0');
-        } catch (error) {
-            // Ignore.
-        }
-    }
-
-    setDocked(state, silent = false) {
-        this.ui = this.ui || {};
-        this.ui.launcherDocked = Boolean(state);
-        document.body.classList.toggle('sc-launcher--docked', this.ui.launcherDocked);
-        try {
-            localStorage.setItem(SC_LAUNCHER_DOCKED_KEY, this.ui.launcherDocked ? '1' : '0');
-        } catch (error) {
-            // Ignore.
-        }
-        this.applyLauncherDockedState(silent);
-    }
-
-    ensureLauncherDockDot() {
-        this.launcher = this.getLauncherEl();
-        if (this.launcher && !this.launcher.querySelector('.sc-launcher-dockdot')) {
-            const dockDot = document.createElement('span');
-            dockDot.className = 'sc-launcher-dockdot';
-            dockDot.setAttribute('role', 'button');
-            dockDot.setAttribute('tabindex', '0');
-            dockDot.setAttribute('aria-label', 'Launcher einfahren');
-            this.launcher.appendChild(dockDot);
-        }
-    }
-
-    applyLauncherDockedState(silent = false) {
-
-        if (this.widget) {
-            this.widget.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
-        }
-        document.body.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
-        if (this.launcher) {
-            this.launcher.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Studio Connect öffnen');
-        }
-        if (this.launcher) {
-            this.launcher.style.right = '';
-        }
-        if (this.ui.launcherDocked && this.state?.isOpen) {
-            this.closePanel();
-        }
-        if (!silent) {
-            alignLauncherToSavedButton();
-        }
     }
 
     markMinimizeOnNextPage() {
@@ -4370,10 +4264,6 @@ const resetLauncherPosition = (launcher) => {
 const alignLauncherToSavedButton = () => {
     const launcher = document.querySelector('.studio-connect-launcher');
     if (!launcher) {
-        return;
-    }
-    const widgetRoot = document.getElementById('sc-widget');
-    if (widgetRoot && widgetRoot.classList.contains('sc-launcher--docked')) {
         return;
     }
     const savedButton = getFirstVisibleSavedButton();
