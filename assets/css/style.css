@@ -43,13 +43,19 @@
     text-align: center;
     cursor: pointer;
     overflow: visible;
+    touch-action: pan-y;
     transform: none !important;
-    transition: opacity 0.2s ease, background 0.2s ease, right 220ms ease, width 220ms ease, border-radius 220ms ease;
+    transition: opacity 0.2s ease, background 0.2s ease, right 180ms ease, width 180ms ease, border-radius 180ms ease;
+}
+
+.studio-connect-launcher.sc-launcher--dragging {
+    transition: none !important;
 }
 
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher {
     right: 0 !important;
     width: 20px;
+    min-width: 20px;
     border-radius: 12px 0 0 12px;
     overflow: hidden;
 }
@@ -62,53 +68,18 @@
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher::after {
     content: "←";
     position: absolute;
-    inset: 0;
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #1a93ee;
-    opacity: 0.85;
-    font-size: 12px;
+    opacity: 0.9;
+    font-size: 14px;
     font-weight: 700;
-    background: #ffffff;
-}
-
-.sc-launcher-dockhint {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 10px);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    padding: 7px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(26, 147, 238, 0.22);
-    background: #ffffff;
-    color: #0f141a;
-    box-shadow: 0 10px 24px rgba(10, 14, 20, 0.16);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms ease;
-}
-
-.sc-launcher-dockhint .sc-arrow {
-    color: #1a93ee;
-    font-size: 13px;
-}
-
-.studio-connect-launcher:hover .sc-launcher-dockhint,
-.studio-connect-launcher:focus-visible .sc-launcher-dockhint,
-.sc-launcher-dockhint:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.sc-widget-root.sc-launcher--docked .sc-launcher-dockhint {
-    right: 28px;
+    width: 14px;
+    height: 14px;
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -1130,12 +1101,6 @@
     }
 }
 
-@media (hover: none) {
-    .sc-launcher-dockhint {
-        display: none;
-    }
-}
-
 .sc-start-tools {
     display: flex;
     flex-direction: column;
@@ -1243,7 +1208,7 @@ body.sc-launcher-docked .sc-proactive-bubble,
 body.sc-launcher-docked .sc-launcher-hint,
 .sc-proactive-bubble.sc-proactive-bubble--docked,
 .sc-launcher-hint.sc-proactive-bubble--docked {
-    right: 30px;
+    right: 28px;
 }
 
 .sc-proactive-overlay,
