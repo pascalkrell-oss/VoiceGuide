@@ -61,8 +61,8 @@ body.sc-launcher--docked .studio-assist-launcher,
 body.sc-launcher--docked .scp-launcher,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher {
     right: 0 !important;
-    width: 22px !important;
-    min-width: 22px;
+    width: 28px !important;
+    min-width: 28px;
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     overflow: hidden !important;
@@ -70,47 +70,61 @@ body.sc-launcher--docked .scp-launcher,
 
 body.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon,
 body.sc-launcher--docked .sc-launcher .studio-connect-launcher-icon,
+body.sc-launcher--docked #sc-launcher .studio-connect-launcher-icon,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon {
     opacity: 0;
     pointer-events: none;
 }
 
-.sc-launcher-chevron {
+.sc-launcher-dockdot {
     position: absolute;
-    right: 10px;
-    bottom: 10px;
+    top: -6px;
+    right: -6px;
     width: 18px;
     height: 18px;
     border-radius: 999px;
-    background: rgba(15, 20, 26, 0.35);
+    background: #1a93ee;
     display: flex;
     align-items: center;
     justify-content: center;
-    pointer-events: auto;
-    z-index: 2;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    opacity: 0.9;
+    z-index: 3;
 }
 
-.sc-launcher-chevron::before {
-    content: "→";
+.sc-launcher-dockdot::before {
+    content: "↗";
+    color: #fff;
     font-size: 12px;
     line-height: 1;
-    color: #fff;
-    opacity: 0.95;
 }
 
-.studio-connect-launcher .sc-launcher-chevron { opacity: .85; }
-.studio-connect-launcher:hover .sc-launcher-chevron { opacity: 1; }
-
-body.sc-launcher--docked #sc-launcher .sc-launcher-chevron {
-    right: 2px;
-    bottom: 50%;
-    transform: translateY(50%);
-    background: transparent;
+.sc-launcher-dockdot:hover {
+    opacity: 1;
 }
 
-body.sc-launcher--docked #sc-launcher .sc-launcher-chevron::before {
+.sc-launcher-dockdot:focus,
+.sc-launcher-dockdot:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+body.sc-launcher--docked .sc-launcher-dockdot {
+    display: none;
+}
+
+body.sc-launcher--docked #sc-launcher::after {
     content: "←";
-    color: #1a93ee;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    opacity: 1;
+    pointer-events: none;
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -1287,7 +1301,7 @@ body.sc-launcher--docked .sc-proactive-bubble,
 body.sc-launcher--docked .sc-launcher-hint,
 .sc-proactive-bubble.sc-proactive-bubble--docked,
 .sc-launcher-hint.sc-proactive-bubble--docked {
-    right: 28px;
+    right: 36px;
 }
 
 .sc-proactive-overlay,
