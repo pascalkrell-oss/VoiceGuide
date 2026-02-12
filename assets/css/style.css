@@ -14,7 +14,7 @@
     position: fixed;
     right: 0;
     bottom: 0;
-    z-index: 9998;
+    z-index: 999999;
     overflow: visible;
 }
 
@@ -24,11 +24,14 @@
 }
 
 .studio-connect-launcher,
-.sc-launcher {
+.sc-launcher,
+#sc-launcher,
+.studio-assist-launcher,
+.scp-launcher {
     position: fixed;
     bottom: 18px;
     right: 18px;
-    z-index: 9998;
+    z-index: 999999;
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -52,18 +55,24 @@
 }
 
 body.sc-launcher--dragging .studio-connect-launcher,
-body.sc-launcher--dragging .sc-launcher {
+body.sc-launcher--dragging .sc-launcher,
+body.sc-launcher--dragging #sc-launcher,
+body.sc-launcher--dragging .studio-assist-launcher,
+body.sc-launcher--dragging .scp-launcher {
     transition: none !important;
 }
 
 body.sc-launcher--docked .studio-connect-launcher,
 body.sc-launcher--docked .sc-launcher,
+body.sc-launcher--docked #sc-launcher,
+body.sc-launcher--docked .studio-assist-launcher,
+body.sc-launcher--docked .scp-launcher,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher {
     right: 0 !important;
-    width: 20px;
+    width: 20px !important;
     min-width: 20px;
     border-radius: 12px 0 0 12px;
-    overflow: hidden;
+    overflow: hidden !important;
 }
 
 body.sc-launcher--docked .studio-connect-launcher .studio-connect-launcher-icon,
@@ -75,10 +84,13 @@ body.sc-launcher--docked .sc-launcher .studio-connect-launcher-icon,
 
 body.sc-launcher--docked .studio-connect-launcher::after,
 body.sc-launcher--docked .sc-launcher::after,
+body.sc-launcher--docked #sc-launcher::after,
+body.sc-launcher--docked .studio-assist-launcher::after,
+body.sc-launcher--docked .scp-launcher::after,
 .sc-widget-root.sc-launcher--docked .studio-connect-launcher::after {
     content: "←";
     position: absolute;
-    left: 3px;
+    left: 4px;
     top: 50%;
     transform: translateY(-50%);
     display: inline-flex;
@@ -261,6 +273,15 @@ body.sc-launcher--docked .sc-launcher::after,
     width: 15px;
     height: 15px;
     display: block;
+}
+
+.sc-header-icon,
+.sc-header-icon:focus,
+.sc-header-icon:focus-visible,
+.sc-header-icon:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: transparent;
 }
 
 .studio-connect-header-actions {
