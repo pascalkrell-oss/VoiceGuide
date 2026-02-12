@@ -11,8 +11,8 @@ const SC_CONTACT_PREFILL_KEY = 'sc_contact_prefill_v1';
 const SC_HAS_VISITED_KEY = 'sc_has_visited_v1';
 const SC_PREFILL_MAX_AGE = 2 * 60 * 60 * 1000;
 const SC_LAUNCHER_DEFAULTS = {
-    right: '30px',
-    bottom: '30px',
+    right: '18px',
+    bottom: '18px',
     left: 'auto'
 };
 
@@ -37,6 +37,8 @@ const SC_TOOL_HINT_DONE_PREFIX = 'sc_tool_hint_done__';
 const SC_GENERAL_HINT_RECENCY_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 const SC_RECENT_TOPICS_KEY = 'sc_recent_topics';
 const SC_CONTEXT_TIPS_SEEN_PREFIX = 'sc_context_tips_seen__';
+const SC_LAUNCHER_DOCKED_KEY = 'sc_launcher_docked';
+const SC_MINIMIZE_ON_NEXT_PAGE_KEY = 'sc_minimize_on_next_page';
 
 const TOPIC_CONTENT = {
     sa_quickstart: {
@@ -812,6 +814,10 @@ class StudioBot {
         this.searchTrigger = null;
         this.handleDocumentMouseDown = null;
         this.hintOverlay = null;
+        this.launcherDockToggle = null;
+        this.bootStartedAt = Date.now();
+        this.earlyInteractionDetected = false;
+        this.arrivalMinimizeRequested = false;
 
         if (this.resetRequested) {
             clearState();
@@ -827,16 +833,26 @@ class StudioBot {
 
         this.state = this.state || loadState() || getDefaultState();
         this.state = normalizeState(this.state);
+        this.ui.launcherDocked = this.loadLauncherDockedState();
+        this.arrivalMinimizeRequested = this.consumeMinimizeOnArrivalFlag();
+        if (!this.arrivalMinimizeRequested && this.state.isOpen) {
+            this.state.isOpen = false;
+            saveState(this.state);
+        }
         this.ensureValidStep();
         if (this.widget) {
             this.widget.classList.add('sc-widget-root');
         }
 
         this.refreshDomReferences();
+        this.ensureLauncherDockToggle();
+        this.applyLauncherDockedState(true);
+        this.observeEarlyInteraction();
         this.setupHeaderSearch();
         this.bindEvents();
         this.applyOpenState(this.state.isOpen, true);
         this.renderApp();
+        this.applyArrivalMinimizeIfNeeded();
         this.startPulseCycle();
         this.initDidYouKnow();
         this.scheduleProactiveBubble();
@@ -1332,6 +1348,17 @@ class StudioBot {
             });
         }
 
+        if (this.launcherDockToggle) {
+            this.launcherDockToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.registerInteraction();
+                this.ui.launcherDocked = !this.ui.launcherDocked;
+                this.persistLauncherDockedState();
+                this.applyLauncherDockedState();
+            });
+        }
+
         if (this.closeButton) {
             this.closeButton.addEventListener('click', async () => {
                 this.registerInteraction();
@@ -1680,6 +1707,9 @@ class StudioBot {
         }
 
         if (option.action === 'hardlink' && option.target) {
+            if (this.state.currentStepId === 'demos') {
+                this.markMinimizeOnNextPage();
+            }
             saveState(this.state);
             window.location.href = option.target;
             this.setOptionsDisabled(false);
@@ -3591,7 +3621,12 @@ class StudioBot {
         if (!this.canShowLauncherHint(context)) {
             return;
         }
-        const delay = this.isToolPage(context) ? PROACTIVE_DELAY_MS : 0;
+        let delay = this.isToolPage(context)
+            ? 7000 + Math.random() * 3000
+            : 10000 + Math.random() * 4000;
+        if (this.earlyInteractionDetected) {
+            delay += 6000;
+        }
         this.proactiveTimeout = window.setTimeout(() => this.showProactiveBubble(), delay);
     }
 
@@ -3690,6 +3725,7 @@ class StudioBot {
 
         const bubble = document.createElement('div');
         bubble.className = 'sc-proactive-bubble';
+        bubble.classList.toggle('sc-proactive-bubble--docked', Boolean(this.ui.launcherDocked));
 
         const closeButton = document.createElement('button');
         closeButton.type = 'button';
@@ -3770,6 +3806,91 @@ class StudioBot {
             this.playLauncherHintSound();
             this.ui.hintSoundPlayedForThisShow = true;
         }
+    }
+
+    observeEarlyInteraction() {
+        const mark = () => {
+            if (Date.now() - this.bootStartedAt <= 3000) {
+                if (!this.earlyInteractionDetected) {
+                    this.earlyInteractionDetected = true;
+                    this.scheduleProactiveBubble();
+                }
+            }
+        };
+        window.addEventListener('scroll', mark, { passive: true, once: true });
+        document.addEventListener('click', mark, { passive: true, once: true, capture: true });
+    }
+
+    loadLauncherDockedState() {
+        try {
+            return localStorage.getItem(SC_LAUNCHER_DOCKED_KEY) === '1';
+        } catch (error) {
+            return false;
+        }
+    }
+
+    persistLauncherDockedState() {
+        try {
+            localStorage.setItem(SC_LAUNCHER_DOCKED_KEY, this.ui.launcherDocked ? '1' : '0');
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    ensureLauncherDockToggle() {
+        if (!this.launcher || this.launcherDockToggle) {
+            return;
+        }
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'sc-launcher-dock-toggle';
+        this.launcher.insertAdjacentElement('afterend', toggle);
+        this.launcherDockToggle = toggle;
+    }
+
+    applyLauncherDockedState(silent = false) {
+        if (this.widget) {
+            this.widget.classList.toggle('sc-launcher--docked', Boolean(this.ui.launcherDocked));
+        }
+        document.body.classList.toggle('sc-launcher-docked', Boolean(this.ui.launcherDocked));
+        if (this.launcherDockToggle) {
+            this.launcherDockToggle.textContent = this.ui.launcherDocked ? '←' : '→';
+            this.launcherDockToggle.setAttribute('aria-label', this.ui.launcherDocked ? 'Launcher ausfahren' : 'Launcher einklappen');
+        }
+        if (!silent) {
+            alignLauncherToSavedButton();
+        }
+    }
+
+    markMinimizeOnNextPage() {
+        try {
+            sessionStorage.setItem(SC_MINIMIZE_ON_NEXT_PAGE_KEY, '1');
+        } catch (error) {
+            // Ignore.
+        }
+    }
+
+    consumeMinimizeOnArrivalFlag() {
+        try {
+            const shouldMinimize = sessionStorage.getItem(SC_MINIMIZE_ON_NEXT_PAGE_KEY) === '1';
+            if (shouldMinimize) {
+                sessionStorage.removeItem(SC_MINIMIZE_ON_NEXT_PAGE_KEY);
+            }
+            return shouldMinimize;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    applyArrivalMinimizeIfNeeded() {
+        if (!this.arrivalMinimizeRequested || !this.panel) {
+            return;
+        }
+        window.setTimeout(() => {
+            if (this.state.isOpen || this.isOpen) {
+                this.closePanel();
+            }
+        }, 120);
     }
 
     createProactiveQuickLinks(context) {
@@ -4164,6 +4285,10 @@ const resetLauncherPosition = (launcher) => {
 const alignLauncherToSavedButton = () => {
     const launcher = document.querySelector('.studio-connect-launcher');
     if (!launcher) {
+        return;
+    }
+    const widgetRoot = document.getElementById('sc-widget');
+    if (widgetRoot && widgetRoot.classList.contains('sc-launcher--docked')) {
         return;
     }
     const savedButton = getFirstVisibleSavedButton();
