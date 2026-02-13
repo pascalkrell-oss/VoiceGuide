@@ -567,7 +567,9 @@
 .studio-connect-options {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 10px 10px;
+    align-items: stretch;
+    justify-content: flex-start;
 }
 
 .studio-connect-options.is-disabled {
@@ -623,6 +625,9 @@
     min-height: 38px;
     height: 38px;
     vertical-align: middle;
+    flex: 0 1 auto;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .studio-connect-option-btn:hover {
@@ -1147,7 +1152,9 @@
 .sc-chip-wrap {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 10px;
+    align-items: stretch;
+    justify-content: flex-start;
 }
 
 .sc-chip {
@@ -1165,6 +1172,21 @@
     min-height: 38px;
     height: 38px;
     vertical-align: middle;
+    flex: 0 1 auto;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+@media (max-width: 540px) {
+    .studio-connect-options,
+    .sc-chip-wrap {
+        gap: 8px;
+    }
+
+    .studio-connect-option-btn,
+    .sc-chip {
+        white-space: normal;
+    }
 }
 
 .sc-chip--compact {

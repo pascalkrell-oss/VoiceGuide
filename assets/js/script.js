@@ -59,12 +59,15 @@ const SC_LAUNCHER_HINT_DISMISSED_KEY = 'sc_launcher_hint_dismissed';
 const SC_DYK_COUNT_KEY = 'sc_dyk_count';
 const SC_DYK_LAST_KEY = 'sc_dyk_last';
 const SC_DYK_SEEN_IDS_KEY = 'sc_dyk_seen_ids';
+const SC_LAST_DYK_KEY = 'sc_last_dyk_key';
+const SC_DYK_SEEN_MAP_KEY = 'sc_dyk_seen_map';
 const PROACTIVE_DELAY_MS = 14000;
 const DYK_INITIAL_DELAY_MS = 75000;
 const DYK_IDLE_MS = 25000;
 const DYK_MIN_INTERVAL_MS = 300000;
 const DYK_MAX_PER_SESSION = 3;
 const DYK_CHECK_INTERVAL_MS = 10000;
+const DYK_COOLDOWN_MS = 30 * 60 * 1000;
 const SC_LAUNCHER_HINT_SOUND_URL = 'https://dev.pascal-krell.de/wp-content/uploads/2026/02/Studio-Assistenz_Launcher-Blop-Sound.mp3';
 const SC_LAST_VISIT_TS_KEY = 'sc_last_visit_ts';
 const SC_GENERAL_HINT_DONE_KEY = 'sc_general_hint_done';
@@ -822,12 +825,15 @@ class StudioBot {
             didYouKnow: {
                 openSince: 0,
                 lastHintAt: 0,
+                lastHintKey: '',
+                lastHintText: '',
                 shownCount: 0,
                 idleSince: Date.now(),
                 lastInteractionAt: Date.now(),
                 timerId: null,
                 isEmitting: false,
-                seenIds: []
+                seenIds: [],
+                seenMap: {}
             }
         };
         this.activeTypewriter = null;
@@ -3303,6 +3309,65 @@ class StudioBot {
         } catch (error) {
             didYouKnow.seenIds = [];
         }
+        try {
+            didYouKnow.lastHintKey = sessionStorage.getItem(SC_LAST_DYK_KEY) || '';
+        } catch (error) {
+            didYouKnow.lastHintKey = '';
+        }
+        didYouKnow.lastHintText = this.getLastDidYouKnowTextFromHistory();
+        didYouKnow.seenMap = this.loadDidYouKnowSeenMap();
+    }
+
+    loadDidYouKnowSeenMap() {
+        try {
+            const parsed = JSON.parse(sessionStorage.getItem(SC_DYK_SEEN_MAP_KEY) || '{}');
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                return {};
+            }
+            return parsed;
+        } catch (error) {
+            return {};
+        }
+    }
+
+    getDidYouKnowItemKey(item, index = 0) {
+        if (item && typeof item.id === 'string' && item.id.trim()) {
+            return item.id.trim();
+        }
+        const text = typeof item?.text === 'string' ? item.text.trim() : '';
+        if (!text) {
+            return `dyk_${index}`;
+        }
+        return text.slice(0, 40).toLowerCase();
+    }
+
+    getLastDidYouKnowTextFromHistory() {
+        const history = Array.isArray(this.state?.history) ? this.state.history : [];
+        for (let i = history.length - 1; i >= 0; i -= 1) {
+            const entry = history[i];
+            if (entry?.role !== 'bot' || typeof entry.text !== 'string') {
+                continue;
+            }
+            if (entry.text.trim().toLowerCase().startsWith('wusstest du schon')) {
+                return entry.text;
+            }
+        }
+        return '';
+    }
+
+    getRecentBotMessages(limit = 2) {
+        const history = Array.isArray(this.state?.history) ? this.state.history : [];
+        const items = [];
+        for (let i = history.length - 1; i >= 0; i -= 1) {
+            const entry = history[i];
+            if (entry?.role === 'bot' && typeof entry.text === 'string') {
+                items.push(entry.text);
+                if (items.length >= limit) {
+                    break;
+                }
+            }
+        }
+        return items;
     }
 
     startDidYouKnowScheduler() {
@@ -3403,8 +3468,34 @@ class StudioBot {
         if (!pool.length) {
             return;
         }
-        const unseen = pool.filter((item) => !didYouKnow.seenIds.includes(item.id));
-        const candidates = unseen.length ? unseen : pool;
+        const withKeys = pool.map((item, index) => ({
+            ...item,
+            _dykKey: this.getDidYouKnowItemKey(item, index)
+        }));
+        const recentBotMessages = this.getRecentBotMessages(2);
+        const noRepeatCandidates = withKeys.filter((item) => {
+            if (!item.text) {
+                return false;
+            }
+            if (item._dykKey === didYouKnow.lastHintKey) {
+                return false;
+            }
+            if (item.text === didYouKnow.lastHintText) {
+                return false;
+            }
+            return !recentBotMessages.includes(item.text);
+        });
+        if (!noRepeatCandidates.length) {
+            return;
+        }
+
+        const cooldownCandidates = noRepeatCandidates.filter((item) => {
+            const lastSeenAt = Number(didYouKnow.seenMap?.[item._dykKey] || 0);
+            return !lastSeenAt || (now - lastSeenAt) >= DYK_COOLDOWN_MS;
+        });
+        const eligibleCandidates = cooldownCandidates.length ? cooldownCandidates : noRepeatCandidates;
+        const unseen = eligibleCandidates.filter((item) => !didYouKnow.seenIds.includes(item.id || item._dykKey));
+        const candidates = unseen.length ? unseen : eligibleCandidates;
         const picked = candidates[Math.floor(Math.random() * candidates.length)];
         if (!picked || !picked.text) {
             return;
@@ -3417,11 +3508,20 @@ class StudioBot {
             didYouKnow.lastHintAt = Date.now();
             didYouKnow.idleSince = Date.now();
             didYouKnow.lastInteractionAt = Date.now();
-            didYouKnow.seenIds = [...didYouKnow.seenIds, picked.id].slice(-24);
+            didYouKnow.lastHintKey = picked._dykKey || '';
+            didYouKnow.lastHintText = picked.text;
+            didYouKnow.seenMap = {
+                ...(didYouKnow.seenMap || {}),
+                [didYouKnow.lastHintKey]: didYouKnow.lastHintAt
+            };
+            const seenIdentifier = picked.id || picked._dykKey;
+            didYouKnow.seenIds = [...didYouKnow.seenIds, seenIdentifier].slice(-24);
             this.persistSessionNumber(SC_DYK_COUNT_KEY, didYouKnow.shownCount);
             this.persistSessionNumber(SC_DYK_LAST_KEY, didYouKnow.lastHintAt);
             try {
                 sessionStorage.setItem(SC_DYK_SEEN_IDS_KEY, JSON.stringify(didYouKnow.seenIds));
+                sessionStorage.setItem(SC_LAST_DYK_KEY, didYouKnow.lastHintKey);
+                sessionStorage.setItem(SC_DYK_SEEN_MAP_KEY, JSON.stringify(didYouKnow.seenMap));
             } catch (error) {
                 // Ignore.
             }
