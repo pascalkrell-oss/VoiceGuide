@@ -796,6 +796,7 @@ class StudioBot {
         this.closeButton = document.getElementById('studio-connect-close');
         this.headerActions = this.panel ? this.panel.querySelector('.studio-connect-header-actions') : null;
         this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
+        this.launcherAvatar = this.launcher ? this.launcher.querySelector('.studio-connect-launcher-avatar') : null;
         this.avatarUrl = this.settings.avatar_url || defaults.avatar_url;
         this.isOpen = false;
         this.hasInteraction = false;
@@ -2810,15 +2811,27 @@ class StudioBot {
     }
 
     updateLauncherState() {
-        if (!this.launcherIcon) {
+        if (!this.launcher || !this.launcherIcon) {
             return;
         }
+
+        const showHintState = !this.isOpen && Boolean(this.proactiveBubble);
+
+        this.launcher.classList.toggle('is-state-open', this.isOpen);
+        this.launcher.classList.toggle('is-state-hint', showHintState);
+        this.launcher.classList.toggle('is-state-avatar', !this.isOpen && !showHintState);
+
         if (this.isOpen) {
             this.launcherIcon.classList.remove('fa-life-ring');
             this.launcherIcon.classList.add('fa-times');
-        } else {
-            this.launcherIcon.classList.remove('fa-times');
-            this.launcherIcon.classList.add('fa-life-ring');
+            return;
+        }
+
+        this.launcherIcon.classList.remove('fa-times');
+        this.launcherIcon.classList.add('fa-life-ring');
+
+        if (this.launcherAvatar && this.avatarUrl) {
+            this.launcherAvatar.src = this.avatarUrl;
         }
     }
 
@@ -2911,6 +2924,8 @@ class StudioBot {
         this.topicHeader = document.getElementById('sc-topic-header');
         this.dock = document.getElementById('sc-dock');
         this.launcher = this.getLauncherEl();
+        this.launcherIcon = this.launcher ? this.launcher.querySelector('i') : null;
+        this.launcherAvatar = this.launcher ? this.launcher.querySelector('.studio-connect-launcher-avatar') : null;
     }
 
     getLauncherEl() {
@@ -3913,6 +3928,7 @@ class StudioBot {
         requestAnimationFrame(() => bubble.classList.add('is-visible'));
         this.hintOverlay = overlay;
         this.proactiveBubble = bubble;
+        this.updateLauncherState();
         this.persistProactiveShown(context);
         if (window.scrollY > 400) {
             bubble.classList.add('is-scrolled-out');
@@ -4268,6 +4284,7 @@ class StudioBot {
         this.hintOverlay = null;
         this.proactiveBubble = null;
         this.ui.hintSoundPlayedForThisShow = false;
+        this.updateLauncherState();
     }
 
     persistProactiveShown(context = this.pageContext) {

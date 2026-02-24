@@ -35,7 +35,7 @@
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    border: none;
+    border: 2px solid rgba(255, 255, 255, 0.82);
     background: var(--sc-primary);
     color: #ffffff;
     font-size: 22px;
@@ -50,8 +50,16 @@
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
-    transform: none !important;
-    transition: right 200ms ease, width 200ms ease, background 200ms ease;
+    transform: translateZ(0) scale(1) !important;
+    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.32);
+    transition: right 200ms ease, width 200ms ease, background 200ms ease, transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.studio-connect-launcher:hover,
+.studio-connect-launcher:focus-visible {
+    transform: translateZ(0) scale(1.06) !important;
+    box-shadow: 0 14px 30px rgba(10, 16, 30, 0.4);
+    border-color: rgba(255, 255, 255, 0.96);
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -66,10 +74,33 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.studio-connect-launcher-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    display: block;
 }
 
 .studio-connect-launcher-icon i {
+    display: none;
+    font-size: 22px;
     transition: transform 0.2s ease;
+}
+
+.studio-connect-launcher.is-state-open .studio-connect-launcher-icon i,
+.studio-connect-launcher.is-state-hint .studio-connect-launcher-icon i {
+    display: inline-flex;
+}
+
+.studio-connect-launcher.is-state-open .studio-connect-launcher-avatar,
+.studio-connect-launcher.is-state-hint .studio-connect-launcher-avatar {
+    display: none;
 }
 
 .studio-connect-widget.is-open .studio-connect-launcher {

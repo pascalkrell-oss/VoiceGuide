@@ -224,6 +224,7 @@ function scp_render_widget(): void
         <div id="sc-proactive-root"></div>
         <button class="studio-connect-launcher" id="sc-launcher" type="button" aria-label="Pascal Krell StudioConnect öffnen">
             <span class="studio-connect-launcher-icon" aria-hidden="true">
+                <img class="studio-connect-launcher-avatar" src="<?php echo esc_url(SCP_AVATAR_URL); ?>" alt="" />
                 <i class="fa-solid fa-life-ring"></i>
             </span>
         </button>
