@@ -52,7 +52,8 @@
     -webkit-user-select: none;
     transform: translateZ(0) scale(1) !important;
     box-shadow: 0 10px 24px rgba(10, 16, 30, 0.32);
-    transition: right 200ms ease, width 200ms ease, background 200ms ease, transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+    transition: right 200ms ease, width 200ms ease, background 200ms ease, transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 260ms ease, border-color 260ms ease;
+    will-change: transform;
 }
 
 .studio-connect-launcher:hover,
@@ -89,7 +90,12 @@
 
 .studio-connect-launcher-icon i {
     display: none;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
     font-size: 22px;
+    line-height: 1;
     transition: transform 0.2s ease;
 }
 
