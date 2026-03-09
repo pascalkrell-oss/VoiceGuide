@@ -45,7 +45,7 @@
     align-items: center;
     justify-content: flex-start;
     gap: 0;
-    padding: 5px;
+    padding: 0;
     line-height: 1;
     text-align: center;
     cursor: pointer;
@@ -55,7 +55,7 @@
     -webkit-user-select: none;
     transform: translateZ(0);
     transform-origin: right center;
-    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.26);
+    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.22);
     transition: width 280ms cubic-bezier(0.22, 0.61, 0.36, 1), padding 280ms cubic-bezier(0.22, 0.61, 0.36, 1), gap 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 200ms ease, box-shadow 220ms ease;
     will-change: width;
 }
@@ -87,16 +87,16 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 50px;
-    min-width: 50px;
-    height: 50px;
+    width: 60px;
+    min-width: 60px;
+    height: 60px;
     border-radius: 50%;
     overflow: hidden;
 }
 
 .studio-connect-launcher-avatar {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     object-fit: cover;
     border: none;
@@ -765,6 +765,7 @@
 #sc-launcher:focus-visible {
     outline: none !important;
     border: none !important;
+    box-shadow: 0 0 0 2px rgba(26, 147, 238, 0.35), 0 10px 24px rgba(10, 16, 30, 0.22) !important;
 }
 
 .studio-connect-calculator {
@@ -1636,7 +1637,7 @@
 @media (hover: none) {
     .studio-connect-launcher {
         width: 60px;
-        padding: 5px;
+        padding: 0;
         gap: 0;
         justify-content: center;
     }
