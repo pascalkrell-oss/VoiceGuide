@@ -372,6 +372,13 @@
     font-size: 12px;
 }
 
+.sc-search-popover__hint {
+    font-size: 11px;
+    color: #8b9bb4;
+    padding: 4px 2px 0;
+    font-style: italic;
+}
+
 .sc-search-popover__results {
     margin-top: 8px;
     display: flex;
@@ -1637,10 +1644,10 @@
 }
 
 
-/* Erzwungener Hover-State fuer den Launcher (Verbreitert fuer mehr Text-Platz) */
+/* Erzwungener Hover-State fuer den Launcher (Feinjustierte Breite) */
 #sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):hover,
 #sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
-    width: 235px !important;
+    width: 215px !important;
     gap: 10px !important;
     padding-right: 16px !important;
     box-shadow: 0 12px 28px rgba(10, 16, 30, 0.3) !important;
@@ -1649,7 +1656,7 @@
 #sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):hover .studio-connect-launcher-label,
 #sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):focus-visible .studio-connect-launcher-label {
     opacity: 1 !important;
-    max-width: 165px !important;
+    max-width: 145px !important;
     transform: translateX(0) !important;
 }
 
