@@ -38,7 +38,7 @@
     border-radius: 999px;
     border: none !important;
     outline: none !important;
-    background: var(--sc-primary);
+    background: linear-gradient(135deg, #4cb5ff, var(--sc-primary));
     color: #ffffff;
     font-size: 22px;
     display: inline-flex;
@@ -85,9 +85,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    min-width: 60px;
-    height: 60px;
+    width: 52px;
+    min-width: 52px;
+    height: 52px;
+    margin-left: 4px;
     border-radius: 50%;
     overflow: hidden;
 }
@@ -161,6 +162,7 @@
 
 .studio-connect-widget.is-open .studio-connect-launcher {
     background: var(--sc-dark);
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.08) !important;
 }
 
 #sc-widget.is-open #sc-launcher {
