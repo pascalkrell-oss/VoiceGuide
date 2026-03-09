@@ -65,14 +65,12 @@
     content: none !important;
 }
 
-@media (hover: hover) and (pointer: fine) {
-    .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover,
-    .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
-        width: 210px;
-        gap: 10px;
-        padding-right: 16px;
-        box-shadow: 0 12px 28px rgba(10, 16, 30, 0.3);
-    }
+.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover,
+.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
+    width: 210px;
+    gap: 10px;
+    padding-right: 16px;
+    box-shadow: 0 12px 28px rgba(10, 16, 30, 0.3);
 }
 
 .studio-connect-launcher.is-pulsing {
