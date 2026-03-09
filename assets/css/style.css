@@ -1632,16 +1632,18 @@
 }
 
 
-@media (hover: none) {
-    .studio-connect-launcher {
-        width: 60px;
-        padding: 0;
-        gap: 0;
-        justify-content: center;
-    }
+/* Erzwungener Hover-State fuer den Launcher */
+#sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):hover,
+#sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
+    width: 210px !important;
+    gap: 10px !important;
+    padding-right: 16px !important;
+    box-shadow: 0 12px 28px rgba(10, 16, 30, 0.3) !important;
+}
 
-    .studio-connect-launcher-label,
-    .studio-connect-launcher-helptext {
-        display: none;
-    }
+#sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):hover .studio-connect-launcher-label,
+#sc-widget:not(.is-open) #sc-launcher:not(.is-state-open):not(.is-state-hint):focus-visible .studio-connect-launcher-label {
+    opacity: 1 !important;
+    max-width: 140px !important;
+    transform: translateX(0) !important;
 }
