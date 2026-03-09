@@ -2816,7 +2816,10 @@ class StudioBot {
             return;
         }
 
-        const proactiveVisible = Boolean(this.proactiveBubble) && !this.proactiveBubble.classList.contains('is-scrolled-out');
+        const proactiveVisible = Boolean(this.proactiveBubble)
+            && this.proactiveBubble.parentNode
+            && !this.proactiveBubble.classList.contains('is-scrolled-out')
+            && !this.proactiveBubble.classList.contains('sc-fade-out');
         const showHintState = !this.isOpen && proactiveVisible;
 
         this.launcher.classList.toggle('is-state-open', this.isOpen);
@@ -3934,6 +3937,7 @@ class StudioBot {
         this.persistProactiveShown(context);
         if (window.scrollY > 400) {
             bubble.classList.add('is-scrolled-out');
+            this.updateLauncherState();
         }
         if (this.launcher) {
             this.launcher.classList.add('is-shaking');
