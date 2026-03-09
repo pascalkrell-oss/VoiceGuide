@@ -2232,15 +2232,15 @@ class StudioBot {
 
     getSearchIndex() {
         return [
-            { stepId: 'briefing', label: 'Briefing-Check', keywords: ['briefing', 'checkliste', 'fragebogen', 'projektstart'] },
-            { stepId: 'demos', label: 'Casting & Demos', keywords: ['demos', 'casting', 'hoerprobe', 'hörprobe', 'samples'] },
-            { stepId: 'preise', label: 'Preise & Buyouts', keywords: ['preise', 'buyout', 'kosten', 'budget', 'gage'] },
-            { stepId: 'technik', label: 'Technik-Setup', keywords: ['technik', 'studio', 'equipment', 'setup', 'aufnahme'] },
-            { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing'] },
-            { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout'] },
-            { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp'] },
-            { stepId: 'callback', label: 'Rückruf gewünscht', keywords: ['rückruf', 'telefon', 'uhrzeit', 'anrufen'] },
-            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit'] }
+            { stepId: 'briefing', label: 'Briefing-Check', keywords: ['briefing', 'checkliste', 'fragebogen', 'projektstart', 'start', 'vorbereitung', 'infos', 'anforderungen', 'skript', 'text'] },
+            { stepId: 'demos', label: 'Casting & Demos', keywords: ['demos', 'casting', 'hoerprobe', 'hörprobe', 'samples', 'beispiele', 'stimme', 'referenzen', 'portfolio', 'hören', 'sprecher', 'voice', 'audio'] },
+            { stepId: 'preise', label: 'Preise & Buyouts', keywords: ['preise', 'buyout', 'kosten', 'budget', 'gage', 'angebot', 'kalkulation', 'preisliste', 'honorar', 'bezahlung', 'rechnung', 'geld', 'teuer', 'was kostet'] },
+            { stepId: 'technik', label: 'Technik-Setup', keywords: ['technik', 'studio', 'equipment', 'setup', 'aufnahme', 'mikrofon', 'qualität', 'sound', 'schnitt', 'daw', 'kabine', 'regie', 'neumann', 'interface'] },
+            { stepId: 'ablauf', label: 'Ablauf der Zusammenarbeit', keywords: ['ablauf', 'prozess', 'lieferung', 'timing', 'dauer', 'schritte', 'zusammenarbeit', 'revision', 'korrektur', 'feedback', 'änderung', 'wie geht'] },
+            { stepId: 'rechte', label: 'Einsatz & Rechte', keywords: ['rechte', 'nutzung', 'einsatz', 'lizenz', 'buyout', 'verwertung', 'social media', 'tv', 'radio', 'internet', 'werbung', 'laufzeit', 'ads', 'paid'] },
+            { stepId: 'kontakt', label: 'Kontakt', keywords: ['kontakt', 'anfragen', 'mail', 'telefon', 'whatsapp', 'buchen', 'buchung', 'schreiben', 'nachricht', 'beauftragen', 'hilfe', 'support', 'fragen', 'email', 'e-mail'] },
+            { stepId: 'callback', label: 'Rückruf gewünscht', keywords: ['rückruf', 'telefon', 'uhrzeit', 'anrufen', 'gespräch', 'telefonat', 'beratung', 'sprich mit mir', 'melden', 'zeit'] },
+            { stepId: 'rechner', label: 'Wort-Rechner', keywords: ['rechner', 'wortanzahl', 'dauer', 'sprechzeit', 'länge', 'wörter', 'textlänge', 'kalkulator', 'wie lang', 'zeit', 'minuten', 'sekunden'] }
         ];
     }
 
