@@ -2263,7 +2263,7 @@ class StudioBot {
         const popover = document.createElement('div');
         popover.className = 'sc-search-popover';
         popover.setAttribute('aria-hidden', 'true');
-        popover.innerHTML = '<input type="search" class="sc-search-popover__input" placeholder="Nach Thema suchen (z.B. Demos, Preise...)" aria-label="Stichwortsuche" /><div class="sc-search-popover__results"></div>';
+        popover.innerHTML = '<input type="search" class="sc-search-popover__input" placeholder="Nach Thema suchen..." aria-label="Stichwortsuche" /><div class="sc-search-popover__hint">z.B. Demos, Preise, Ablauf...</div><div class="sc-search-popover__results"></div>';
         this.headerActions.appendChild(popover);
         this.searchPopover = popover;
         this.searchInput = popover.querySelector('.sc-search-popover__input');
