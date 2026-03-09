@@ -1425,6 +1425,24 @@ class StudioBot {
             this.panel.addEventListener('scroll', markIdle, true);
         }
 
+        // Click Outside zum Schließen des Panels
+        document.addEventListener('mousedown', async (event) => {
+            if (!this.isOpen || this.searchPopoverOpen) {
+                return;
+            }
+            if (this.panel && this.panel.contains(event.target)) {
+                return; // Klick war im Panel
+            }
+            if (this.launcher && this.launcher.contains(event.target)) {
+                return; // Klick war auf den Launcher
+            }
+            if (event.target.closest('.sc-copy-toast, .studio-connect-toast, .sc-search-popover')) {
+                return; // Klick war auf ein temporäres Element
+            }
+            this.registerInteraction();
+            await this.closePanel();
+        });
+
         document.addEventListener('keydown', async (event) => {
             if (event.key !== 'Escape') {
                 return;

@@ -178,7 +178,14 @@ function scp_callback_request_handler(): void
         wp_send_json_error(['message' => 'Bitte eine gültige Wunschuhrzeit angeben.'], 400);
     }
 
-    $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
+    $raw_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip_list = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        $raw_ip = trim($ip_list[0]);
+    } elseif (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        $raw_ip = $_SERVER['HTTP_CF_CONNECTING_IP'];
+    }
+    $ip = sanitize_text_field(wp_unslash($raw_ip));
     $rate_key = 'scp_cb_' . md5($ip);
     $count = (int) get_transient($rate_key);
 
