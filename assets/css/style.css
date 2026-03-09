@@ -36,15 +36,16 @@
     min-width: 60px;
     height: 60px;
     border-radius: 999px;
-    border: none;
+    border: none !important;
+    outline: none !important;
     background: var(--sc-primary);
     color: #ffffff;
     font-size: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 10px;
-    padding: 0 14px 0 5px;
+    gap: 0;
+    padding: 5px;
     line-height: 1;
     text-align: center;
     cursor: pointer;
@@ -52,17 +53,26 @@
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
-    transform: translateZ(0) !important;
+    transform: translateZ(0);
     transform-origin: right center;
-    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.32);
-    transition: width 260ms cubic-bezier(0.22, 0.61, 0.36, 1), background 200ms ease, box-shadow 220ms ease;
+    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.26);
+    transition: width 280ms cubic-bezier(0.22, 0.61, 0.36, 1), padding 280ms cubic-bezier(0.22, 0.61, 0.36, 1), gap 280ms cubic-bezier(0.22, 0.61, 0.36, 1), background 200ms ease, box-shadow 220ms ease;
     will-change: width;
 }
 
-.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover,
-.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
-    width: 212px;
-    box-shadow: 0 14px 30px rgba(10, 16, 30, 0.4);
+.studio-connect-launcher::before,
+.studio-connect-launcher::after {
+    content: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover,
+    .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible {
+        width: 210px;
+        gap: 10px;
+        padding-right: 16px;
+        box-shadow: 0 12px 28px rgba(10, 16, 30, 0.3);
+    }
 }
 
 .studio-connect-launcher.is-pulsing {
@@ -89,7 +99,7 @@
     height: 50px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.45);
+    border: none;
     display: block;
 }
 
@@ -105,6 +115,7 @@
 }
 
 
+.studio-connect-launcher-label,
 .studio-connect-launcher-helptext {
     display: inline-flex;
     align-items: center;
@@ -120,6 +131,8 @@
     pointer-events: none;
 }
 
+.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover .studio-connect-launcher-label,
+.studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible .studio-connect-launcher-label,
 .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):hover .studio-connect-launcher-helptext,
 .studio-connect-widget:not(.is-open) .studio-connect-launcher:not(.is-state-open):not(.is-state-hint):focus-visible .studio-connect-launcher-helptext {
     opacity: 1;
@@ -127,8 +140,11 @@
     transform: translateX(0);
 }
 
+.studio-connect-widget.is-open .studio-connect-launcher .studio-connect-launcher-label,
 .studio-connect-widget.is-open .studio-connect-launcher .studio-connect-launcher-helptext,
+.studio-connect-launcher.is-state-open .studio-connect-launcher-label,
 .studio-connect-launcher.is-state-open .studio-connect-launcher-helptext,
+.studio-connect-launcher.is-state-hint .studio-connect-launcher-label,
 .studio-connect-launcher.is-state-hint .studio-connect-launcher-helptext {
     opacity: 0;
     max-width: 0;
@@ -743,10 +759,12 @@
     box-shadow: 0 0 0 4px rgba(26, 147, 238, 0.2);
 }
 
-.studio-connect-launcher:focus-visible {
-    outline: 2px solid rgba(26, 147, 238, 0.45);
-    outline-offset: 2px;
-    box-shadow: 0 10px 24px rgba(10, 16, 30, 0.32);
+.studio-connect-launcher:focus,
+.studio-connect-launcher:focus-visible,
+#sc-launcher:focus,
+#sc-launcher:focus-visible {
+    outline: none !important;
+    border: none !important;
 }
 
 .studio-connect-calculator {
@@ -1618,11 +1636,12 @@
 @media (hover: none) {
     .studio-connect-launcher {
         width: 60px;
-        padding: 0;
+        padding: 5px;
         gap: 0;
         justify-content: center;
     }
 
+    .studio-connect-launcher-label,
     .studio-connect-launcher-helptext {
         display: none;
     }
