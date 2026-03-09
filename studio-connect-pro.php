@@ -128,7 +128,7 @@ function scp_enqueue_assets(): void
 
     wp_register_style(
         'studio-connect-fontawesome',
-        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
+        content_url('/assets/fontawesome/css/all.min.css'),
         [],
         '6.5.1'
     );
