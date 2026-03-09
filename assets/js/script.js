@@ -1431,13 +1431,13 @@ class StudioBot {
                 return;
             }
             if (this.panel && this.panel.contains(event.target)) {
-                return; // Klick war im Panel
+                return;
             }
             if (this.launcher && this.launcher.contains(event.target)) {
-                return; // Klick war auf den Launcher
+                return;
             }
             if (event.target.closest('.sc-copy-toast, .studio-connect-toast, .sc-search-popover')) {
-                return; // Klick war auf ein temporäres Element
+                return;
             }
             this.registerInteraction();
             await this.closePanel();
