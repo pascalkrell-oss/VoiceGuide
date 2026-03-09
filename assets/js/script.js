@@ -1466,6 +1466,7 @@ class StudioBot {
             }
             const shouldHide = window.scrollY > 400;
             this.proactiveBubble.classList.toggle('is-scrolled-out', shouldHide);
+            this.updateLauncherState();
         }, { passive: true });
     }
 
@@ -2815,7 +2816,8 @@ class StudioBot {
             return;
         }
 
-        const showHintState = !this.isOpen && Boolean(this.proactiveBubble);
+        const proactiveVisible = Boolean(this.proactiveBubble) && !this.proactiveBubble.classList.contains('is-scrolled-out');
+        const showHintState = !this.isOpen && proactiveVisible;
 
         this.launcher.classList.toggle('is-state-open', this.isOpen);
         this.launcher.classList.toggle('is-state-hint', showHintState);
