@@ -227,6 +227,7 @@ function scp_render_widget(): void
                 <img class="studio-connect-launcher-avatar" src="<?php echo esc_url(SCP_AVATAR_URL); ?>" alt="" />
                 <i class="fa-solid fa-life-ring"></i>
             </span>
+            <span class="studio-connect-launcher-helptext" aria-hidden="true">Brauchst Du Hilfe?</span>
         </button>
         <div class="studio-connect-panel" id="sc-container" role="dialog" aria-label="Pascal Krell StudioConnect" aria-hidden="true" tabindex="-1">
             <div class="studio-connect-header">
